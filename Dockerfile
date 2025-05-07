@@ -2,15 +2,15 @@ FROM node:18-alpine
 
 RUN apk --no-cache add git
 
-COPY package.json /smartbed-mqtt/
-COPY yarn.lock /smartbed-mqtt/
-WORKDIR /smartbed-mqtt
+COPY package.json /octo-mqtt/
+COPY yarn.lock /octo-mqtt/
+WORKDIR /octo-mqtt
 
 RUN yarn install
 
-COPY src /smartbed-mqtt/src/
-COPY tsconfig.build.json /smartbed-mqtt/
-COPY tsconfig.json /smartbed-mqtt/
+COPY src /octo-mqtt/src/
+COPY tsconfig.build.json /octo-mqtt/
+COPY tsconfig.json /octo-mqtt/
 
 RUN yarn build:ci
 
@@ -29,18 +29,18 @@ RUN apk add --no-cache bash curl jq && \
 # Set shell
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-WORKDIR /smartbed-mqtt
-COPY run.sh /smartbed-mqtt/
+WORKDIR /octo-mqtt
+COPY run.sh /octo-mqtt/
 RUN chmod a+x run.sh
 
-COPY --from=0 /smartbed-mqtt/node_modules /smartbed-mqtt/node_modules
-COPY --from=0 /smartbed-mqtt/dist/tsc/ /smartbed-mqtt/
+COPY --from=0 /octo-mqtt/node_modules /octo-mqtt/node_modules
+COPY --from=0 /octo-mqtt/dist/tsc/ /octo-mqtt/
 
-ENTRYPOINT [ "/smartbed-mqtt/run.sh" ]
+ENTRYPOINT [ "/octo-mqtt/run.sh" ]
 #ENTRYPOINT [ "node", "index.js" ]
 LABEL \
-    io.hass.name="Smartbed Integration via MQTT" \
-    io.hass.description="Home Assistant Community Add-on for Smartbeds" \
+    io.hass.name="Octo Integration via MQTT" \
+    io.hass.description="Home Assistant Community Add-on for Octo actuators star version 2" \
     io.hass.type="addon" \
-    io.hass.version="1.1.22" \
-    maintainer="Richard Hopton <richard@thehoptons.com>"
+    io.hass.version="1.0.0" \
+    maintainer="Bram Boersma <bram.boersma@gmail.com>"
