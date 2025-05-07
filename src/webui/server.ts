@@ -6,6 +6,8 @@ import * as url from 'url';
 import { IMQTTConnection } from '@mqtt/IMQTTConnection';
 import { IESPConnection } from 'ESPHome/IESPConnection';
 import { logInfo, logError, logWarn } from '@utils/logger';
+import { getProxies } from 'ESPHome/options';
+import * as crypto from 'crypto';
 
 // Simple mime type mapper
 const MIME_TYPES: Record<string, string> = {
@@ -51,7 +53,192 @@ let addonInfo = {
   status: 'Running',
 };
 
+// Device and link storage
+interface Device {
+  id: string;
+  friendlyName: string;
+  pin?: string;
+  connectionType: 'proxy' | 'direct';
+  proxyId?: string;
+  address?: string;
+}
+
+interface DeviceLink {
+  id: string;
+  name: string;
+  deviceIds: string[];
+}
+
+// Stored devices and links
+let devices: Device[] = [];
+let deviceLinks: DeviceLink[] = [];
+let activeDevice = 'all';
+
+// Storage paths
+const DATA_DIR = process.env.DATA_DIR || './data';
+const DEVICES_FILE = path.join(DATA_DIR, 'devices.json');
+const LINKS_FILE = path.join(DATA_DIR, 'device_links.json');
+
+// Load devices and links from storage
+function loadDevices() {
+  try {
+    if (fs.existsSync(DEVICES_FILE)) {
+      const data = fs.readFileSync(DEVICES_FILE, 'utf8');
+      devices = JSON.parse(data);
+      logInfo(`[WebUI] Loaded ${devices.length} devices from storage`);
+    } else {
+      logInfo('[WebUI] No devices file found, starting with empty list');
+      devices = [];
+    }
+  } catch (error) {
+    logError('[WebUI] Error loading devices:', error);
+    devices = [];
+  }
+}
+
+function loadDeviceLinks() {
+  try {
+    if (fs.existsSync(LINKS_FILE)) {
+      const data = fs.readFileSync(LINKS_FILE, 'utf8');
+      deviceLinks = JSON.parse(data);
+      logInfo(`[WebUI] Loaded ${deviceLinks.length} device links from storage`);
+    } else {
+      logInfo('[WebUI] No device links file found, starting with empty list');
+      deviceLinks = [];
+    }
+  } catch (error) {
+    logError('[WebUI] Error loading device links:', error);
+    deviceLinks = [];
+  }
+}
+
+// Save devices and links to storage
+function saveDevices() {
+  try {
+    // Ensure data directory exists
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+    fs.writeFileSync(DEVICES_FILE, JSON.stringify(devices, null, 2));
+    logInfo('[WebUI] Saved devices to storage');
+  } catch (error) {
+    logError('[WebUI] Error saving devices:', error);
+  }
+}
+
+function saveDeviceLinks() {
+  try {
+    // Ensure data directory exists
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+    fs.writeFileSync(LINKS_FILE, JSON.stringify(deviceLinks, null, 2));
+    logInfo('[WebUI] Saved device links to storage');
+  } catch (error) {
+    logError('[WebUI] Error saving device links:', error);
+  }
+}
+
+// Add, update, and remove devices
+function addDevice(device: Device) {
+  // Check if device with same ID already exists
+  const existingDeviceIndex = devices.findIndex(d => d.id === device.id);
+  
+  if (existingDeviceIndex >= 0) {
+    // Update existing device
+    devices[existingDeviceIndex] = device;
+    logInfo(`[WebUI] Updated device ${device.id}`);
+  } else {
+    // Add new device
+    devices.push(device);
+    logInfo(`[WebUI] Added new device ${device.id}`);
+  }
+  
+  saveDevices();
+  return device;
+}
+
+function removeDevice(deviceId: string) {
+  const initialCount = devices.length;
+  devices = devices.filter(d => d.id !== deviceId);
+  
+  if (devices.length !== initialCount) {
+    logInfo(`[WebUI] Removed device ${deviceId}`);
+    saveDevices();
+    
+    // Also remove device from any links
+    let linksChanged = false;
+    
+    deviceLinks.forEach(link => {
+      const initialDeviceCount = link.deviceIds.length;
+      link.deviceIds = link.deviceIds.filter(id => id !== deviceId);
+      
+      if (link.deviceIds.length !== initialDeviceCount) {
+        linksChanged = true;
+      }
+    });
+    
+    // Filter out links with less than 2 devices
+    const initialLinkCount = deviceLinks.length;
+    deviceLinks = deviceLinks.filter(link => link.deviceIds.length >= 2);
+    
+    if (deviceLinks.length !== initialLinkCount) {
+      linksChanged = true;
+    }
+    
+    if (linksChanged) {
+      saveDeviceLinks();
+    }
+    
+    return true;
+  }
+  
+  return false;
+}
+
+// Add, update, and remove device links
+function createDeviceLink(name: string, deviceIds: string[]) {
+  if (deviceIds.length < 2) {
+    throw new Error('Device link must include at least 2 devices');
+  }
+  
+  // Validate that all devices exist
+  const validDeviceIds = devices.map(d => d.id);
+  if (!deviceIds.every(id => validDeviceIds.includes(id))) {
+    throw new Error('One or more device IDs are invalid');
+  }
+  
+  const link: DeviceLink = {
+    id: crypto.randomUUID(),
+    name,
+    deviceIds
+  };
+  
+  deviceLinks.push(link);
+  saveDeviceLinks();
+  logInfo(`[WebUI] Created device link "${name}" with ${deviceIds.length} devices`);
+  
+  return link;
+}
+
+function removeDeviceLink(linkId: string) {
+  const initialCount = deviceLinks.length;
+  deviceLinks = deviceLinks.filter(l => l.id !== linkId);
+  
+  if (deviceLinks.length !== initialCount) {
+    logInfo(`[WebUI] Removed device link ${linkId}`);
+    saveDeviceLinks();
+    return true;
+  }
+  
+  return false;
+}
+
 export const startServer = (mqtt: IMQTTConnection, esphome: IESPConnection, port: number = 8099) => {
+  // Load devices and links from storage
+  loadDevices();
+  loadDeviceLinks();
+  
   const server = http.createServer((req, res) => {
     handleHttpRequest(req, res);
   });
@@ -67,6 +254,9 @@ export const startServer = (mqtt: IMQTTConnection, esphome: IESPConnection, port
     sendToClient(socket, 'status', state);
     sendToClient(socket, 'deviceInfo', deviceInfo);
     sendToClient(socket, 'addonInfo', addonInfo);
+    sendToClient(socket, 'devices', devices);
+    sendToClient(socket, 'deviceLinks', deviceLinks);
+    sendToClient(socket, 'proxies', getProxies());
 
     socket.on('message', (message) => {
       try {
@@ -138,6 +328,42 @@ function broadcastToAll(type: string, payload: any) {
   });
 }
 
+// Scan for Bluetooth devices
+async function scanForDevices(esphome: IESPConnection) {
+  try {
+    // This is just a stub implementation - replace with actual BLE scanning when implemented
+    // Return some mock results for now
+    return [
+      { name: 'RC2', address: '00:11:22:33:44:55' },
+      { name: 'RC3', address: '66:77:88:99:AA:BB' }
+    ];
+  } catch (error) {
+    logError('[WebUI] Error scanning for devices:', error);
+    return [];
+  }
+}
+
+// Find the appropriate devices to control based on the activeDevice selection
+function getTargetDevices(deviceId: string) {
+  if (deviceId === 'all') {
+    return devices;
+  }
+  
+  // Check if it's a device ID
+  const device = devices.find(d => d.id === deviceId);
+  if (device) {
+    return [device];
+  }
+  
+  // Check if it's a link ID
+  const link = deviceLinks.find(l => l.id === deviceId);
+  if (link) {
+    return devices.filter(d => link.deviceIds.includes(d.id));
+  }
+  
+  return [];
+}
+
 // Handle WebSocket messages from clients
 async function handleWebSocketMessage(
   mqtt: IMQTTConnection, 
@@ -153,97 +379,207 @@ async function handleWebSocketMessage(
         sendToClient(client, 'status', state);
         break;
 
+      case 'getDevices':
+        sendToClient(client, 'devices', devices);
+        break;
+
+      case 'getDeviceLinks':
+        sendToClient(client, 'deviceLinks', deviceLinks);
+        break;
+
+      case 'getProxies':
+        sendToClient(client, 'proxies', getProxies());
+        break;
+
+      case 'setActiveDevice':
+        activeDevice = data.deviceId || 'all';
+        break;
+
+      case 'addDevice':
+        try {
+          const device = addDevice(data.device);
+          sendToClient(client, 'deviceAdded', device);
+        } catch (error: any) {
+          sendToClient(client, 'error', { message: `Error adding device: ${error.message}` });
+        }
+        break;
+
+      case 'removeDevice':
+        try {
+          const success = removeDevice(data.deviceId);
+          if (success) {
+            sendToClient(client, 'deviceRemoved', { deviceId: data.deviceId });
+          } else {
+            sendToClient(client, 'error', { message: 'Device not found' });
+          }
+        } catch (error: any) {
+          sendToClient(client, 'error', { message: `Error removing device: ${error.message}` });
+        }
+        break;
+
+      case 'createLink':
+        try {
+          const link = createDeviceLink(data.name, data.deviceIds);
+          sendToClient(client, 'linkCreated', link);
+        } catch (error: any) {
+          sendToClient(client, 'error', { message: `Error creating link: ${error.message}` });
+        }
+        break;
+
+      case 'removeLink':
+        try {
+          const success = removeDeviceLink(data.linkId);
+          if (success) {
+            sendToClient(client, 'linkRemoved', { linkId: data.linkId });
+          } else {
+            sendToClient(client, 'error', { message: 'Link not found' });
+          }
+        } catch (error: any) {
+          sendToClient(client, 'error', { message: `Error removing link: ${error.message}` });
+        }
+        break;
+
+      case 'scanDevices':
+        try {
+          const results = await scanForDevices(esphome);
+          sendToClient(client, 'scanResults', results);
+        } catch (error: any) {
+          sendToClient(client, 'error', { message: `Error scanning for devices: ${error.message}` });
+        }
+        break;
+
       case 'motorControl': {
-        const { motor, direction } = data;
+        const { motor, direction, deviceId } = data;
+        const targetDevices = getTargetDevices(deviceId || activeDevice);
+        
+        if (targetDevices.length === 0) {
+          sendToClient(client, 'error', { message: 'No devices selected' });
+          return;
+        }
         
         // Convert UI direction to MQTT command
         let command = 'STOP';
         if (direction === 'up') command = 'OPEN';
         if (direction === 'down') command = 'CLOSE';
         
-        // Determine the correct topic based on the motor
-        let topic = '';
-        if (motor === 'head') {
-          topic = 'octo/MotorHead/command';
-        } else if (motor === 'feet') {
-          topic = 'octo/MotorLegs/command';
-        } else if (motor === 'both') {
-          if (direction === 'up') {
-            mqtt.publish('octo/MotorBothUp/command', 'PRESS');
-            return;
-          } else if (direction === 'down') {
-            mqtt.publish('octo/MotorBothDown/command', 'PRESS');
-            return;
-          } else {
-            mqtt.publish('octo/MotorHead/command', 'STOP');
-            mqtt.publish('octo/MotorLegs/command', 'STOP');
-            return;
+        for (const device of targetDevices) {
+          // Determine the correct topic based on the motor and device
+          let topic = '';
+          if (motor === 'head') {
+            topic = `octo/${device.id}/MotorHead/command`;
+          } else if (motor === 'feet') {
+            topic = `octo/${device.id}/MotorLegs/command`;
+          } else if (motor === 'both') {
+            if (direction === 'up') {
+              mqtt.publish(`octo/${device.id}/MotorBothUp/command`, 'PRESS');
+              continue;
+            } else if (direction === 'down') {
+              mqtt.publish(`octo/${device.id}/MotorBothDown/command`, 'PRESS');
+              continue;
+            } else {
+              mqtt.publish(`octo/${device.id}/MotorHead/command`, 'STOP');
+              mqtt.publish(`octo/${device.id}/MotorLegs/command`, 'STOP');
+              continue;
+            }
           }
-        }
-        
-        if (topic) {
-          mqtt.publish(topic, command);
+          
+          if (topic) {
+            mqtt.publish(topic, command);
+          }
         }
         break;
       }
 
       case 'setPosition': {
-        const { motor, position } = data;
+        const { motor, position, deviceId } = data;
+        const targetDevices = getTargetDevices(deviceId || activeDevice);
         
-        // Determine the correct topic based on the motor
-        let topic = '';
-        if (motor === 'head') {
-          topic = 'octo/MotorHead/position';
-        } else if (motor === 'feet') {
-          topic = 'octo/MotorLegs/position';
+        if (targetDevices.length === 0) {
+          sendToClient(client, 'error', { message: 'No devices selected' });
+          return;
         }
         
-        if (topic) {
-          mqtt.publish(topic, position.toString());
+        for (const device of targetDevices) {
+          // Determine the correct topic based on the motor and device
+          let topic = '';
+          if (motor === 'head') {
+            topic = `octo/${device.id}/MotorHead/position`;
+          } else if (motor === 'feet') {
+            topic = `octo/${device.id}/MotorLegs/position`;
+          }
+          
+          if (topic) {
+            mqtt.publish(topic, position.toString());
+          }
         }
         break;
       }
 
       case 'preset': {
-        const { preset } = data;
+        const { preset, deviceId } = data;
+        const targetDevices = getTargetDevices(deviceId || activeDevice);
         
-        // Map preset to the corresponding MQTT command
-        let topic = '';
-        if (preset === 'flat') {
-          topic = 'octo/PresetFlat/command';
-        } else if (preset === 'zerog') {
-          topic = 'octo/PresetZeroG/command';
-        } else if (preset === 'tv') {
-          topic = 'octo/PresetTV/command';
-        } else if (preset === 'reading') {
-          topic = 'octo/PresetMemory/command';
+        if (targetDevices.length === 0) {
+          sendToClient(client, 'error', { message: 'No devices selected' });
+          return;
         }
         
-        if (topic) {
-          mqtt.publish(topic, 'PRESS');
+        for (const device of targetDevices) {
+          // Map preset to the corresponding MQTT command
+          let topic = '';
+          if (preset === 'flat') {
+            topic = `octo/${device.id}/PresetFlat/command`;
+          } else if (preset === 'zerog') {
+            topic = `octo/${device.id}/PresetZeroG/command`;
+          } else if (preset === 'tv') {
+            topic = `octo/${device.id}/PresetTV/command`;
+          } else if (preset === 'reading') {
+            topic = `octo/${device.id}/PresetMemory/command`;
+          }
+          
+          if (topic) {
+            mqtt.publish(topic, 'PRESS');
+          }
         }
         break;
       }
 
       case 'light': {
-        const { state } = data;
-        mqtt.publish('octo/UnderBedLights/command', state ? 'ON' : 'OFF');
+        const { state, deviceId } = data;
+        const targetDevices = getTargetDevices(deviceId || activeDevice);
+        
+        if (targetDevices.length === 0) {
+          sendToClient(client, 'error', { message: 'No devices selected' });
+          return;
+        }
+        
+        for (const device of targetDevices) {
+          mqtt.publish(`octo/${device.id}/UnderBedLights/command`, state ? 'ON' : 'OFF');
+        }
         break;
       }
 
       case 'calibrate': {
-        const { motor } = data;
+        const { motor, deviceId } = data;
+        const targetDevices = getTargetDevices(deviceId || activeDevice);
         
-        // Determine the correct topic based on the motor
-        let topic = '';
-        if (motor === 'head') {
-          topic = 'octo/MotorHeadCalibrate/command';
-        } else if (motor === 'feet') {
-          topic = 'octo/MotorFeetCalibrate/command';
+        if (targetDevices.length === 0) {
+          sendToClient(client, 'error', { message: 'No devices selected' });
+          return;
         }
         
-        if (topic) {
-          mqtt.publish(topic, 'PRESS');
+        for (const device of targetDevices) {
+          // Determine the correct topic based on the motor
+          let topic = '';
+          if (motor === 'head') {
+            topic = `octo/${device.id}/MotorHeadCalibrate/command`;
+          } else if (motor === 'feet') {
+            topic = `octo/${device.id}/MotorFeetCalibrate/command`;
+          }
+          
+          if (topic) {
+            mqtt.publish(topic, 'PRESS');
+          }
         }
         break;
       }
