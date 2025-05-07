@@ -97,6 +97,12 @@ const strings = {
   MotorNeck: 'Neck',
   MotorLift: 'Lift',
   MotorPillow: 'Pillow',
+  MotorHeadCalibration: 'Head Travel Time',
+  MotorFeetCalibration: 'Feet Travel Time',
+  MotorHeadCalibrate: 'Calibrate Head',
+  MotorFeetCalibrate: 'Calibrate Feet',
+  MotorBothUp: 'Both Up',
+  MotorBothDown: 'Both Down',
 };
 
 export default strings;
