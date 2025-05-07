@@ -8,6 +8,14 @@ import { ICache } from 'Common/ICache';
 import { arrayEquals } from '@utils/arrayEquals';
 import { logInfo, logError } from '@utils/logger';
 import { Button } from 'HomeAssistant/Button';
+import { NumericSensor } from 'HomeAssistant/NumericSensor';
+
+// Calibration modes
+enum CalibrationMode {
+  NONE = 0,
+  HEAD = 1,
+  FEET = 2
+}
 
 interface MotorState {
   head: boolean;
@@ -16,6 +24,8 @@ interface MotorState {
   legsPosition: number;
   headUpDuration: number;
   feetUpDuration: number;
+  calibrationMode: CalibrationMode;
+  calibrationStartTime: number;
 }
 
 interface Directional {
@@ -26,10 +36,16 @@ interface Cache {
   motorState?: MotorState & Directional & Cancelable;
   headMotor?: Cover;
   legsMotor?: Cover;
+  headCalibrationSensor?: NumericSensor;
+  feetCalibrationSensor?: NumericSensor;
+  calibrateHeadButton?: Button;
+  calibrateFeetButton?: Button;
   flatButton?: Button;
   zeroGButton?: Button;
   tvButton?: Button;
   readingButton?: Button;
+  bothUpButton?: Button;
+  bothDownButton?: Button;
 }
 
 const motorPairs: Record<keyof Pick<MotorState, 'head' | 'legs'>, keyof Pick<MotorState, 'head' | 'legs'>> = {
@@ -37,7 +53,7 @@ const motorPairs: Record<keyof Pick<MotorState, 'head' | 'legs'>, keyof Pick<Mot
   legs: 'head',
 };
 
-const DEFAULT_UP_DURATION_MS = 30000;
+const DEFAULT_UP_DURATION_MS = 30000; // 30 seconds default
 
 // Add preset positions similar to ESPHome implementation
 const PRESETS = {
@@ -62,7 +78,9 @@ export const setupMotorEntities = (
       headPosition: 0,
       legsPosition: 0,
       headUpDuration: DEFAULT_UP_DURATION_MS,
-      feetUpDuration: DEFAULT_UP_DURATION_MS
+      feetUpDuration: DEFAULT_UP_DURATION_MS,
+      calibrationMode: CalibrationMode.NONE,
+      calibrationStartTime: 0
     };
   }
 
@@ -94,6 +112,8 @@ export const setupMotorEntities = (
 
   const move = (motorState: MotorState & Directional): Command | undefined => {
     const { head, legs, direction } = motorState;
+    // Use these flags to control which motors move:
+    // 0x02 for head, 0x04 for legs, 0x06 for both
     const motor = (head ? 0x2 : 0x0) + (legs ? 0x4 : 0x0);
     if (direction === 'STOP' || motor === 0x0) return undefined;
     return {
@@ -124,6 +144,12 @@ export const setupMotorEntities = (
       await writeCommand(command);
       logInfo(`[Octo] Both motors movement started`);
       
+      // For calibration mode, we don't auto-stop until the user stops it
+      if (motorState.calibrationMode !== CalibrationMode.NONE) {
+        logInfo(`[Octo] In calibration mode, not setting auto-stop timer`);
+        return true;
+      }
+      
       setTimeout(async () => {
         if (motorState.head && motorState.legs && motorState.direction === direction) {
           await writeCommand([0x2, 0x73]);
@@ -153,6 +179,39 @@ export const setupMotorEntities = (
       await writeCommand([0x2, 0x73]);
       
       const motorState = cache.motorState!;
+      
+      // If we're in calibration mode, calculate the duration before resetting
+      if (motorState.calibrationMode !== CalibrationMode.NONE && motorState.calibrationStartTime > 0) {
+        const elapsedMs = Date.now() - motorState.calibrationStartTime;
+        
+        // Save calibration results
+        if (motorState.calibrationMode === CalibrationMode.HEAD) {
+          motorState.headUpDuration = elapsedMs;
+          logInfo(`[Octo] Head calibration complete: ${elapsedMs}ms`);
+          
+          // Update calibration sensor
+          if (cache.headCalibrationSensor) {
+            const seconds = elapsedMs / 1000;
+            cache.headCalibrationSensor.setValue(seconds);
+            logInfo(`[Octo] Updated head calibration sensor: ${seconds.toFixed(1)} seconds`);
+          }
+        } else if (motorState.calibrationMode === CalibrationMode.FEET) {
+          motorState.feetUpDuration = elapsedMs;
+          logInfo(`[Octo] Feet calibration complete: ${elapsedMs}ms`);
+          
+          // Update calibration sensor
+          if (cache.feetCalibrationSensor) {
+            const seconds = elapsedMs / 1000;
+            cache.feetCalibrationSensor.setValue(seconds);
+            logInfo(`[Octo] Updated feet calibration sensor: ${seconds.toFixed(1)} seconds`);
+          }
+        }
+        
+        // Reset calibration mode
+        motorState.calibrationMode = CalibrationMode.NONE;
+        motorState.calibrationStartTime = 0;
+      }
+      
       motorState.head = false;
       motorState.legs = false;
       motorState.direction = 'STOP';
@@ -167,6 +226,50 @@ export const setupMotorEntities = (
       return true;
     } catch (error) {
       logError(`[Octo] Error stopping motors: ${error}`);
+      return false;
+    }
+  };
+  
+  // Start calibration procedure
+  const startCalibration = async (part: 'head' | 'legs') => {
+    logInfo(`[Octo] Starting calibration for ${part}`);
+    try {
+      const motorState = cache.motorState!;
+      
+      // Reset any previous calibration
+      await stopAllMotors();
+      
+      // Set to lowest position first (ensure we start from bottom)
+      motorState.head = part === 'head';
+      motorState.legs = part === 'legs';
+      motorState.direction = 'CLOSE';
+      
+      const closeCommand = move(motorState);
+      if (closeCommand) {
+        await writeCommand(closeCommand);
+        
+        // Wait 5 seconds to ensure fully down
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        
+        // Stop
+        await writeCommand([0x2, 0x73]);
+      }
+      
+      // Now set calibration mode
+      motorState.calibrationMode = part === 'head' ? CalibrationMode.HEAD : CalibrationMode.FEET;
+      motorState.calibrationStartTime = Date.now();
+      
+      // Start moving up to measure time
+      motorState.direction = 'OPEN';
+      const openCommand = move(motorState);
+      if (openCommand) {
+        await writeCommand(openCommand);
+        logInfo(`[Octo] ${part} moving up for calibration - press stop when fully raised`);
+      }
+      
+      return true;
+    } catch (error) {
+      logError(`[Octo] Error starting calibration: ${error}`);
       return false;
     }
   };
@@ -211,105 +314,6 @@ export const setupMotorEntities = (
       if (Math.floor(motorState.legsPosition) % 5 === 0) {
         logInfo(`[Octo] Legs position updated: ${motorState.legsPosition.toFixed(1)}%`);
       }
-    }
-  };
-
-  const buildCoverCommand = (main: keyof Pick<MotorState, 'head' | 'legs'>) => async (command: string) => {
-    logInfo(`[Octo] Cover command received for ${main}: ${command}`);
-    try {
-      if (command === 'STOP') {
-        return await stopAllMotors();
-      }
-      
-      const motorState = cache.motorState!;
-      const otherMotor = motorPairs[main];
-      const bothActive = motorState[main] && motorState[otherMotor];
-      
-      if (bothActive) {
-        logInfo(`[Octo] Both motors active, moving both ${command}`);
-        return await moveBoth(command);
-      }
-      
-      const originalCommand = move(motorState);
-      updateMotorState(main, command);
-      const newCommand = move(motorState);
-      
-      const sendCommand = async () => {
-        if (newCommand) {
-          logInfo(`[Octo] Sending motor command: ${JSON.stringify(newCommand)}`);
-          await writeCommand(newCommand);
-          logInfo(`[Octo] Motor command sent successfully`);
-          
-          const updateInterval = setInterval(() => {
-            updatePositionBasedOnElapsed();
-            
-            const motorState = cache.motorState!;
-            if (main === 'head' && 
-                ((motorState.direction === 'OPEN' && motorState.headPosition >= 100) ||
-                 (motorState.direction === 'CLOSE' && motorState.headPosition <= 0))) {
-              clearInterval(updateInterval);
-              motorState.head = false;
-              motorState.direction = 'STOP';
-              logInfo(`[Octo] Head reached ${motorState.direction === 'OPEN' ? 'top' : 'bottom'} position`);
-            }
-            
-            if (main === 'legs' && 
-                ((motorState.direction === 'OPEN' && motorState.legsPosition >= 100) ||
-                 (motorState.direction === 'CLOSE' && motorState.legsPosition <= 0))) {
-              clearInterval(updateInterval);
-              motorState.legs = false;
-              motorState.direction = 'STOP';
-              logInfo(`[Octo] Legs reached ${motorState.direction === 'OPEN' ? 'top' : 'bottom'} position`);
-            }
-          }, 200);
-          
-          setTimeout(() => {
-            clearInterval(updateInterval);
-            motorState.head = false;
-            motorState.legs = false;
-            motorState.direction = 'STOP';
-            logInfo(`[Octo] Movement timed out, stopping motors`);
-          }, Math.max(motorState.headUpDuration, motorState.feetUpDuration));
-        }
-      };
-
-      if (commandsMatch(newCommand, originalCommand)) {
-        return await sendCommand();
-      }
-
-      motorState.canceled = true;
-      await cancelCommands();
-      motorState.canceled = false;
-
-      if (newCommand) {
-        await sendCommand();
-        if (motorState.canceled) return;
-        
-        movementStartTime = 0;
-        motorState.direction = 'STOP';
-        motorState.head = false;
-        motorState.legs = false;
-      }
-      
-      logInfo(`[Octo] Sending stop command`);
-      await writeCommand([0x2, 0x73]);
-    } catch (error) {
-      logError(`[Octo] Error executing cover command: ${error}`);
-    }
-  };
-
-  const publishState = (main: keyof Pick<MotorState, 'head' | 'legs'>) => {
-    const motorState = cache.motorState!;
-    const position = main === 'head' ? motorState.headPosition : motorState.legsPosition;
-    
-    const haPosition = position / 100;
-    
-    if (main === 'head' && cache.headMotor) {
-      cache.headMotor.publishPosition(haPosition);
-      logInfo(`[Octo] Published head position: ${position.toFixed(1)}%`);
-    } else if (main === 'legs' && cache.legsMotor) {
-      cache.legsMotor.publishPosition(haPosition);
-      logInfo(`[Octo] Published legs position: ${position.toFixed(1)}%`);
     }
   };
 
@@ -426,6 +430,105 @@ export const setupMotorEntities = (
     }
   };
 
+  const buildCoverCommand = (main: keyof Pick<MotorState, 'head' | 'legs'>) => async (command: string) => {
+    logInfo(`[Octo] Cover command received for ${main}: ${command}`);
+    try {
+      if (command === 'STOP') {
+        return await stopAllMotors();
+      }
+      
+      const motorState = cache.motorState!;
+      const otherMotor = motorPairs[main];
+      const bothActive = motorState[main] && motorState[otherMotor];
+      
+      if (bothActive) {
+        logInfo(`[Octo] Both motors active, moving both ${command}`);
+        return await moveBoth(command);
+      }
+      
+      const originalCommand = move(motorState);
+      updateMotorState(main, command);
+      const newCommand = move(motorState);
+      
+      const sendCommand = async () => {
+        if (newCommand) {
+          logInfo(`[Octo] Sending motor command: ${JSON.stringify(newCommand)}`);
+          await writeCommand(newCommand);
+          logInfo(`[Octo] Motor command sent successfully`);
+          
+          const updateInterval = setInterval(() => {
+            updatePositionBasedOnElapsed();
+            
+            const motorState = cache.motorState!;
+            if (main === 'head' && 
+                ((motorState.direction === 'OPEN' && motorState.headPosition >= 100) ||
+                 (motorState.direction === 'CLOSE' && motorState.headPosition <= 0))) {
+              clearInterval(updateInterval);
+              motorState.head = false;
+              motorState.direction = 'STOP';
+              logInfo(`[Octo] Head reached ${motorState.direction === 'OPEN' ? 'top' : 'bottom'} position`);
+            }
+            
+            if (main === 'legs' && 
+                ((motorState.direction === 'OPEN' && motorState.legsPosition >= 100) ||
+                 (motorState.direction === 'CLOSE' && motorState.legsPosition <= 0))) {
+              clearInterval(updateInterval);
+              motorState.legs = false;
+              motorState.direction = 'STOP';
+              logInfo(`[Octo] Legs reached ${motorState.direction === 'OPEN' ? 'top' : 'bottom'} position`);
+            }
+          }, 200);
+          
+          setTimeout(() => {
+            clearInterval(updateInterval);
+            motorState.head = false;
+            motorState.legs = false;
+            motorState.direction = 'STOP';
+            logInfo(`[Octo] Movement timed out, stopping motors`);
+          }, Math.max(motorState.headUpDuration, motorState.feetUpDuration));
+        }
+      };
+
+      if (commandsMatch(newCommand, originalCommand)) {
+        return await sendCommand();
+      }
+
+      motorState.canceled = true;
+      await cancelCommands();
+      motorState.canceled = false;
+
+      if (newCommand) {
+        await sendCommand();
+        if (motorState.canceled) return;
+        
+        movementStartTime = 0;
+        motorState.direction = 'STOP';
+        motorState.head = false;
+        motorState.legs = false;
+      }
+      
+      logInfo(`[Octo] Sending stop command`);
+      await writeCommand([0x2, 0x73]);
+    } catch (error) {
+      logError(`[Octo] Error executing cover command: ${error}`);
+    }
+  };
+
+  const publishState = (main: keyof Pick<MotorState, 'head' | 'legs'>) => {
+    const motorState = cache.motorState!;
+    const position = main === 'head' ? motorState.headPosition : motorState.legsPosition;
+    
+    const haPosition = position / 100;
+    
+    if (main === 'head' && cache.headMotor) {
+      cache.headMotor.publishPosition(haPosition);
+      logInfo(`[Octo] Published head position: ${position.toFixed(1)}%`);
+    } else if (main === 'legs' && cache.legsMotor) {
+      cache.legsMotor.publishPosition(haPosition);
+      logInfo(`[Octo] Published legs position: ${position.toFixed(1)}%`);
+    }
+  };
+
   try {
     logInfo('[Octo] Creating head motor entity');
     if (!cache.headMotor) {
@@ -453,13 +556,100 @@ export const setupMotorEntities = (
       logInfo('[Octo] Legs motor entity created successfully');
     }
     
-    setInterval(() => {
-      if (movementStartTime > 0) {
-        updatePositionBasedOnElapsed();
-        publishState('head');
-        publishState('legs');
-      }
-    }, 1000);
+    // Add calibration sensors to display current calibration values
+    if (!cache.headCalibrationSensor) {
+      cache.headCalibrationSensor = new NumericSensor(
+        mqtt,
+        deviceData,
+        buildEntityConfig('MotorHeadCalibration', { 
+          icon: 'mdi:timer-outline',
+          unit: 's',
+          precision: 1
+        })
+      );
+      
+      // Set initial value
+      const headSeconds = cache.motorState!.headUpDuration / 1000;
+      cache.headCalibrationSensor.setValue(headSeconds);
+      cache.headCalibrationSensor.setOnline();
+      logInfo(`[Octo] Head calibration sensor created: ${headSeconds.toFixed(1)} seconds`);
+    }
+    
+    if (!cache.feetCalibrationSensor) {
+      cache.feetCalibrationSensor = new NumericSensor(
+        mqtt,
+        deviceData,
+        buildEntityConfig('MotorFeetCalibration', { 
+          icon: 'mdi:timer-outline',
+          unit: 's',
+          precision: 1
+        })
+      );
+      
+      // Set initial value
+      const feetSeconds = cache.motorState!.feetUpDuration / 1000;
+      cache.feetCalibrationSensor.setValue(feetSeconds);
+      cache.feetCalibrationSensor.setOnline();
+      logInfo(`[Octo] Feet calibration sensor created: ${feetSeconds.toFixed(1)} seconds`);
+    }
+    
+    // Add calibration buttons
+    if (!cache.calibrateHeadButton) {
+      cache.calibrateHeadButton = new Button(
+        mqtt,
+        deviceData,
+        buildEntityConfig('MotorHeadCalibrate', { icon: 'mdi:ruler' }),
+        async () => {
+          logInfo('[Octo] Head calibration button pressed');
+          await startCalibration('head');
+        }
+      );
+      cache.calibrateHeadButton.setOnline();
+      logInfo('[Octo] Head calibration button created');
+    }
+    
+    if (!cache.calibrateFeetButton) {
+      cache.calibrateFeetButton = new Button(
+        mqtt,
+        deviceData,
+        buildEntityConfig('MotorFeetCalibrate', { icon: 'mdi:ruler' }),
+        async () => {
+          logInfo('[Octo] Feet calibration button pressed');
+          await startCalibration('legs');
+        }
+      );
+      cache.calibrateFeetButton.setOnline();
+      logInfo('[Octo] Feet calibration button created');
+    }
+    
+    // Add "Both Up" and "Both Down" buttons
+    if (!cache.bothUpButton) {
+      cache.bothUpButton = new Button(
+        mqtt,
+        deviceData,
+        buildEntityConfig('MotorBothUp', { icon: 'mdi:arrow-up-bold' }),
+        async () => {
+          logInfo('[Octo] Both Up button pressed');
+          await moveBoth('OPEN');
+        }
+      );
+      cache.bothUpButton.setOnline();
+      logInfo('[Octo] Both Up button created');
+    }
+    
+    if (!cache.bothDownButton) {
+      cache.bothDownButton = new Button(
+        mqtt,
+        deviceData,
+        buildEntityConfig('MotorBothDown', { icon: 'mdi:arrow-down-bold' }),
+        async () => {
+          logInfo('[Octo] Both Down button pressed');
+          await moveBoth('CLOSE');
+        }
+      );
+      cache.bothDownButton.setOnline();
+      logInfo('[Octo] Both Down button created');
+    }
     
     // Add preset buttons
     logInfo('[Octo] Creating preset buttons');
@@ -523,6 +713,15 @@ export const setupMotorEntities = (
       cache.readingButton.setOnline();
       logInfo('[Octo] Reading position button created');
     }
+    
+    // Update positions periodically while moving
+    setInterval(() => {
+      if (movementStartTime > 0) {
+        updatePositionBasedOnElapsed();
+        publishState('head');
+        publishState('legs');
+      }
+    }, 1000);
     
     logInfo('[Octo] Motor entities setup complete');
   } catch (error) {
