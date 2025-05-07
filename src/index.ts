@@ -7,6 +7,8 @@ import { IMQTTConnection } from '@mqtt/IMQTTConnection';
 import { IESPConnection } from 'ESPHome/IESPConnection';
 import { startServer, updateLightState, updatePosition, updateCalibration } from 'webui/server';
 import { getProxies } from 'ESPHome/options';
+import * as fs from 'fs';
+import * as path from 'path';
 
 const processExit = (exitCode?: number) => {
   setTimeout(() => process.exit(exitCode), 250);
@@ -61,26 +63,69 @@ const setupMQTTSubscriptions = (mqtt: IMQTTConnection) => {
   });
 };
 
+// Check if we can find the web UI files
+const checkWebUIFiles = () => {
+  const possiblePaths = [
+    path.join(__dirname, 'webui', 'index.html'),
+    path.join(__dirname, '..', 'webui', 'index.html'),
+    path.join(process.cwd(), 'webui', 'index.html'),
+    path.join(process.cwd(), 'dist', 'webui', 'index.html')
+  ];
+
+  for (const filePath of possiblePaths) {
+    if (fs.existsSync(filePath)) {
+      logInfo(`WebUI files found at: ${filePath}`);
+      return true;
+    }
+  }
+
+  logError('WebUI files not found. Checked paths:', possiblePaths);
+  return false;
+};
+
 // Main entry point
 (async () => {
   try {
+    logInfo('Starting Octo MQTT application');
+    logInfo(`Current directory: ${process.cwd()}`);
+    logInfo(`__dirname: ${__dirname}`);
+    
+    // Check if WebUI files exist
+    checkWebUIFiles();
+    
     await loadStrings();
+    logInfo('Strings loaded successfully');
 
     const mqtt = await connectToMQTT();
+    logInfo('MQTT connected successfully');
+    
     const esp = await connectToESPHome();
+    logInfo('ESPHome connected successfully');
     
     // Start the octo functionality
     await octo(mqtt, esp);
+    logInfo('Octo functionality initialized successfully');
     
     // Set up MQTT subscriptions for the UI
     setupMQTTSubscriptions(mqtt);
+    logInfo('MQTT subscriptions set up successfully');
     
     // Start the web UI server with default port (8099)
-    startServer(mqtt, esp);
+    const server = startServer(mqtt, esp);
+    logInfo('Web UI server started successfully');
+    
+    // Handle server errors
+    server.on('error', (error) => {
+      logError('Web UI server error:', error);
+    });
     
     logInfo('Octo MQTT and Web UI started successfully');
   } catch (e) {
     logError('Error starting application:', e);
+    if (e instanceof Error) {
+      logError('Error details:', e.message);
+      logError('Stack trace:', e.stack);
+    }
     processExit(1);
   }
 })();
