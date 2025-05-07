@@ -14,6 +14,10 @@ const processExit = (exitCode?: number) => {
   setTimeout(() => process.exit(exitCode), 250);
 };
 
+// Storage paths for devices
+const DATA_DIR = process.env.DATA_DIR || './data';
+const DEVICES_FILE = path.join(DATA_DIR, 'devices.json');
+
 // Graceful exit
 process.on('SIGTERM', () => {
   logWarn('Received SIGTERM');
@@ -22,45 +26,74 @@ process.on('SIGTERM', () => {
 
 // Handles subscription messages to update the UI state
 const setupMQTTSubscriptions = (mqtt: IMQTTConnection) => {
-  // Subscribe to motor position updates
-  mqtt.subscribe('octo/MotorHead/position/state');
-  mqtt.on('octo/MotorHead/position/state', (message: string) => {
-    const position = parseInt(message);
-    if (!isNaN(position)) {
-      updatePosition('head', position);
+  // Get device IDs from stored devices
+  let deviceIds: string[] = [];
+  try {
+    if (fs.existsSync(DEVICES_FILE)) {
+      const data = fs.readFileSync(DEVICES_FILE, 'utf8');
+      const devices = JSON.parse(data);
+      deviceIds = devices.map((device: any) => device.id);
+      logInfo(`Setting up MQTT subscriptions for ${deviceIds.length} devices`);
+    } else {
+      logInfo('No devices file found, using default device ID: RC2');
+      deviceIds = ['RC2']; // Default device if none configured
     }
+  } catch (error: any) {
+    logError('Error loading devices for MQTT subscriptions:', error);
+    deviceIds = ['RC2']; // Default device if error
+  }
+  
+  // Subscribe to topics for all devices
+  deviceIds.forEach(deviceId => {
+    // Subscribe to motor position updates
+    mqtt.subscribe(`octo/${deviceId}/MotorHead/position/state`);
+    mqtt.on(`octo/${deviceId}/MotorHead/position/state`, (message: string) => {
+      const position = parseInt(message);
+      if (!isNaN(position)) {
+        updatePosition('head', position);
+      }
+    });
+    
+    mqtt.subscribe(`octo/${deviceId}/MotorLegs/position/state`);
+    mqtt.on(`octo/${deviceId}/MotorLegs/position/state`, (message: string) => {
+      const position = parseInt(message);
+      if (!isNaN(position)) {
+        updatePosition('feet', position);
+      }
+    });
+    
+    // Subscribe to light state updates
+    mqtt.subscribe(`octo/${deviceId}/UnderBedLights/state`);
+    mqtt.on(`octo/${deviceId}/UnderBedLights/state`, (message: string) => {
+      updateLightState(message === 'ON');
+    });
+    
+    // Subscribe to calibration values
+    mqtt.subscribe(`octo/${deviceId}/MotorHeadCalibration/state`);
+    mqtt.on(`octo/${deviceId}/MotorHeadCalibration/state`, (message: string) => {
+      const value = parseFloat(message);
+      if (!isNaN(value)) {
+        updateCalibration('head', value);
+      }
+    });
+    
+    mqtt.subscribe(`octo/${deviceId}/MotorFeetCalibration/state`);
+    mqtt.on(`octo/${deviceId}/MotorFeetCalibration/state`, (message: string) => {
+      const value = parseFloat(message);
+      if (!isNaN(value)) {
+        updateCalibration('feet', value);
+      }
+    });
+    
+    logInfo(`MQTT subscriptions set up for device: ${deviceId}`);
   });
   
-  mqtt.subscribe('octo/MotorLegs/position/state');
-  mqtt.on('octo/MotorLegs/position/state', (message: string) => {
-    const position = parseInt(message);
-    if (!isNaN(position)) {
-      updatePosition('feet', position);
-    }
-  });
-  
-  // Subscribe to light state updates
-  mqtt.subscribe('octo/UnderBedLights/state');
-  mqtt.on('octo/UnderBedLights/state', (message: string) => {
-    updateLightState(message === 'ON');
-  });
-  
-  // Subscribe to calibration values
-  mqtt.subscribe('octo/MotorHeadCalibration/state');
-  mqtt.on('octo/MotorHeadCalibration/state', (message: string) => {
-    const value = parseFloat(message);
-    if (!isNaN(value)) {
-      updateCalibration('head', value);
-    }
-  });
-  
-  mqtt.subscribe('octo/MotorFeetCalibration/state');
-  mqtt.on('octo/MotorFeetCalibration/state', (message: string) => {
-    const value = parseFloat(message);
-    if (!isNaN(value)) {
-      updateCalibration('feet', value);
-    }
-  });
+  // Also subscribe to "wildcard" topics for any new devices added later
+  mqtt.subscribe('octo/+/MotorHead/position/state');
+  mqtt.subscribe('octo/+/MotorLegs/position/state');
+  mqtt.subscribe('octo/+/UnderBedLights/state');
+  mqtt.subscribe('octo/+/MotorHeadCalibration/state');
+  mqtt.subscribe('octo/+/MotorFeetCalibration/state');
 };
 
 // Check if we can find the web UI files
