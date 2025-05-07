@@ -1,27 +1,25 @@
 import { readFileSync } from 'fs';
 
-export type Type =
-  | 'sleeptracker'
-  | 'ergomotion'
-  | 'ergowifi'
-  | 'richmat'
-  | 'linak'
-  | 'solace'
-  | 'motosleep'
-  | 'reverie'
-  | 'leggettplatt'
-  | 'logicdata'
-  | 'okimat'
-  | 'keeson'
-  | 'octo'
-  | 'scanner';
-
 interface OptionsJson {
-  type: Type;
+  mqtt_host: string;
+  mqtt_port: string;
+  mqtt_user: string;
+  mqtt_password: string;
+  bleProxies: Array<{
+    host: string;
+    port: number;
+    password?: string;
+    encryptionKey?: string;
+    expectedServerName?: string;
+  }>;
+  octoDevices: Array<{
+    name: string;
+    friendlyName: string;
+    pin?: string;
+  }>;
 }
 
 const fileContents = readFileSync('../data/options.json');
 const options: OptionsJson = JSON.parse(fileContents.toString());
-export const getRootOptions = (): any => options;
 
-export const getType = () => options.type;
+export const getRootOptions = (): OptionsJson => options;
