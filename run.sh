@@ -68,5 +68,5 @@ echo "- MQTT Port: ${MQTTPORT}"
 echo "- BLE Proxy count: $(bashio::config 'bleProxies | length')"
 echo "- Octo device count: $(bashio::config 'octoDevices | length')"
 
-# Run with debugging
-node --inspect=0.0.0.0:9229 index.js
+# Run without debugger for better stability
+node index.js
