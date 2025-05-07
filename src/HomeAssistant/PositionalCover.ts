@@ -4,9 +4,7 @@ import { IDeviceData } from './IDeviceData';
 import { EntityConfig } from './base/Entity';
 
 export class PositionalCover extends Cover {
-  private positionTopic: string;
   private setPositionTopic: string;
-
   private position: number = 0;
 
   constructor(
@@ -27,7 +25,7 @@ export class PositionalCover extends Cover {
           return onSetPosition(this.position || 0);
       }
     });
-    this.positionTopic = `${this.baseTopic}/position`;
+    
     this.setPositionTopic = `${this.baseTopic}/set_position`;
     mqtt.subscribe(this.setPositionTopic);
     mqtt.on(this.setPositionTopic, (message) => onSetPosition(parseInt(message)));
@@ -36,7 +34,6 @@ export class PositionalCover extends Cover {
   discoveryState() {
     return {
       ...super.discoveryState(),
-      position_topic: this.positionTopic,
       set_position_topic: this.setPositionTopic,
       position_open: this.options.positionOpen || 100,
       position_closed: this.options.positionClosed || 0,
@@ -64,7 +61,7 @@ export class PositionalCover extends Cover {
   private sendPosition() {
     setTimeout(() => {
       const message = this.mapPosition(this.position);
-      this.mqtt.publish(this.positionTopic, message);
+      this.publishPosition(this.position);
     }, 250);
   }
 }
