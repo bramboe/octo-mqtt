@@ -5,6 +5,9 @@ export MQTTPORT=$(bashio::config "mqtt_port")
 export MQTTUSER=$(bashio::config "mqtt_user")
 export MQTTPASSWORD=$(bashio::config "mqtt_password")
 
+# Enable full error stack traces for debugging
+export NODE_OPTIONS="--trace-warnings --trace-uncaught"
+
 if [ $MQTTHOST = '<auto_detect>' ]; then
     if bashio::services.available 'mqtt'; then
         MQTTHOST=$(bashio::services mqtt "host")
@@ -58,4 +61,12 @@ else
     echo "Using configured MQTT password: <hidden>"
 fi
 
-node index.js
+# Debug info
+echo "Starting Octo-MQTT with the following configuration:"
+echo "- MQTT Host: ${MQTTHOST}"
+echo "- MQTT Port: ${MQTTPORT}"
+echo "- BLE Proxy count: $(bashio::config 'bleProxies | length')"
+echo "- Octo device count: $(bashio::config 'octoDevices | length')"
+
+# Run with debugging
+node --inspect=0.0.0.0:9229 index.js
