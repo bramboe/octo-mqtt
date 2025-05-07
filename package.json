@@ -43,7 +43,7 @@
     "test:ci": "jest",
     "start": "ts-node src/index.ts",
     "docker:dev": "docker build -t smqtt . && docker run -v $(pwd)/../data:/data smqtt",
-    "copy-web-files": "mkdir -p dist/webui/static && cp -r src/webui/*.html dist/webui/ && cp -r src/webui/static/* dist/webui/static/"
+    "copy-web-files": "mkdir -p dist/webui/static && cp -r src/webui/*.html dist/webui/ && cp -r src/webui/static/* dist/webui/static/ && mkdir -p webui/static && cp -r src/webui/*.html webui/ && cp -r src/webui/static/* webui/static/"
   },
   "publishConfig": {
     "access": "public"
