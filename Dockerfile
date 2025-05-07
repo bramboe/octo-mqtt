@@ -12,7 +12,14 @@ COPY src /octo-mqtt/src/
 COPY tsconfig.build.json /octo-mqtt/
 COPY tsconfig.json /octo-mqtt/
 
-RUN yarn build:ci
+# Add a step to make sure tsconfig-paths is installed
+RUN yarn add -D tsconfig-paths && \
+    yarn clean || echo "Clean failed but continuing" && \
+    echo "Starting tsc build with tsconfig.build.json" && \
+    npx tsc -p tsconfig.build.json --listEmittedFiles && \
+    echo "tsc completed, running tsc-alias" && \
+    npx tsc-alias && \
+    echo "Build completed successfully"
 
 FROM node:18-alpine
 
