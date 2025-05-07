@@ -6,12 +6,17 @@ import { IController } from 'Common/IController';
 import { Cancelable } from 'Common/Cancelable';
 import { ICache } from 'Common/ICache';
 import { arrayEquals } from '@utils/arrayEquals';
-import { logInfo } from '@utils/logger';
+import { logInfo, logError } from '@utils/logger';
 
 interface MotorState {
   head: boolean;
   legs: boolean;
+  headPosition: number;
+  legsPosition: number;
+  headUpDuration: number;
+  feetUpDuration: number;
 }
+
 interface Directional {
   direction: string;
 }
@@ -22,10 +27,12 @@ interface Cache {
   legsMotor?: Cover;
 }
 
-const motorPairs: Record<keyof MotorState, keyof MotorState> = {
+const motorPairs: Record<keyof Pick<MotorState, 'head' | 'legs'>, keyof Pick<MotorState, 'head' | 'legs'>> = {
   head: 'legs',
   legs: 'head',
 };
+
+const DEFAULT_UP_DURATION_MS = 30000;
 
 export const setupMotorEntities = (
   mqtt: IMQTTConnection,
@@ -39,23 +46,37 @@ export const setupMotorEntities = (
       head: false,
       legs: false,
       canceled: false,
+      headPosition: 0,
+      legsPosition: 0,
+      headUpDuration: DEFAULT_UP_DURATION_MS,
+      feetUpDuration: DEFAULT_UP_DURATION_MS
     };
   }
 
-  const updateMotorState = (main: keyof MotorState, command: string) => {
+  let movementStartTime = 0;
+  let headStartPosition = 0;
+  let legsStartPosition = 0;
+
+  const updateMotorState = (main: keyof Pick<MotorState, 'head' | 'legs'>, command: string) => {
     const other = motorPairs[main];
     const motorState = cache.motorState!;
     const { direction, canceled, ...motors } = motorState;
     const moveMotors = command !== 'STOP';
     
-    if (direction === command && motors[main] === moveMotors) return;
+    if (direction === command && motors[main as keyof typeof motors] === moveMotors) return;
 
     motorState[main] = moveMotors;
-    if (motors[other]) {
+    if (motors[other as keyof typeof motors]) {
       if (!moveMotors) command = direction;
       else if (direction != command) motorState[other] = false;
     }
     motorState.direction = command;
+    
+    if (moveMotors) {
+      movementStartTime = Date.now();
+      headStartPosition = motorState.headPosition;
+      legsStartPosition = motorState.legsPosition;
+    }
   };
 
   const move = (motorState: MotorState & Directional): Command | undefined => {
@@ -74,7 +95,44 @@ export const setupMotorEntities = (
     return arrayEquals(commandA.command, commandB.command) && arrayEquals(commandA.data || [], commandB.data || []);
   };
 
-  const buildCoverCommand = (main: keyof MotorState) => async (command: string) => {
+  const updatePositionBasedOnElapsed = () => {
+    if (movementStartTime === 0) return;
+    
+    const motorState = cache.motorState!;
+    const elapsedMs = Date.now() - movementStartTime;
+    
+    if (motorState.head) {
+      const headDuration = motorState.headUpDuration || DEFAULT_UP_DURATION_MS;
+      const headChange = (elapsedMs / headDuration) * 100;
+      
+      if (motorState.direction === 'OPEN') {
+        motorState.headPosition = Math.min(100, headStartPosition + headChange);
+      } else {
+        motorState.headPosition = Math.max(0, headStartPosition - headChange);
+      }
+      
+      if (Math.floor(motorState.headPosition) % 5 === 0) {
+        logInfo(`[Octo] Head position updated: ${motorState.headPosition.toFixed(1)}%`);
+      }
+    }
+    
+    if (motorState.legs) {
+      const legsDuration = motorState.feetUpDuration || DEFAULT_UP_DURATION_MS;
+      const legsChange = (elapsedMs / legsDuration) * 100;
+      
+      if (motorState.direction === 'OPEN') {
+        motorState.legsPosition = Math.min(100, legsStartPosition + legsChange);
+      } else {
+        motorState.legsPosition = Math.max(0, legsStartPosition - legsChange);
+      }
+      
+      if (Math.floor(motorState.legsPosition) % 5 === 0) {
+        logInfo(`[Octo] Legs position updated: ${motorState.legsPosition.toFixed(1)}%`);
+      }
+    }
+  };
+
+  const buildCoverCommand = (main: keyof Pick<MotorState, 'head' | 'legs'>) => async (command: string) => {
     logInfo(`[Octo] Cover command received for ${main}: ${command}`);
     try {
       const motorState = cache.motorState!;
@@ -87,6 +145,37 @@ export const setupMotorEntities = (
           logInfo(`[Octo] Sending motor command: ${JSON.stringify(newCommand)}`);
           await writeCommand(newCommand);
           logInfo(`[Octo] Motor command sent successfully`);
+          
+          const updateInterval = setInterval(() => {
+            updatePositionBasedOnElapsed();
+            
+            const motorState = cache.motorState!;
+            if (main === 'head' && 
+                ((motorState.direction === 'OPEN' && motorState.headPosition >= 100) ||
+                 (motorState.direction === 'CLOSE' && motorState.headPosition <= 0))) {
+              clearInterval(updateInterval);
+              motorState.head = false;
+              motorState.direction = 'STOP';
+              logInfo(`[Octo] Head reached ${motorState.direction === 'OPEN' ? 'top' : 'bottom'} position`);
+            }
+            
+            if (main === 'legs' && 
+                ((motorState.direction === 'OPEN' && motorState.legsPosition >= 100) ||
+                 (motorState.direction === 'CLOSE' && motorState.legsPosition <= 0))) {
+              clearInterval(updateInterval);
+              motorState.legs = false;
+              motorState.direction = 'STOP';
+              logInfo(`[Octo] Legs reached ${motorState.direction === 'OPEN' ? 'top' : 'bottom'} position`);
+            }
+          }, 200);
+          
+          setTimeout(() => {
+            clearInterval(updateInterval);
+            motorState.head = false;
+            motorState.legs = false;
+            motorState.direction = 'STOP';
+            logInfo(`[Octo] Movement timed out, stopping motors`);
+          }, Math.max(motorState.headUpDuration, motorState.feetUpDuration));
         }
       };
 
@@ -101,6 +190,8 @@ export const setupMotorEntities = (
       if (newCommand) {
         await sendCommand();
         if (motorState.canceled) return;
+        
+        movementStartTime = 0;
         motorState.direction = 'STOP';
         motorState.head = false;
         motorState.legs = false;
@@ -109,7 +200,22 @@ export const setupMotorEntities = (
       logInfo(`[Octo] Sending stop command`);
       await writeCommand([0x2, 0x73]);
     } catch (error) {
-      logInfo(`[Octo] Error executing cover command: ${error}`);
+      logError(`[Octo] Error executing cover command: ${error}`);
+    }
+  };
+
+  const publishState = (main: keyof Pick<MotorState, 'head' | 'legs'>) => {
+    const motorState = cache.motorState!;
+    const position = main === 'head' ? motorState.headPosition : motorState.legsPosition;
+    
+    const haPosition = position / 100;
+    
+    if (main === 'head' && cache.headMotor) {
+      cache.headMotor.publishPosition(haPosition);
+      logInfo(`[Octo] Published head position: ${position.toFixed(1)}%`);
+    } else if (main === 'legs' && cache.legsMotor) {
+      cache.legsMotor.publishPosition(haPosition);
+      logInfo(`[Octo] Published legs position: ${position.toFixed(1)}%`);
     }
   };
 
@@ -123,6 +229,7 @@ export const setupMotorEntities = (
         buildCoverCommand('head')
       );
       cache.headMotor.setOnline();
+      publishState('head');
       logInfo('[Octo] Head motor entity created successfully');
     }
 
@@ -135,11 +242,20 @@ export const setupMotorEntities = (
         buildCoverCommand('legs')
       );
       cache.legsMotor.setOnline();
+      publishState('legs');
       logInfo('[Octo] Legs motor entity created successfully');
     }
     
+    setInterval(() => {
+      if (movementStartTime > 0) {
+        updatePositionBasedOnElapsed();
+        publishState('head');
+        publishState('legs');
+      }
+    }, 1000);
+    
     logInfo('[Octo] Motor entities setup complete');
   } catch (error) {
-    logInfo(`[Octo] Error setting up motor entities: ${error}`);
+    logError(`[Octo] Error setting up motor entities: ${error}`);
   }
 };
