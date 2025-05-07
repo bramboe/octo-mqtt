@@ -2,22 +2,19 @@ import { getRootOptions } from '@utils/options';
 
 export interface BLEProxy {
   host: string;
-  port: number | undefined;
-  password: string | undefined;
-  encryptionKey: string | undefined;
-  expectedServerName: string | undefined;
+  port: number;
+  password?: string;
+  encryptionKey?: string;
+  expectedServerName?: string;
 }
 
-interface OptionsJson {
-  bleProxies: BLEProxy[];
-}
-
-const options: OptionsJson = getRootOptions();
+// Use any type to avoid interface conflicts
+const options = getRootOptions() as any;
 
 export const getProxies = () => {
   const proxies = options.bleProxies;
   if (Array.isArray(proxies)) {
-    return proxies;
+    return proxies as BLEProxy[];
   }
   return [];
 };
