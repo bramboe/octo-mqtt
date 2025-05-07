@@ -271,8 +271,26 @@ function handleHttpRequest(req: http.IncomingMessage, res: http.ServerResponse) 
       pathname = '/index.html';
     }
     
-    // Resolve the file path
-    const filePath = path.join(__dirname, pathname);
+    // Resolve the file path - Try multiple locations to support both development and production
+    let filePath = path.join(__dirname, pathname);
+    
+    // Check if file exists, if not try alternate paths
+    if (!fs.existsSync(filePath)) {
+      // Try the 'webui' subdirectory (for production/Docker container)
+      filePath = path.join(__dirname, '..', 'webui', pathname);
+      
+      // If still not found, try relative to the working directory
+      if (!fs.existsSync(filePath)) {
+        filePath = path.join(process.cwd(), 'webui', pathname);
+        
+        // One last attempt - check if it's in a 'dist/webui' directory
+        if (!fs.existsSync(filePath)) {
+          filePath = path.join(process.cwd(), 'dist', 'webui', pathname);
+        }
+      }
+    }
+    
+    logInfo(`[WebUI] Serving file: ${filePath} for path: ${pathname}`);
     
     // Get the file extension
     const ext = path.extname(filePath).toLowerCase();
@@ -284,6 +302,7 @@ function handleHttpRequest(req: http.IncomingMessage, res: http.ServerResponse) 
     fs.access(filePath, fs.constants.F_OK, (err) => {
       if (err) {
         // File doesn't exist
+        logError(`[WebUI] File not found: ${filePath}`);
         res.writeHead(404);
         res.end('File Not Found');
         return;
@@ -292,6 +311,7 @@ function handleHttpRequest(req: http.IncomingMessage, res: http.ServerResponse) 
       // Read and serve the file
       fs.readFile(filePath, (err, data) => {
         if (err) {
+          logError(`[WebUI] Error reading file: ${err.message}`);
           res.writeHead(500);
           res.end(`Server Error: ${err.message}`);
           return;
