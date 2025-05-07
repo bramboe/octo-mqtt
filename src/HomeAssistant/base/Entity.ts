@@ -14,6 +14,8 @@ export type EntityConfig = {
   description: string;
   category?: string;
   icon?: string;
+  unit?: string;
+  precision?: number;
 };
 
 export class Entity implements IAvailable {
