@@ -5,16 +5,7 @@ export interface ScannerDevice {
   pair?: boolean;
 }
 
-interface OptionsJson {
-  scannerDevices: ScannerDevice[];
-}
-
-const options: OptionsJson = getRootOptions();
-
-export const getDevices = () => {
-  const devices = options.scannerDevices;
-  if (Array.isArray(devices)) {
-    return devices;
-  }
+// We're no longer using Scanner, so always return an empty array
+export const getDevices = (): ScannerDevice[] => {
   return [];
 };
