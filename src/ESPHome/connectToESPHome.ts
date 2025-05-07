@@ -15,10 +15,16 @@ export const connectToESPHome = async (): Promise<IESPConnection> => {
     return new ESPConnection([]);
   }
   
+  logInfo(`[ESPHome] Found ${proxies.length} BLE proxy configuration(s):`);
+  proxies.forEach((proxy, index) => {
+    logInfo(`[ESPHome] Proxy #${index + 1}: host=${proxy.host}, port=${proxy.port}, password=${proxy.password ? 'set' : 'not set'}`);
+  });
+  
   try {
     const connections = await Promise.all(
       proxies.map(async (config: BLEProxy) => {
         try {
+          logInfo(`[ESPHome] Creating connection to ${config.host}:${config.port}`);
           const connection = new Connection(config);
           return await connect(connection);
         } catch (error) {
