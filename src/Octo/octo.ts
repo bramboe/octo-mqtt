@@ -1,7 +1,7 @@
 import { IMQTTConnection } from '@mqtt/IMQTTConnection';
 import { buildDictionary } from '@utils/buildDictionary';
 import { Deferred } from '@utils/deferred';
-import { logError, logInfo } from '@utils/logger';
+import { logError, logInfo, logWarn } from '@utils/logger';
 import { BLEController } from 'BLE/BLEController';
 import { setupDeviceInfoSensor } from 'BLE/setupDeviceInfoSensor';
 import { buildMQTTDeviceData } from 'Common/buildMQTTDeviceData';
@@ -54,6 +54,7 @@ export const octo = async (mqtt: IMQTTConnection, esphome: IESPConnection) => {
       '0000ffe1-0000-1000-8000-00805f9b34fb'
     );
     if (!characteristic) {
+      logWarn(`[Octo] Could not find required characteristic for device ${name}`);
       await disconnect();
       continue;
     }
@@ -70,6 +71,12 @@ export const octo = async (mqtt: IMQTTConnection, esphome: IESPConnection) => {
 
     const featureState = { hasLight: false, lightState: false, hasPin: false, pinLock: false };
     const allFeaturesReturned = new Deferred<void>();
+    
+    // Add timeout for feature request
+    const featureRequestTimeout = setTimeout(() => {
+      logWarn(`[Octo] Timeout waiting for features from device ${name}, continuing with limited functionality`);
+      allFeaturesReturned.resolve();
+    }, 10000); // 10 second timeout
 
     const loadFeatures = (message: Uint8Array) => {
       const packet = extractPacketFromMessage(message);
@@ -77,10 +84,12 @@ export const octo = async (mqtt: IMQTTConnection, esphome: IESPConnection) => {
       const { command, data } = packet;
       if (command[0] == 0x21 && command[1] == 0x71) {
         // features
+        logInfo(`[Octo] Received feature data: ${JSON.stringify(Array.from(data))}`);
         const featureValue = extractFeatureValuePairFromData(data);
         if (featureValue == null) return;
 
         const { feature, value } = featureValue;
+        logInfo(`[Octo] Parsed feature: ${feature.toString(16)}, value: ${JSON.stringify(Array.from(value))}`);
         switch (feature) {
           case 0x3:
             featureState.hasPin = value[0] == 0x1;
@@ -91,6 +100,7 @@ export const octo = async (mqtt: IMQTTConnection, esphome: IESPConnection) => {
             featureState.lightState = value[0] == 0x1;
             return;
           case 0xffffff:
+            clearTimeout(featureRequestTimeout);
             return allFeaturesReturned.resolve();
         }
       }
@@ -98,9 +108,15 @@ export const octo = async (mqtt: IMQTTConnection, esphome: IESPConnection) => {
     controller.on('feedback', loadFeatures);
 
     logInfo('[Octo] Requesting features for device:', name);
-    await controller.writeCommand([0x20, 0x71]); // request bed features
-    await allFeaturesReturned;
-    controller.off('feedback', loadFeatures);
+    try {
+      await controller.writeCommand([0x20, 0x71]); // request bed features
+      await allFeaturesReturned;
+    } catch (error) {
+      logError(`[Octo] Error requesting features: ${error}`);
+    } finally {
+      clearTimeout(featureRequestTimeout);
+      controller.off('feedback', loadFeatures);
+    }
 
     if (featureState.hasPin && featureState.pinLock) {
       if (pin?.length !== 4) {
@@ -108,7 +124,14 @@ export const octo = async (mqtt: IMQTTConnection, esphome: IESPConnection) => {
         await disconnect();
         continue;
       }
-      await controller.writeCommand({ command: [0x20, 0x43], data: pin.split('').map((c) => parseInt(c)) });
+      logInfo('[Octo] Sending PIN to unlock device');
+      try {
+        await controller.writeCommand({ command: [0x20, 0x43], data: pin.split('').map((c) => parseInt(c)) });
+      } catch (error) {
+        logError(`[Octo] Error sending PIN: ${error}`);
+        await disconnect();
+        continue;
+      }
     }
 
     logInfo('[Octo] Setting up entities for device:', name);
