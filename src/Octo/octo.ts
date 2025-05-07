@@ -75,7 +75,8 @@ export const octo = async (mqtt: IMQTTConnection, esphome: IESPConnection) => {
       (command: number[] | Command) => buildComplexCommand(Array.isArray(command) ? { command: command } : command),
       {
         feedback: characteristic.handle,
-      }
+      },
+      pin
     );
 
     // Set up feature detection
@@ -182,6 +183,10 @@ export const octo = async (mqtt: IMQTTConnection, esphome: IESPConnection) => {
       }
       logInfo('[Octo] Sending PIN to unlock device');
       try {
+        // Set PIN for keep-alive
+        controller.setPin(pin);
+        
+        // Send initial PIN command
         await controller.writeCommand({ command: [0x20, 0x43], data: pin.split('').map((c) => parseInt(c)) });
       } catch (error) {
         logError(`[Octo] Error sending PIN: ${error}`);
