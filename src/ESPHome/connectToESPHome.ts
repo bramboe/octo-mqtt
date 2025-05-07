@@ -1,5 +1,5 @@
 import { Connection } from '@2colors/esphome-native-api';
-import { logInfo } from '@utils/logger';
+import { logInfo, logWarn } from '@utils/logger';
 import { ESPConnection } from './ESPConnection';
 import { IESPConnection } from './IESPConnection';
 import { connect } from './connect';
@@ -9,14 +9,36 @@ export const connectToESPHome = async (): Promise<IESPConnection> => {
   logInfo('[ESPHome] Connecting...');
 
   const proxies = getProxies();
-  const connections =
-    proxies.length == 0
-      ? []
-      : await Promise.all(
-          proxies.map(async (config: BLEProxy) => {
-            const connection = new Connection(config);
-            return await connect(connection);
-          })
-        );
-  return new ESPConnection(connections);
+  
+  if (proxies.length === 0) {
+    logWarn('[ESPHome] No BLE proxies configured. BLE functionality will not be available.');
+    return new ESPConnection([]);
+  }
+  
+  try {
+    const connections = await Promise.all(
+      proxies.map(async (config: BLEProxy) => {
+        try {
+          const connection = new Connection(config);
+          return await connect(connection);
+        } catch (error) {
+          logWarn(`[ESPHome] Failed to connect to proxy at ${config.host}:${config.port}`);
+          return null;
+        }
+      })
+    );
+    
+    const validConnections = connections.filter(c => c !== null);
+    
+    if (validConnections.length === 0) {
+      logWarn('[ESPHome] Could not connect to any BLE proxies. BLE functionality will be limited.');
+    } else {
+      logInfo(`[ESPHome] Successfully connected to ${validConnections.length} BLE proxies.`);
+    }
+    
+    return new ESPConnection(validConnections);
+  } catch (error) {
+    logWarn('[ESPHome] Error connecting to BLE proxies. BLE functionality will be limited.');
+    return new ESPConnection([]);
+  }
 };
