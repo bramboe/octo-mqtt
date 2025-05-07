@@ -197,6 +197,12 @@ export const octo = async (mqtt: IMQTTConnection, esphome: IESPConnection) => {
     if (featureState.hasLight) {
       setupLightSwitch(mqtt, controller, featureState.lightState);
     }
-    setupMotorEntities(mqtt, controller);
+    setupMotorEntities(mqtt, {
+      cache: controller.cache,
+      deviceData: controller.deviceData,
+      writeCommand: (command, count?, waitTime?) => controller.writeCommand(command),
+      writeCommands: (commands, count?, waitTime?) => controller.writeCommands(commands, count),
+      cancelCommands: () => controller.cancelCommands()
+    });
   }
 };
