@@ -35,6 +35,8 @@ RUN chmod a+x run.sh
 
 COPY --from=0 /octo-mqtt/node_modules /octo-mqtt/node_modules
 COPY --from=0 /octo-mqtt/dist/tsc/ /octo-mqtt/
+COPY --from=0 /octo-mqtt/dist/webui/ /octo-mqtt/webui/
+COPY --from=0 /octo-mqtt/webui/ /octo-mqtt/webui/
 
 ENTRYPOINT [ "/octo-mqtt/run.sh" ]
 #ENTRYPOINT [ "node", "index.js" ]
