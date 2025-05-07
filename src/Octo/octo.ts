@@ -188,6 +188,7 @@ export const octo = async (mqtt: IMQTTConnection, esphome: IESPConnection) => {
         
         // Send initial PIN command
         await controller.writeCommand({ command: [0x20, 0x43], data: pin.split('').map((c) => parseInt(c)) });
+        logInfo('[Octo] PIN sent successfully, device unlocked');
       } catch (error) {
         logError(`[Octo] Error sending PIN: ${error}`);
         await disconnect();
