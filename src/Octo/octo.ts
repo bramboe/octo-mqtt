@@ -35,6 +35,12 @@ const buildComplexCommand = ({ command, data }: Command) => {
   return bytes;
 };
 
+// Add a timeout for feature requests - time to wait for features before moving on
+const FEATURE_REQUEST_TIMEOUT_MS = 15000; // 15 seconds
+
+// Add maximum retry attempts
+const MAX_FEATURE_REQUEST_ATTEMPTS = 3;
+
 export const octo = async (mqtt: IMQTTConnection, esphome: IESPConnection) => {
   const devices = getDevices();
   if (!devices.length) return logInfo('[Octo] No devices configured');
@@ -59,6 +65,9 @@ export const octo = async (mqtt: IMQTTConnection, esphome: IESPConnection) => {
       continue;
     }
 
+    logInfo(`[Octo] Found characteristic with handle: ${characteristic.handle}`);
+
+    // Create the BLE controller
     const controller = new BLEController(
       deviceData,
       bleDevice,
@@ -69,55 +78,102 @@ export const octo = async (mqtt: IMQTTConnection, esphome: IESPConnection) => {
       }
     );
 
+    // Set up feature detection
     const featureState = { hasLight: false, lightState: false, hasPin: false, pinLock: false };
-    const allFeaturesReturned = new Deferred<void>();
-    
-    // Add timeout for feature request
-    const featureRequestTimeout = setTimeout(() => {
-      logWarn(`[Octo] Timeout waiting for features from device ${name}, continuing with limited functionality`);
-      allFeaturesReturned.resolve();
-    }, 10000); // 10 second timeout
+    let currentAttempt = 0;
+    let featuresReceived = false;
 
-    const loadFeatures = (message: Uint8Array) => {
-      const packet = extractPacketFromMessage(message);
-      if (!packet) return;
-      const { command, data } = packet;
-      if (command[0] == 0x21 && command[1] == 0x71) {
-        // features
-        logInfo(`[Octo] Received feature data: ${JSON.stringify(Array.from(data))}`);
-        const featureValue = extractFeatureValuePairFromData(data);
-        if (featureValue == null) return;
-
-        const { feature, value } = featureValue;
-        logInfo(`[Octo] Parsed feature: ${feature.toString(16)}, value: ${JSON.stringify(Array.from(value))}`);
-        switch (feature) {
-          case 0x3:
-            featureState.hasPin = value[0] == 0x1;
-            featureState.pinLock = value[1] !== 0x1;
-            return;
-          case 0x102:
-            featureState.hasLight = true;
-            featureState.lightState = value[0] == 0x1;
-            return;
-          case 0xffffff:
-            clearTimeout(featureRequestTimeout);
-            return allFeaturesReturned.resolve();
+    // Function to request features and wait with retry logic
+    const requestFeatures = async () => {
+      currentAttempt++;
+      
+      logInfo(`[Octo] Requesting features for device ${name} (attempt ${currentAttempt}/${MAX_FEATURE_REQUEST_ATTEMPTS})`);
+      
+      const allFeaturesReturned = new Deferred<void>();
+      
+      // Add timeout for feature request
+      const featureRequestTimeout = setTimeout(() => {
+        if (!featuresReceived) {
+          logWarn(`[Octo] Timeout waiting for features from device ${name}, attempt ${currentAttempt}/${MAX_FEATURE_REQUEST_ATTEMPTS}`);
+          allFeaturesReturned.resolve();
         }
+      }, FEATURE_REQUEST_TIMEOUT_MS);
+
+      const loadFeatures = (message: Uint8Array) => {
+        logInfo(`[Octo] Received data from device: ${Array.from(message).map(b => b.toString(16)).join(' ')}`);
+        
+        const packet = extractPacketFromMessage(message);
+        if (!packet) {
+          logWarn(`[Octo] Failed to extract packet from message`);
+          return;
+        }
+        
+        const { command, data } = packet;
+        logInfo(`[Octo] Extracted packet - command: ${command.map(b => b.toString(16)).join(' ')}, data length: ${data.length}`);
+        
+        if (command[0] == 0x21 && command[1] == 0x71) {
+          // features
+          logInfo(`[Octo] Received feature data: ${JSON.stringify(Array.from(data))}`);
+          const featureValue = extractFeatureValuePairFromData(data);
+          if (featureValue == null) {
+            logWarn(`[Octo] Failed to extract feature value from data`);
+            return;
+          }
+
+          featuresReceived = true;
+          const { feature, value } = featureValue;
+          logInfo(`[Octo] Parsed feature: ${feature.toString(16)}, value: ${JSON.stringify(Array.from(value))}`);
+          
+          switch (feature) {
+            case 0x3:
+              featureState.hasPin = value[0] == 0x1;
+              featureState.pinLock = value[1] !== 0x1;
+              logInfo(`[Octo] Has PIN: ${featureState.hasPin}, PIN locked: ${featureState.pinLock}`);
+              return;
+            case 0x102:
+              featureState.hasLight = true;
+              featureState.lightState = value[0] == 0x1;
+              logInfo(`[Octo] Has light: ${featureState.hasLight}, light state: ${featureState.lightState}`);
+              return;
+            case 0xffffff:
+              logInfo(`[Octo] End of features marker received`);
+              clearTimeout(featureRequestTimeout);
+              return allFeaturesReturned.resolve();
+          }
+        } else {
+          logInfo(`[Octo] Received non-feature packet with command: ${command.map(b => b.toString(16)).join(' ')}`);
+        }
+      };
+      
+      controller.on('feedback', loadFeatures);
+
+      try {
+        // Send the feature request command
+        await controller.writeCommand([0x20, 0x71]);
+        await allFeaturesReturned;
+      } catch (error) {
+        logError(`[Octo] Error requesting features: ${error}`);
+      } finally {
+        clearTimeout(featureRequestTimeout);
+        controller.off('feedback', loadFeatures);
+      }
+
+      // If we didn't receive any features and haven't reached max attempts, try again
+      if (!featuresReceived && currentAttempt < MAX_FEATURE_REQUEST_ATTEMPTS) {
+        logInfo(`[Octo] Retrying feature request for device ${name}`);
+        return requestFeatures();
+      }
+      
+      // If we tried max attempts and still didn't get features, continue with defaults
+      if (!featuresReceived) {
+        logWarn(`[Octo] Failed to get features after ${MAX_FEATURE_REQUEST_ATTEMPTS} attempts, continuing with defaults`);
       }
     };
-    controller.on('feedback', loadFeatures);
 
-    logInfo('[Octo] Requesting features for device:', name);
-    try {
-      await controller.writeCommand([0x20, 0x71]); // request bed features
-      await allFeaturesReturned;
-    } catch (error) {
-      logError(`[Octo] Error requesting features: ${error}`);
-    } finally {
-      clearTimeout(featureRequestTimeout);
-      controller.off('feedback', loadFeatures);
-    }
+    // Request features
+    await requestFeatures();
 
+    // Handle PIN if needed
     if (featureState.hasPin && featureState.pinLock) {
       if (pin?.length !== 4) {
         logError('[Octo] 4 Digit Numeric Pin Required But Not Provided');
