@@ -1,5 +1,5 @@
 import { EventEmitter } from 'events';
-import { logError, logInfo } from '@utils/logger';
+import { logError, logInfo, logWarn } from '@utils/logger';
 
 // Simple stub implementation
 export class BLEController extends EventEmitter {
@@ -12,6 +12,7 @@ export class BLEController extends EventEmitter {
   }> = [];
   private processing = false;
   private timeout: NodeJS.Timeout | null = null;
+  private notificationSetup = false;
   
   constructor(
     public readonly deviceData: any,
@@ -24,25 +25,58 @@ export class BLEController extends EventEmitter {
     // Silence unused parameter warnings
     this._silence(bleDevice, handle, buildCommand, handles);
     
-    // Set up feedback handler
-    if (this.handles?.feedback) {
-      this.bleDevice.on('characteristicValueChanged', (handle: number, value: Uint8Array) => {
-        if (handle === this.handles?.feedback) {
-          this.emit('feedback', value);
-        }
-      });
-      
-      // Subscribe to notifications
-      this.bleDevice.subscribeToCharacteristic(this.handles.feedback)
-        .catch((error: Error) => {
-          logError('[BLE] Failed to subscribe to feedback characteristic:', error);
-        });
-    }
+    // Set up notifications listener through separate method
+    this.setupNotifications();
   }
 
   // Used only to silence TypeScript warnings
   private _silence(...args: any[]): void {
     // Do nothing
+  }
+
+  // Set up notifications in a way that doesn't depend on 'on' method
+  private async setupNotifications() {
+    if (!this.handles?.feedback || this.notificationSetup) {
+      return;
+    }
+    
+    try {
+      this.notificationSetup = true;
+      logInfo('[BLE] Setting up notifications for feedback characteristic');
+      
+      // Check if subscribeToCharacteristic is available
+      if (typeof this.bleDevice.subscribeToCharacteristic === 'function') {
+        // Subscribe to the characteristic
+        await this.bleDevice.subscribeToCharacteristic(this.handles.feedback);
+        
+        // If available, use the direct notification subscription method
+        if (typeof this.bleDevice.onCharacteristicValueChanged === 'function') {
+          const feedbackHandle = this.handles.feedback; // Store in local variable to avoid undefined warning
+          this.bleDevice.onCharacteristicValueChanged(feedbackHandle, (value: Uint8Array) => {
+            this.emit('feedback', value);
+          });
+        } else {
+          logWarn('[BLE] onCharacteristicValueChanged not found, notifications may not work properly');
+        }
+      } else {
+        logWarn('[BLE] subscribeToCharacteristic not found, will try to fall back to polling');
+        
+        // Fall back to polling the characteristic every second
+        const feedbackHandle = this.handles.feedback; // Store in local variable to avoid undefined warning
+        setInterval(async () => {
+          try {
+            const value = await this.bleDevice.readCharacteristic(feedbackHandle);
+            if (value) {
+              this.emit('feedback', value);
+            }
+          } catch (error) {
+            // Ignore read errors to avoid spamming logs
+          }
+        }, 1000);
+      }
+    } catch (error) {
+      logError('[BLE] Failed to set up notifications:', error);
+    }
   }
 
   async writeCommand(command: number[] | { command: number[]; data?: number[] }): Promise<void> {
