@@ -1,0 +1,18 @@
+{
+  "mqtt": {
+    "host": "192.168.1.2",
+    "port": 1883,
+    "username": "mqtt",
+    "password": "mqtt"
+  },
+  "bleProxies": [
+    {
+      "host": "YOUR_ESP32_IP_ADDRESS", 
+      "port": 6052,
+      "name": "BLE Proxy",
+      "enabled": false
+    }
+  ],
+  "octoDevices": [],
+  "webPort": 8099
+}
