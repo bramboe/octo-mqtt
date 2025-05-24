@@ -1,0 +1,13 @@
+# Backup directories
+backups/
+
+# Addon specific ignores
+octo-mqtt/node_modules/
+octo-mqtt/dist/
+octo-mqtt/app.log
+octo-mqtt/tmp/
+octo-mqtt/.husky/ # If it ever gets created
+
+# General ignores
+*.log
+.DS_Store 
