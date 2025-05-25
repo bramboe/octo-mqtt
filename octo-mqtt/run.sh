@@ -1,11 +1,11 @@
 #!/usr/bin/with-contenv bashio
 
 # Log startup with unique identifier
-bashio::log.info "🚀 Starting Octo MQTT addon v2.0.2..."
-bashio::log.info "📅 Build: v2025.05.25.6"
+bashio::log.info "🚀 Starting Octo MQTT addon v2.0.3..."
+bashio::log.info "📅 Build: v2025.05.25.7"
 bashio::log.info "⚡ Process ID: $$"
 bashio::log.info "🔧 Repository: https://github.com/bramboe/octo-mqtt"
-bashio::log.info "🏷️  Git Tag: v2.0.2"
+bashio::log.info "🏷️  Git Tag: v2.0.3"
 
 # Check if any Node.js processes are already running on port 8099
 if netstat -tulpn 2>/dev/null | grep -q ':8099 '; then
