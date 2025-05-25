@@ -1,7 +1,7 @@
 FROM node:18-alpine
 
 # Force rebuild by changing this version number
-ENV BUILD_VERSION=v2025.05.24.1
+ENV BUILD_VERSION=v2025.05.25.1
 
 # Install system dependencies
 RUN apk add --no-cache bash curl jq
@@ -17,13 +17,18 @@ RUN curl -J -L -o /tmp/bashio.tar.gz "https://github.com/hassio-addons/bashio/ar
 # Set working directory
 WORKDIR /app
 
-# Copy package file and install dependencies
-COPY package-simple.json package.json
-RUN npm install --production
+# Copy package files and install dependencies
+COPY package.json ./
+COPY tsconfig.json ./
+COPY tsconfig.build.json ./
+RUN npm install
 
-# Copy application files
-COPY index.js ./
+# Copy source code
+COPY src ./src/
 COPY webui ./webui/
+
+# Build the TypeScript application
+RUN npm run build
 
 # Copy run script and make it executable
 COPY run.sh ./run.sh
@@ -37,7 +42,7 @@ EXPOSE 8099
 
 # Debug: Show what files we have
 RUN echo "=== FILES IN /app ===" && ls -la /app/ && \
-    echo "=== CONTENT OF index.js FIRST 10 LINES ===" && head -10 /app/index.js && \
+    echo "=== BUILT FILES ===" && ls -la /app/dist/ && \
     echo "=== CONTENT OF run.sh FIRST 10 LINES ===" && head -10 /app/run.sh
 
 # Health check
@@ -49,7 +54,7 @@ ENTRYPOINT ["/bin/bash", "/app/run.sh"]
 
 LABEL \
     io.hass.name="Octo Integration via MQTT" \
-    io.hass.description="Home Assistant Community Add-on for Octo actuators star version 2 (Simplified JavaScript version)" \
+    io.hass.description="Home Assistant Community Add-on for Octo actuators star version 2 (TypeScript version)" \
     io.hass.type="addon" \
-    io.hass.version="2.0.0" \
+    io.hass.version="2.0.1" \
     maintainer="Bram Boersma <bram.boersma@gmail.com>"
