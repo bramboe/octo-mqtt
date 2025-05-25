@@ -8,7 +8,7 @@
   "main": "./dist/tsc/index.js",
   "types": "./dist/tsc/index.d.ts",
   "scripts": {
-    "build": "tsc -p tsconfig.prod.json && tsc-alias",
+    "build": "tsc -p tsconfig.prod.json && tsc-alias -p tsconfig.prod.json",
     "start": "node dist/tsc/index.js"
   },
   "dependencies": {
