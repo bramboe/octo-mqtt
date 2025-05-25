@@ -1,7 +1,7 @@
 FROM node:18-alpine
 
 # Force rebuild by changing this version number
-ENV BUILD_VERSION=v2025.05.25.3
+ENV BUILD_VERSION=v2025.05.25.4
 
 # Install system dependencies
 RUN apk add --no-cache bash curl jq
@@ -17,10 +17,9 @@ RUN curl -J -L -o /tmp/bashio.tar.gz "https://github.com/hassio-addons/bashio/ar
 # Set working directory
 WORKDIR /app
 
-# Copy production package file and TypeScript configs
+# Copy production package file and TypeScript config
 COPY package.prod.json package.json
-COPY tsconfig.json ./
-COPY tsconfig.build.json ./
+COPY tsconfig.prod.json ./
 
 # Install dependencies
 RUN npm install
