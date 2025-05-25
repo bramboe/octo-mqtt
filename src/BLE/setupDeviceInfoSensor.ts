@@ -2,7 +2,7 @@ import { IMQTTConnection } from '../MQTT/IMQTTConnection';
 import { BLEController } from './BLEController';
 
 // Helper function to silence unused parameter warnings
-const _silence = (...args: any[]): void => {
+const _silence = (..._args: any[]): void => {
   // Do nothing
 };
 

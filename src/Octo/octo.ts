@@ -206,8 +206,8 @@ export const octo = async (mqtt: IMQTTConnection, esphome: IESPConnection) => {
     setupMotorEntities(mqtt, {
       cache: controller.cache,
       deviceData: controller.deviceData,
-      writeCommand: (command, count?, waitTime?) => controller.writeCommand(command),
-      writeCommands: (commands, count?, waitTime?) => controller.writeCommands(commands, count),
+      writeCommand: (command, _count?, _waitTime?) => controller.writeCommand(command),
+      writeCommands: (commands, count?, _waitTime?) => controller.writeCommands(commands, count),
       cancelCommands: () => controller.cancelCommands()
     });
   }
