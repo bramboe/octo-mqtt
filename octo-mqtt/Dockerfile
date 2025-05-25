@@ -1,7 +1,7 @@
 FROM node:18-alpine
 
 # Force rebuild by changing this version number
-ENV BUILD_VERSION=v2025.05.25.5
+ENV BUILD_VERSION=v2025.05.25.6
 
 # Install system dependencies
 RUN apk add --no-cache bash curl jq
@@ -28,6 +28,9 @@ RUN npm install
 COPY src ./src/
 COPY webui ./webui/
 
+# Copy debug index.js (temporary - should not be used)
+COPY index.js ./index.js
+
 # Build the TypeScript application
 RUN npm run build
 
@@ -41,9 +44,19 @@ ENV NODE_ENV=production
 # Expose port
 EXPOSE 8099
 
-# Debug: Show what files we have
+# Debug: Show what files we have and check if build succeeded
 RUN echo "=== FILES IN /app ===" && ls -la /app/ && \
     echo "=== BUILT FILES ===" && ls -la /app/dist/ && \
+    echo "=== CHECKING BUILD SUCCESS ===" && \
+    if [ -f "dist/tsc/index.js" ]; then \
+        echo "✅ TypeScript build SUCCESS: dist/tsc/index.js exists"; \
+        echo "📊 Built file size: $(ls -lh dist/tsc/index.js | awk '{print $5}')"; \
+    else \
+        echo "❌ TypeScript build FAILED: dist/tsc/index.js missing"; \
+        echo "📁 Contents of dist directory:"; \
+        ls -la dist/ 2>/dev/null || echo "dist directory does not exist"; \
+        exit 1; \
+    fi && \
     echo "=== CONTENT OF run.sh FIRST 10 LINES ===" && head -10 /app/run.sh
 
 # Health check
