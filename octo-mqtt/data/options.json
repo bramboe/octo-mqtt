@@ -1,0 +1,9 @@
+{
+  "mqtt_host": "localhost",
+  "mqtt_port": 1883,
+  "mqtt_username": "",
+  "mqtt_password": "",
+  "esphome_proxies": [],
+  "octoDevices": [],
+  "log_level": "info"
+} 
