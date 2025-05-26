@@ -20,7 +20,10 @@ import { BLEScanner } from './Scanner/BLEScanner';
 EventEmitter.defaultMaxListeners = 50;
 
 // Global variables to track scanning state
+let isScanning = false;
 let scanTimeout: NodeJS.Timeout | null = null;
+let scanStartTime: number | null = null;
+const SCAN_DURATION_MS = 30000; // 30 seconds scan duration
 const discoveredDevices = new Map<string, BLEDeviceAdvertisement>();
 let esphomeConnection: IESPConnection & EventEmitter | null = null;
 let bleScanner: BLEScanner | null = null;
@@ -29,6 +32,8 @@ let connectedClients: Set<WebSocket> = new Set();
 
 // Function to cleanup scan state and remove listeners
 function cleanupScanState() {
+  isScanning = false;
+  scanStartTime = null;
   if (scanTimeout) {
     clearTimeout(scanTimeout);
     scanTimeout = null;
@@ -62,9 +67,6 @@ function updateDeviceWithStrongestSignal(device: BLEDeviceAdvertisement) {
     discoveredDevices.set(device.address, device);
   }
 }
-
-// Use the function to avoid unused warning
-updateDeviceWithStrongestSignal;
 
 const processExit = (exitCode?: number) => {
   if (exitCode && exitCode > 0) {
@@ -104,12 +106,6 @@ const start = async () => {
   const app = express();
   const port = process.env.PORT || 8099;
   const server = http.createServer(app);
-
-  // Handle Home Assistant ingress path
-  const ingressPath = process.env.INGRESS_PATH || '';
-  if (ingressPath) {
-    logInfo(`[Server] Using ingress path: ${ingressPath}`);
-  }
 
   // Set up WebSocket server for real-time communication
   wsServer = new WebSocket.Server({ 
@@ -177,7 +173,7 @@ const start = async () => {
   
   // Handle incoming WebSocket messages
   function handleWebSocketMessage(ws: WebSocket, data: any) {
-    const { type, payload: _payload } = data;
+    const { type, payload } = data;
     
     switch (type) {
       case 'status':
@@ -217,8 +213,8 @@ const start = async () => {
   // Initialize BLE scanner
   bleScanner = new BLEScanner(esphomeConnection as any); // TODO: Fix type casting
 
-  // Helper function for scan start logic
-  const handleScanStart = async (_req: Request, res: Response): Promise<void> => {
+    // BLE scanning endpoints with simplified routes
+  app.post('/scan/start', async (_req: Request, res: Response): Promise<void> => {
     logInfo('[BLE] Received scan start request');
     
     if (!bleScanner) {
@@ -239,16 +235,9 @@ const start = async () => {
         details: error instanceof Error ? error.message : String(error)
       });
     }
-  };
+  });
 
-  // BLE scanning endpoints - both with and without ingress path
-  app.post('/scan/start', handleScanStart);
-  if (ingressPath) {
-    app.post(`${ingressPath}/scan/start`, handleScanStart);
-  }
-
-  // Helper function for scan status logic
-  const handleScanStatus = (_req: Request, res: Response): void => {
+  app.get('/scan/status', (_req: Request, res: Response): void => {
     logInfo('[BLE] Received scan status request');
     
     if (!bleScanner) {
@@ -275,15 +264,9 @@ const start = async () => {
       logError('[BLE] Error getting scan status:', error);
       res.status(500).json({ error: 'Failed to get scan status' });
     }
-  };
+  });
 
-  app.get('/scan/status', handleScanStatus);
-  if (ingressPath) {
-    app.get(`${ingressPath}/scan/status`, handleScanStatus);
-  }
-
-  // Helper function for scan stop logic
-  const handleScanStop = async (_req: Request, res: Response): Promise<void> => {
+  app.post('/scan/stop', async (_req: Request, res: Response): Promise<void> => {
     logInfo('[BLE] Received scan stop request');
     
     if (!bleScanner) {
@@ -305,12 +288,7 @@ const start = async () => {
         details: error instanceof Error ? error.message : String(error)
       });
     }
-  };
-
-  app.post('/scan/stop', handleScanStop);
-  if (ingressPath) {
-    app.post(`${ingressPath}/scan/stop`, handleScanStop);
-  }
+  });
 
   app.post('/device/add', async (req: Request, res: Response): Promise<void> => {
     const { address, pin } = req.body;
@@ -428,22 +406,48 @@ const start = async () => {
         logInfo(`[BLE] Local configuration file also updated for immediate use`);
         
       } catch (apiError) {
-        logWarn(`[BLE] Failed to update via Supervisor API, falling back to local file: ${apiError}`);
+        logError(`[BLE] Failed to update via Supervisor API:`, apiError);
         
-        // Fallback: write directly to local file
+        // Fallback to local file write only
+        logInfo(`[BLE] Falling back to local file write...`);
         const configJson = JSON.stringify(config, null, 2);
         const tempFile = '/data/options.json.tmp';
         
         await fs.promises.writeFile(tempFile, configJson);
         await fs.promises.rename(tempFile, '/data/options.json');
         
-        logInfo(`[BLE] Configuration saved to local file successfully`);
+        logWarn(`[BLE] Configuration saved locally only - may not persist across addon restarts`);
+      }
+
+      // Verify the configuration was saved
+      const verifyConfig = getRootOptions();
+      const verifyDevice = verifyConfig.octoDevices?.find((d: { name: string }) => 
+        d.name.toLowerCase() === newDevice.name.toLowerCase()
+      );
+      
+      if (verifyDevice) {
+        logInfo(`[BLE] Device addition verified successfully`);
+        logInfo(`[BLE] Final device count: ${verifyConfig.octoDevices?.length || 0}`);
+      } else {
+        logError(`[BLE] Device addition verification failed! Device not found after write.`);
+        res.status(500).json({ error: 'Configuration verification failed' });
+        return;
+      }
+
+      logInfo(`[BLE] Added new device: ${newDevice.friendlyName}`);
+      logInfo(`[BLE] Device details: name="${newDevice.name}", friendlyName="${newDevice.friendlyName}", pin="${newDevice.pin}"`);
+      logInfo(`[BLE] Total devices in config: ${config.octoDevices.length}`);
+      
+      // Broadcast device info update via WebSocket
+      if (wsServer && connectedClients.size > 0) {
+        broadcastDeviceInfo();
+        logInfo(`[BLE] Broadcasted device info update to ${connectedClients.size} WebSocket client(s)`);
       }
       
       res.json({ 
         message: 'Device added successfully',
         device: newDevice,
-        note: 'Device has been added to configuration. Restart the addon to connect to the device.'
+        note: 'Configuration updated via Home Assistant Supervisor API'
       });
 
     } catch (error) {
@@ -455,19 +459,23 @@ const start = async () => {
     }
   });
 
-  // Get configured devices
+  // Get configured devices endpoint
   app.get('/devices/configured', (_req: Request, res: Response): void => {
     try {
       const config = getRootOptions();
       const configuredDevices = config.octoDevices || [];
       
-      res.json({
+      logInfo(`[BLE] Retrieved ${configuredDevices.length} configured device(s)`);
+      res.json({ 
         devices: configuredDevices,
         count: configuredDevices.length
       });
     } catch (error) {
-      logError('[API] Error getting configured devices:', error);
-      res.status(500).json({ error: 'Failed to get configured devices' });
+      logError('[BLE] Error getting configured devices:', error);
+      res.status(500).json({ 
+        error: 'Failed to get configured devices',
+        details: error instanceof Error ? error.message : String(error)
+      });
     }
   });
 
@@ -516,6 +524,48 @@ const start = async () => {
         removedDevice: deviceToRemove
       });
 
+    } catch (error) {
+      logError('[BLE] Error removing device:', error);
+      res.status(500).json({ 
+        error: 'Failed to remove device',
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  // Remove device (legacy endpoint)
+  app.delete('/device/:address', async (req: Request, res: Response): Promise<void> => {
+    const { address } = req.params;
+    
+    try {
+      const config = getRootOptions();
+      const existingDevices = config.octoDevices || [];
+      
+      const deviceIndex = existingDevices.findIndex((d: any) => 
+        d.name?.toLowerCase() === address.toLowerCase()
+      );
+      
+      if (deviceIndex === -1) {
+        res.status(404).json({ error: 'Device not found' });
+        return;
+      }
+      
+      const removedDevice = existingDevices.splice(deviceIndex, 1)[0];
+      
+      // Save updated configuration
+      const configJson = JSON.stringify(config, null, 2);
+      const tempFile = '/data/options.json.tmp';
+      
+      await fs.promises.writeFile(tempFile, configJson);
+      await fs.promises.rename(tempFile, '/data/options.json');
+      
+      logInfo(`[BLE] Device ${address} removed from configuration`);
+      
+      res.json({ 
+        message: 'Device removed successfully',
+        device: removedDevice
+      });
+      
     } catch (error) {
       logError('[BLE] Error removing device:', error);
       res.status(500).json({ 
@@ -586,31 +636,11 @@ const start = async () => {
     }
   });
 
+  // API endpoint to get discovered devices
   app.get('/api/devices', (_req: Request, res: Response) => {
     // This endpoint would return the list of discovered devices
     // You'll need to implement device storage if you want to persist the list
     res.json({ devices: Array.from(discoveredDevices.values()) });
-  });
-
-  // Debug routes endpoint
-  app.get('/debug/routes', (_req: Request, res: Response) => {
-    const routes: string[] = [];
-    app._router.stack.forEach((middleware: any) => {
-      if (middleware.route) {
-        const methods = Object.keys(middleware.route.methods).join(', ').toUpperCase();
-        routes.push(`${methods} ${middleware.route.path}`);
-      }
-    });
-    
-    res.json({
-      ingressPath: ingressPath || 'none',
-      availableRoutes: routes,
-      environment: {
-        PORT: process.env.PORT,
-        INGRESS_PATH: process.env.INGRESS_PATH,
-        NODE_ENV: process.env.NODE_ENV
-      }
-    });
   });
 
   // Health check endpoint
