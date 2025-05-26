@@ -1,69 +1,87 @@
 #!/usr/bin/env bashio
 
+# Log startup with unique identifier
+bashio::log.info "🚀 Starting Octo MQTT addon v2.0.4..."
+bashio::log.info "📅 Build: v2025.05.25.8"
+bashio::log.info "⚡ Process ID: $$"
+bashio::log.info "🔧 Repository: https://github.com/bramboe/octo-mqtt"
+bashio::log.info "🏷️  Git Tag: v2.0.4"
+
+# Read configuration from Home Assistant
 export MQTTHOST=$(bashio::config "mqtt_host")
 export MQTTPORT=$(bashio::config "mqtt_port")
-export MQTTUSER=$(bashio::config "mqtt_user")
+export MQTTUSER=$(bashio::config "mqtt_username")
 export MQTTPASSWORD=$(bashio::config "mqtt_password")
 
 # Enable full error stack traces for debugging
 export NODE_OPTIONS="--trace-warnings --trace-uncaught"
 
-if [ $MQTTHOST = '<auto_detect>' ]; then
+# Auto-detect MQTT Host
+if [ "$MQTTHOST" = '<auto_detect>' ]; then
     if bashio::services.available 'mqtt'; then
         MQTTHOST=$(bashio::services mqtt "host")
-	if [ $MQTTHOST = 'localhost' ] || [ $MQTTHOST = '127.0.0.1' ]; then
-	    echo "Discovered invalid value for MQTT host: ${MQTTHOST}"
-	    echo "Overriding with default alias for Mosquitto MQTT addon"
-	    MQTTHOST="core-mosquitto"
-	fi
-        echo "Using discovered MQTT Host: ${MQTTHOST}"
+        if [ "$MQTTHOST" = 'localhost' ] || [ "$MQTTHOST" = '127.0.0.1' ]; then
+            bashio::log.info "Discovered invalid value for MQTT host: ${MQTTHOST}"
+            bashio::log.info "Overriding with default alias for Mosquitto MQTT addon"
+            MQTTHOST="core-mosquitto"
+        fi
+        bashio::log.info "Using discovered MQTT Host: ${MQTTHOST}"
     else
-    	echo "No Home Assistant MQTT service found, using defaults"
+        bashio::log.info "No Home Assistant MQTT service found, using defaults"
         MQTTHOST="172.30.32.1"
-        echo "Using default MQTT Host: ${MQTTHOST}"
+        bashio::log.info "Using default MQTT Host: ${MQTTHOST}"
     fi
 else
-    echo "Using configured MQTT Host: ${MQTTHOST}"
+    bashio::log.info "Using configured MQTT Host: ${MQTTHOST}"
 fi
 
-if [ $MQTTPORT = '<auto_detect>' ]; then
+# Auto-detect MQTT Port
+if [ "$MQTTPORT" = '<auto_detect>' ]; then
     if bashio::services.available 'mqtt'; then
         MQTTPORT=$(bashio::services mqtt "port")
-        echo "Using discovered MQTT Port: ${MQTTPORT}"
+        bashio::log.info "Using discovered MQTT Port: ${MQTTPORT}"
     else
         MQTTPORT="1883"
-        echo "Using default MQTT Port: ${MQTTPORT}"
+        bashio::log.info "Using default MQTT Port: ${MQTTPORT}"
     fi
 else
-    echo "Using configured MQTT Port: ${MQTTPORT}"
+    bashio::log.info "Using configured MQTT Port: ${MQTTPORT}"
 fi
 
-if [ $MQTTUSER = '<auto_detect>' ]; then
+# Auto-detect MQTT User
+if [ "$MQTTUSER" = '<auto_detect>' ]; then
     if bashio::services.available 'mqtt'; then
         MQTTUSER=$(bashio::services mqtt "username")
-        echo "Using discovered MQTT User: ${MQTTUSER}"
+        bashio::log.info "Using discovered MQTT User: ${MQTTUSER}"
     else
         MQTTUSER=""
-        echo "Using anonymous MQTT connection"
+        bashio::log.info "Using anonymous MQTT connection"
     fi
 else
-    echo "Using configured MQTT User: ${MQTTUSER}"
+    bashio::log.info "Using configured MQTT User: ${MQTTUSER}"
 fi
 
-if [ $MQTTPASSWORD = '<auto_detect>' ]; then
+# Auto-detect MQTT Password
+if [ "$MQTTPASSWORD" = '<auto_detect>' ]; then
     if bashio::services.available 'mqtt'; then
         MQTTPASSWORD=$(bashio::services mqtt "password")
-        echo "Using discovered MQTT password: <hidden>"
+        bashio::log.info "Using discovered MQTT password: <hidden>"
     else
         MQTTPASSWORD=""
     fi
 else
-    echo "Using configured MQTT password: <hidden>"
+    bashio::log.info "Using configured MQTT password: <hidden>"
 fi
+
+# Export the final values for the application
+export MQTTHOST
+export MQTTPORT
+export MQTTUSER
+export MQTTPASSWORD
 
 # Check if any Node.js processes are already running on port 8099
 if netstat -tulpn 2>/dev/null | grep -q ':8099 '; then
-    echo "⚠️  Port 8099 already in use! Killing existing processes..."
+    bashio::log.warning "⚠️  Port 8099 already in use! Killing existing processes..."
     pkill -f "node.*8099" || true
     sleep 2
 fi
@@ -72,34 +90,51 @@ fi
 mkdir -p /data
 
 # Log debug info
-echo "Working directory: $(pwd)"
-echo "Node version: $(node --version)"
-echo "Files:"
+bashio::log.info "Working directory: $(pwd)"
+bashio::log.info "Node version: $(node --version)"
+bashio::log.info "Files:"
 ls -la
 
 # Check which version we're actually running
 if [ -f "dist/tsc/index.js" ]; then
-    echo "✅ TypeScript build found: dist/tsc/index.js"
-    echo "📊 Built file size: $(ls -lh dist/tsc/index.js | awk '{print $5}')"
+    bashio::log.info "✅ TypeScript build found: dist/tsc/index.js"
+    bashio::log.info "📊 Built file size: $(ls -lh dist/tsc/index.js | awk '{print $5}')"
     MAIN_FILE="dist/tsc/index.js"
 elif [ -f "index.js" ]; then
-    echo "⚠️  Using fallback debug index.js - this indicates a caching issue!"
-    echo "🚨 Home Assistant may be using an old cached version of the repository"
+    bashio::log.warning "⚠️  Using fallback debug index.js - this indicates a caching issue!"
+    bashio::log.warning "🚨 Home Assistant may be using an old cached version of the repository"
     MAIN_FILE="index.js"
 else
-    echo "❌ No main file found! Neither dist/tsc/index.js nor index.js exists"
+    bashio::log.error "❌ No main file found! Neither dist/tsc/index.js nor index.js exists"
     exit 1
 fi
 
+# Create default config if needed
+CONFIG_FILE="/data/options.json"
+if [ ! -f "$CONFIG_FILE" ]; then
+    bashio::log.info "Creating default config..."
+    cat > "$CONFIG_FILE" << 'EOF'
+{
+  "mqtt_host": "<auto_detect>",
+  "mqtt_port": "<auto_detect>",
+  "mqtt_username": "<auto_detect>",
+  "mqtt_password": "<auto_detect>",
+  "esphome_proxies": [],
+  "octoDevices": [],
+  "log_level": "info"
+}
+EOF
+fi
+
 # Debug info
-echo "Starting Octo-MQTT with the following configuration:"
-echo "- MQTT Host: ${MQTTHOST}"
-echo "- MQTT Port: ${MQTTPORT}"
-echo "- BLE Proxy count: $(bashio::config 'bleProxies | length')"
-echo "- Octo device count: $(bashio::config 'octoDevices | length')"
+bashio::log.info "Starting Octo-MQTT with the following configuration:"
+bashio::log.info "- MQTT Host: ${MQTTHOST}"
+bashio::log.info "- MQTT Port: ${MQTTPORT}"
+bashio::log.info "- ESPHome Proxy count: $(bashio::config 'esphome_proxies | length')"
+bashio::log.info "- Octo device count: $(bashio::config 'octoDevices | length')"
 
 # Final startup message
-echo "🎯 Starting application with: $MAIN_FILE"
+bashio::log.info "🎯 Starting application with: $MAIN_FILE"
 
 # Start the application with proper error handling
 exec node "$MAIN_FILE"
