@@ -1,18 +1,23 @@
 FROM node:18-alpine
 
 # Force rebuild by changing this version number
-ENV BUILD_VERSION=v2025.05.25.8
+ENV BUILD_VERSION=v2025.05.25.9
 
-# Install system dependencies
-RUN apk add --no-cache bash curl jq netcat-openbsd
+# Add env
+ENV LANG C.UTF-8
+ENV PORT=8099
 
-# Install bashio for Home Assistant integration
-RUN curl -J -L -o /tmp/bashio.tar.gz "https://github.com/hassio-addons/bashio/archive/v0.13.1.tar.gz" && \
+# Install system dependencies and bashio
+RUN apk add --no-cache bash curl jq netcat-openbsd && \
+    curl -J -L -o /tmp/bashio.tar.gz "https://github.com/hassio-addons/bashio/archive/v0.13.1.tar.gz" && \
     mkdir /tmp/bashio && \
     tar zxvf /tmp/bashio.tar.gz --strip 1 -C /tmp/bashio && \
     mv /tmp/bashio/lib /usr/lib/bashio && \
     ln -s /usr/lib/bashio/bashio /usr/bin/bashio && \
     rm -rf /tmp/bashio.tar.gz /tmp/bashio
+
+# Set shell
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # Set working directory
 WORKDIR /app
@@ -64,7 +69,7 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s \
   CMD curl -f http://localhost:8099/health || exit 1
 
 # Start the application  
-ENTRYPOINT ["/bin/bash", "/app/run.sh"]
+ENTRYPOINT ["/app/run.sh"]
 
 LABEL \
     io.hass.name="Octo Integration via MQTT" \

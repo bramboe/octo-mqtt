@@ -61,36 +61,6 @@ else
     echo "Using configured MQTT password: <hidden>"
 fi
 
-# Check if any Node.js processes are already running on port 8099
-if netstat -tulpn 2>/dev/null | grep -q ':8099 '; then
-    echo "⚠️  Port 8099 already in use! Killing existing processes..."
-    pkill -f "node.*8099" || true
-    sleep 2
-fi
-
-# Create data directory
-mkdir -p /data
-
-# Log debug info
-echo "Working directory: $(pwd)"
-echo "Node version: $(node --version)"
-echo "Files:"
-ls -la
-
-# Check which version we're actually running
-if [ -f "dist/tsc/index.js" ]; then
-    echo "✅ TypeScript build found: dist/tsc/index.js"
-    echo "📊 Built file size: $(ls -lh dist/tsc/index.js | awk '{print $5}')"
-    MAIN_FILE="dist/tsc/index.js"
-elif [ -f "index.js" ]; then
-    echo "⚠️  Using fallback debug index.js - this indicates a caching issue!"
-    echo "🚨 Home Assistant may be using an old cached version of the repository"
-    MAIN_FILE="index.js"
-else
-    echo "❌ No main file found! Neither dist/tsc/index.js nor index.js exists"
-    exit 1
-fi
-
 # Debug info
 echo "Starting Octo-MQTT with the following configuration:"
 echo "- MQTT Host: ${MQTTHOST}"
@@ -98,8 +68,5 @@ echo "- MQTT Port: ${MQTTPORT}"
 echo "- BLE Proxy count: $(bashio::config 'bleProxies | length')"
 echo "- Octo device count: $(bashio::config 'octoDevices | length')"
 
-# Final startup message
-echo "🎯 Starting application with: $MAIN_FILE"
-
-# Start the application with proper error handling
-exec node "$MAIN_FILE"
+# Run without debugger for better stability
+node index.js
