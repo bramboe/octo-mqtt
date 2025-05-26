@@ -1,7 +1,8 @@
 FROM node:18-alpine
 
 # Force rebuild by changing this version number
-ENV BUILD_VERSION=v2025.05.26.1
+ENV BUILD_VERSION=v2025.05.26.3
+ENV CACHE_BUST=20250526203230
 
 # Install system dependencies
 RUN apk add --no-cache bash curl jq
@@ -23,70 +24,39 @@ COPY tsconfig.prod.json ./
 
 # Install dependencies with verbose logging
 RUN echo "=== INSTALLING DEPENDENCIES ===" && \
-    npm install --verbose && \
-    echo "=== DEPENDENCIES INSTALLED ===" && \
-    npm list
+    npm ci --production --verbose && \
+    echo "=== DEPENDENCIES INSTALLED ==="
 
 # Copy source code
-COPY src ./src/
-COPY webui ./webui/
+COPY src/ ./src/
+COPY webui/ ./webui/
 
-# Copy fallback index.js (improved version with working endpoints)
-COPY index.js ./index.js
-
-# Build the TypeScript application with detailed logging
-RUN echo "=== STARTING TYPESCRIPT BUILD ===" && \
-    echo "TypeScript version: $(npx tsc --version)" && \
+# Build TypeScript with detailed logging
+RUN echo "=== BUILDING TYPESCRIPT ===" && \
+    echo "TypeScript config:" && \
+    cat tsconfig.prod.json && \
     echo "Source files:" && \
-    find src -name "*.ts" | head -10 && \
-    echo "=== RUNNING BUILD COMMAND ===" && \
-    npm run build && \
-    echo "=== BUILD COMPLETED ===" && \
-    echo "Checking build output:" && \
-    ls -la dist/ && \
-    if [ -d "dist/tsc" ]; then \
-        echo "✅ dist/tsc directory exists"; \
-        ls -la dist/tsc/; \
-        if [ -f "dist/tsc/index.js" ]; then \
-            echo "✅ TypeScript build SUCCESS: dist/tsc/index.js exists"; \
-            echo "📊 Built file size: $(ls -lh dist/tsc/index.js | awk '{print $5}')"; \
-            echo "📄 First 10 lines of built file:"; \
-            head -10 dist/tsc/index.js; \
-        else \
-            echo "❌ TypeScript build FAILED: dist/tsc/index.js missing"; \
-            echo "📁 Contents of dist/tsc directory:"; \
-            ls -la dist/tsc/ 2>/dev/null || echo "dist/tsc directory is empty"; \
-            echo "⚠️  Will use fallback index.js"; \
-        fi; \
-    else \
-        echo "❌ dist/tsc directory missing"; \
-        echo "⚠️  Will use fallback index.js"; \
-    fi
+    find src -name "*.ts" | head -20 && \
+    npx tsc --project tsconfig.prod.json --verbose && \
+    echo "=== BUILD COMPLETE ===" && \
+    echo "Built files:" && \
+    find dist -name "*.js" | head -10 && \
+    ls -la dist/tsc/ || echo "No dist/tsc directory found"
 
-# Copy run script and make it executable
-COPY run.sh ./run.sh
-RUN chmod +x ./run.sh
-
-# Set environment
-ENV NODE_ENV=production
+# Copy fallback and run script
+COPY index.js ./
+COPY run.sh ./
+RUN chmod +x run.sh
 
 # Expose port
 EXPOSE 8099
 
-# Debug: Show final file structure
-RUN echo "=== FINAL FILE STRUCTURE ===" && \
-    ls -la /app/ && \
-    echo "=== WEBUI FILES ===" && \
-    ls -la /app/webui/ && \
-    echo "=== RUN SCRIPT PREVIEW ===" && \
-    head -20 /app/run.sh
-
 # Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:8099/health || exit 1
 
-# Start the application  
-ENTRYPOINT ["/bin/bash", "/app/run.sh"]
+# Start the application
+CMD ["./run.sh"]
 
 LABEL \
     io.hass.name="Octo Integration via MQTT" \

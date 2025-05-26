@@ -5,21 +5,23 @@
 const express = require('express');
 const path = require('path');
 
-console.log('[FALLBACK] 🚨 Using fallback index.js - TypeScript build not available');
-console.log('[FALLBACK] 🔧 This should only be used temporarily');
+console.log('[FALLBACK-v2.0.6] 🚨 Using fallback index.js - TypeScript build not available');
+console.log('[FALLBACK-v2.0.6] 🔧 This should only be used temporarily');
+console.log('[FALLBACK-v2.0.6] 📅 Build: v2025.05.26.3');
+console.log('[FALLBACK-v2.0.6] 🔄 Cache Bust: 20250526203230');
 
 const app = express();
 const port = process.env.PORT || 8099;
 
 // Serve static files
 const webuiPath = path.join(process.cwd(), 'webui');
-console.log(`[FALLBACK] Serving static files from ${webuiPath}`);
+console.log(`[FALLBACK-v2.0.6] Serving static files from ${webuiPath}`);
 app.use(express.static(webuiPath));
 app.use(express.json());
 
 // Add request logging
 app.use((req, res, next) => {
-  console.log(`[FALLBACK] ${req.method} ${req.url}`);
+  console.log(`[FALLBACK-v2.0.6] ${req.method} ${req.url}`);
   next();
 });
 
@@ -30,77 +32,86 @@ app.get('/', (req, res) => {
 
 // Health check
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', message: 'Fallback server running', timestamp: new Date().toISOString() });
+  res.json({ status: 'ok', message: 'Fallback server running v2.0.6', version: '2.0.6' });
 });
 
-// Scan endpoints - basic implementation
+// Scan endpoints with proper JSON responses
 app.post('/scan/start', (req, res) => {
-  console.log('[FALLBACK] Scan start requested');
+  console.log('[FALLBACK-v2.0.6] 🔍 Scan start requested');
   res.json({ 
     success: true, 
     message: 'Scan started (fallback mode)', 
     scanning: true,
-    timestamp: new Date().toISOString()
+    version: '2.0.6',
+    mode: 'fallback'
   });
 });
 
 app.get('/scan/status', (req, res) => {
-  console.log('[FALLBACK] Scan status requested');
+  console.log('[FALLBACK-v2.0.6] 📊 Scan status requested');
   res.json({ 
     scanning: false, 
     devices: [], 
     message: 'No devices found (fallback mode)',
-    timestamp: new Date().toISOString()
+    version: '2.0.6',
+    mode: 'fallback'
   });
 });
 
 app.post('/scan/stop', (req, res) => {
-  console.log('[FALLBACK] Scan stop requested');
+  console.log('[FALLBACK-v2.0.6] ⏹️ Scan stop requested');
   res.json({ 
     success: true, 
     message: 'Scan stopped (fallback mode)', 
     scanning: false,
-    timestamp: new Date().toISOString()
+    version: '2.0.6',
+    mode: 'fallback'
   });
 });
 
 // Device endpoints
 app.get('/devices/configured', (req, res) => {
-  console.log('[FALLBACK] Configured devices requested');
-  res.json({ devices: [] });
+  console.log('[FALLBACK-v2.0.6] 📱 Configured devices requested');
+  res.json({ devices: [], message: 'No devices configured (fallback mode)', version: '2.0.6' });
 });
 
 app.post('/device/add', (req, res) => {
-  console.log('[FALLBACK] Device add requested:', req.body);
-  res.json({ success: false, message: 'Device addition not available in fallback mode' });
+  console.log('[FALLBACK-v2.0.6] ➕ Add device requested');
+  res.json({ 
+    success: false, 
+    message: 'Device addition not available in fallback mode',
+    version: '2.0.6',
+    mode: 'fallback'
+  });
+});
+
+// Debug endpoint
+app.get('/debug/access', (req, res) => {
+  res.json({
+    message: 'Fallback server v2.0.6 is running',
+    timestamp: new Date().toISOString(),
+    headers: req.headers,
+    version: '2.0.6',
+    mode: 'fallback'
+  });
 });
 
 // Catch-all for debugging
 app.use('*', (req, res) => {
-  console.log(`[FALLBACK] Unhandled request: ${req.method} ${req.originalUrl}`);
+  console.log(`[FALLBACK-v2.0.6] ❓ Unhandled request: ${req.method} ${req.originalUrl}`);
   res.status(404).json({ 
     error: 'Not Found', 
-    message: `Endpoint ${req.method} ${req.originalUrl} not available in fallback mode`,
-    availableEndpoints: [
-      'GET /',
-      'GET /health', 
-      'POST /scan/start',
-      'GET /scan/status',
-      'POST /scan/stop',
-      'GET /devices/configured',
-      'POST /device/add'
-    ]
+    path: req.originalUrl,
+    message: 'Endpoint not available in fallback mode',
+    version: '2.0.6',
+    mode: 'fallback'
   });
 });
 
 // Start server
 app.listen(port, '0.0.0.0', () => {
-  console.log(`[FALLBACK] ✅ Fallback server listening on port ${port}`);
-  console.log(`[FALLBACK] 🌐 Access at: http://0.0.0.0:${port}`);
-  console.log(`[FALLBACK] 📡 Available endpoints:`);
-  console.log(`[FALLBACK]   - GET /health`);
-  console.log(`[FALLBACK]   - POST /scan/start`);
-  console.log(`[FALLBACK]   - GET /scan/status`);
-  console.log(`[FALLBACK]   - POST /scan/stop`);
-  console.log(`[FALLBACK] ⚠️  This is a fallback server - TypeScript version should be used in production`);
+  console.log(`[FALLBACK-v2.0.6] ✅ Fallback server listening on port ${port}`);
+  console.log(`[FALLBACK-v2.0.6] 🌐 Access: http://0.0.0.0:${port}`);
+  console.log(`[FALLBACK-v2.0.6] 📡 Endpoints: /scan/start, /scan/status, /scan/stop, /health`);
+  console.log(`[FALLBACK-v2.0.6] ⚠️  This is a temporary fallback - TypeScript build should be used`);
 }); 
