@@ -1,5 +1,6 @@
 {
   "name": "Octo MQTT Add-on Repository",
   "url": "https://github.com/bramboe/octo-mqtt",
-  "maintainer": "Bram Boersma"
+  "maintainer": "Bram Boersma <bram.boersma@gmail.com>",
+  "description": "Home Assistant add-on repository for Octo MQTT integration"
 } 
