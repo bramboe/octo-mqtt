@@ -4,7 +4,7 @@ FROM node:18-alpine
 ENV BUILD_VERSION=v2025.05.25.8
 
 # Install system dependencies
-RUN apk add --no-cache bash curl jq
+RUN apk add --no-cache bash curl jq netcat-openbsd
 
 # Install bashio for Home Assistant integration
 RUN curl -J -L -o /tmp/bashio.tar.gz "https://github.com/hassio-addons/bashio/archive/v0.13.1.tar.gz" && \
