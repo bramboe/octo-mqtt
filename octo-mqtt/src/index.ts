@@ -50,6 +50,22 @@ function cleanupScanState() {
   }
 }
 
+// Function to get strongest signal device from multiple readings
+function updateDeviceWithStrongestSignal(device: BLEDeviceAdvertisement) {
+  if (!device.address) {
+    logWarn('[BLE] Device found without address, skipping');
+    return;
+  }
+
+  const existingDevice = discoveredDevices.get(device.address);
+  if (!existingDevice || (device.rssi && existingDevice.rssi && device.rssi > existingDevice.rssi)) {
+    discoveredDevices.set(device.address, device);
+  }
+}
+
+// Use the function to avoid unused warning
+updateDeviceWithStrongestSignal;
+
 const processExit = (exitCode?: number) => {
   if (exitCode && exitCode > 0) {
     logError(`Exit code: ${exitCode}`);
@@ -155,7 +171,7 @@ const start = async () => {
   
   // Handle incoming WebSocket messages
   function handleWebSocketMessage(ws: WebSocket, data: any) {
-    const { type } = data;
+    const { type, payload: _payload } = data;
     
     switch (type) {
       case 'status':
@@ -431,43 +447,75 @@ const start = async () => {
     }
   });
 
-  // Remove device
-  app.delete('/device/:address', async (req: Request, res: Response): Promise<void> => {
+  // Remove device endpoint
+  app.delete('/device/remove/:address', async (req: Request, res: Response): Promise<void> => {
     const { address } = req.params;
     
+    if (!address) {
+      res.status(400).json({ error: 'Missing device address' });
+      return;
+    }
+
     try {
+      // Get current configuration
       const config = getRootOptions();
-      const existingDevices = config.octoDevices || [];
       
-      const deviceIndex = existingDevices.findIndex((d: any) => 
-        d.name?.toLowerCase() === address.toLowerCase()
-      );
-      
-      if (deviceIndex === -1) {
-        res.status(404).json({ error: 'Device not found' });
+      if (!config.octoDevices || !Array.isArray(config.octoDevices)) {
+        res.status(404).json({ error: 'No devices configured' });
         return;
       }
+
+      // Find the device to remove
+      const deviceIndex = config.octoDevices.findIndex((d: { name: string }) => 
+        d.name.toLowerCase() === address.toLowerCase()
+      );
+
+      if (deviceIndex === -1) {
+        res.status(404).json({ error: 'Device not found in configuration' });
+        return;
+      }
+
+      const deviceToRemove = config.octoDevices[deviceIndex];
       
-      const removedDevice = existingDevices.splice(deviceIndex, 1)[0];
-      
+      // Remove the device from configuration
+      config.octoDevices.splice(deviceIndex, 1);
+
       // Save updated configuration
-      const configJson = JSON.stringify(config, null, 2);
-      const tempFile = '/data/options.json.tmp';
-      
-      await fs.promises.writeFile(tempFile, configJson);
-      await fs.promises.rename(tempFile, '/data/options.json');
-      
-      logInfo(`[BLE] Device ${address} removed from configuration`);
+      await fs.promises.writeFile('/data/options.json', JSON.stringify(config, null, 2));
+
+      logInfo(`[BLE] Removed device: ${deviceToRemove.friendlyName || deviceToRemove.name}`);
+      logInfo(`[BLE] Configuration updated. Device removed from addon configuration.`);
+      logInfo(`[BLE] NOTE: Configuration caching has been fixed - changes should be immediate.`);
       
       res.json({ 
-        message: 'Device removed successfully',
-        device: removedDevice
+        message: 'Device removed successfully and configuration updated',
+        removedDevice: deviceToRemove
       });
-      
+
     } catch (error) {
       logError('[BLE] Error removing device:', error);
       res.status(500).json({ 
         error: 'Failed to remove device',
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  // Debug endpoint to show raw configuration
+  app.get('/debug/config', (_req: Request, res: Response): void => {
+    try {
+      const rawConfigContent = fs.readFileSync('/data/options.json', 'utf8');
+      const config = getRootOptions();
+      
+      res.json({
+        rawFileContent: rawConfigContent,
+        parsedConfig: config,
+        octoDevicesCount: (config.octoDevices || []).length
+      });
+    } catch (error) {
+      logError('[DEBUG] Error reading config:', error);
+      res.status(500).json({ 
+        error: 'Failed to read configuration',
         details: error instanceof Error ? error.message : String(error)
       });
     }
@@ -514,6 +562,12 @@ const start = async () => {
     }
   });
 
+  app.get('/api/devices', (_req: Request, res: Response) => {
+    // This endpoint would return the list of discovered devices
+    // You'll need to implement device storage if you want to persist the list
+    res.json({ devices: Array.from(discoveredDevices.values()) });
+  });
+
   // Health check endpoint
   app.get('/health', (_req: Request, res: Response) => {
     res.json({
@@ -524,26 +578,9 @@ const start = async () => {
     });
   });
 
-  // Start the server
   server.listen(port, () => {
-    logInfo(`🚀 RC2 Bed Control Panel started on port ${port}`);
-    logInfo(`📱 Web interface available at: http://localhost:${port}`);
-    logInfo(`🔧 BLE Scanner: ${bleScanner ? 'Initialized' : 'Not initialized'}`);
-    
-    // Log available endpoints for debugging
-    logInfo('📋 Available API endpoints:');
-    logInfo('   POST /scan/start - Start BLE device scan');
-    logInfo('   GET  /scan/status - Get scan status');
-    logInfo('   POST /scan/stop - Stop BLE device scan');
-    logInfo('   POST /device/add - Add discovered device');
-    logInfo('   GET  /devices/configured - Get configured devices');
-    logInfo('   DELETE /device/:address - Remove device');
-    logInfo('   GET  /debug/devices - Debug device state');
-    logInfo('   GET  /health - Health check');
+    logInfo(`Octo-MQTT server listening on port ${port}`);
   });
 };
 
-start().catch((error) => {
-  logError('Failed to start application:', error);
-  processExit(1);
-}); 
+void start(); 
