@@ -105,6 +105,12 @@ const start = async () => {
   const port = process.env.PORT || 8099;
   const server = http.createServer(app);
 
+  // Handle Home Assistant ingress path
+  const ingressPath = process.env.INGRESS_PATH || '';
+  if (ingressPath) {
+    logInfo(`[Server] Using ingress path: ${ingressPath}`);
+  }
+
   // Set up WebSocket server for real-time communication
   wsServer = new WebSocket.Server({ 
     server,
@@ -211,8 +217,8 @@ const start = async () => {
   // Initialize BLE scanner
   bleScanner = new BLEScanner(esphomeConnection as any); // TODO: Fix type casting
 
-    // BLE scanning endpoints with simplified routes
-  app.post('/scan/start', async (_req: Request, res: Response): Promise<void> => {
+  // Helper function for scan start logic
+  const handleScanStart = async (_req: Request, res: Response): Promise<void> => {
     logInfo('[BLE] Received scan start request');
     
     if (!bleScanner) {
@@ -233,9 +239,16 @@ const start = async () => {
         details: error instanceof Error ? error.message : String(error)
       });
     }
-  });
+  };
 
-  app.get('/scan/status', (_req: Request, res: Response): void => {
+  // BLE scanning endpoints - both with and without ingress path
+  app.post('/scan/start', handleScanStart);
+  if (ingressPath) {
+    app.post(`${ingressPath}/scan/start`, handleScanStart);
+  }
+
+  // Helper function for scan status logic
+  const handleScanStatus = (_req: Request, res: Response): void => {
     logInfo('[BLE] Received scan status request');
     
     if (!bleScanner) {
@@ -262,9 +275,15 @@ const start = async () => {
       logError('[BLE] Error getting scan status:', error);
       res.status(500).json({ error: 'Failed to get scan status' });
     }
-  });
+  };
 
-  app.post('/scan/stop', async (_req: Request, res: Response): Promise<void> => {
+  app.get('/scan/status', handleScanStatus);
+  if (ingressPath) {
+    app.get(`${ingressPath}/scan/status`, handleScanStatus);
+  }
+
+  // Helper function for scan stop logic
+  const handleScanStop = async (_req: Request, res: Response): Promise<void> => {
     logInfo('[BLE] Received scan stop request');
     
     if (!bleScanner) {
@@ -286,7 +305,12 @@ const start = async () => {
         details: error instanceof Error ? error.message : String(error)
       });
     }
-  });
+  };
+
+  app.post('/scan/stop', handleScanStop);
+  if (ingressPath) {
+    app.post(`${ingressPath}/scan/stop`, handleScanStop);
+  }
 
   app.post('/device/add', async (req: Request, res: Response): Promise<void> => {
     const { address, pin } = req.body;
@@ -566,6 +590,27 @@ const start = async () => {
     // This endpoint would return the list of discovered devices
     // You'll need to implement device storage if you want to persist the list
     res.json({ devices: Array.from(discoveredDevices.values()) });
+  });
+
+  // Debug routes endpoint
+  app.get('/debug/routes', (_req: Request, res: Response) => {
+    const routes: string[] = [];
+    app._router.stack.forEach((middleware: any) => {
+      if (middleware.route) {
+        const methods = Object.keys(middleware.route.methods).join(', ').toUpperCase();
+        routes.push(`${methods} ${middleware.route.path}`);
+      }
+    });
+    
+    res.json({
+      ingressPath: ingressPath || 'none',
+      availableRoutes: routes,
+      environment: {
+        PORT: process.env.PORT,
+        INGRESS_PATH: process.env.INGRESS_PATH,
+        NODE_ENV: process.env.NODE_ENV
+      }
+    });
   });
 
   // Health check endpoint
