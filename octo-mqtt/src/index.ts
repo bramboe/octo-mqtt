@@ -20,10 +20,7 @@ import { BLEScanner } from './Scanner/BLEScanner';
 EventEmitter.defaultMaxListeners = 50;
 
 // Global variables to track scanning state
-let isScanning = false;
 let scanTimeout: NodeJS.Timeout | null = null;
-let scanStartTime: number | null = null;
-const SCAN_DURATION_MS = 30000; // 30 seconds scan duration
 const discoveredDevices = new Map<string, BLEDeviceAdvertisement>();
 let esphomeConnection: IESPConnection & EventEmitter | null = null;
 let bleScanner: BLEScanner | null = null;
@@ -32,8 +29,6 @@ let connectedClients: Set<WebSocket> = new Set();
 
 // Function to cleanup scan state and remove listeners
 function cleanupScanState() {
-  isScanning = false;
-  scanStartTime = null;
   if (scanTimeout) {
     clearTimeout(scanTimeout);
     scanTimeout = null;
@@ -52,19 +47,6 @@ function cleanupScanState() {
         }
       });
     }
-  }
-}
-
-// Function to get strongest signal device from multiple readings
-function updateDeviceWithStrongestSignal(device: BLEDeviceAdvertisement) {
-  if (!device.address) {
-    logWarn('[BLE] Device found without address, skipping');
-    return;
-  }
-
-  const existingDevice = discoveredDevices.get(device.address);
-  if (!existingDevice || (device.rssi && existingDevice.rssi && device.rssi > existingDevice.rssi)) {
-    discoveredDevices.set(device.address, device);
   }
 }
 
@@ -173,7 +155,7 @@ const start = async () => {
   
   // Handle incoming WebSocket messages
   function handleWebSocketMessage(ws: WebSocket, data: any) {
-    const { type, payload } = data;
+    const { type, payload: _payload } = data;
     
     switch (type) {
       case 'status':
@@ -406,48 +388,22 @@ const start = async () => {
         logInfo(`[BLE] Local configuration file also updated for immediate use`);
         
       } catch (apiError) {
-        logError(`[BLE] Failed to update via Supervisor API:`, apiError);
+        logWarn(`[BLE] Failed to update via Supervisor API, falling back to local file: ${apiError}`);
         
-        // Fallback to local file write only
-        logInfo(`[BLE] Falling back to local file write...`);
+        // Fallback: write directly to local file
         const configJson = JSON.stringify(config, null, 2);
         const tempFile = '/data/options.json.tmp';
         
         await fs.promises.writeFile(tempFile, configJson);
         await fs.promises.rename(tempFile, '/data/options.json');
         
-        logWarn(`[BLE] Configuration saved locally only - may not persist across addon restarts`);
-      }
-
-      // Verify the configuration was saved
-      const verifyConfig = getRootOptions();
-      const verifyDevice = verifyConfig.octoDevices?.find((d: { name: string }) => 
-        d.name.toLowerCase() === newDevice.name.toLowerCase()
-      );
-      
-      if (verifyDevice) {
-        logInfo(`[BLE] Device addition verified successfully`);
-        logInfo(`[BLE] Final device count: ${verifyConfig.octoDevices?.length || 0}`);
-      } else {
-        logError(`[BLE] Device addition verification failed! Device not found after write.`);
-        res.status(500).json({ error: 'Configuration verification failed' });
-        return;
-      }
-
-      logInfo(`[BLE] Added new device: ${newDevice.friendlyName}`);
-      logInfo(`[BLE] Device details: name="${newDevice.name}", friendlyName="${newDevice.friendlyName}", pin="${newDevice.pin}"`);
-      logInfo(`[BLE] Total devices in config: ${config.octoDevices.length}`);
-      
-      // Broadcast device info update via WebSocket
-      if (wsServer && connectedClients.size > 0) {
-        broadcastDeviceInfo();
-        logInfo(`[BLE] Broadcasted device info update to ${connectedClients.size} WebSocket client(s)`);
+        logInfo(`[BLE] Configuration saved to local file successfully`);
       }
       
       res.json({ 
         message: 'Device added successfully',
         device: newDevice,
-        note: 'Configuration updated via Home Assistant Supervisor API'
+        note: 'Device has been added to configuration. Restart the addon to connect to the device.'
       });
 
     } catch (error) {
@@ -459,81 +415,23 @@ const start = async () => {
     }
   });
 
-  // Get configured devices endpoint
+  // Get configured devices
   app.get('/devices/configured', (_req: Request, res: Response): void => {
     try {
       const config = getRootOptions();
       const configuredDevices = config.octoDevices || [];
       
-      logInfo(`[BLE] Retrieved ${configuredDevices.length} configured device(s)`);
-      res.json({ 
+      res.json({
         devices: configuredDevices,
         count: configuredDevices.length
       });
     } catch (error) {
-      logError('[BLE] Error getting configured devices:', error);
-      res.status(500).json({ 
-        error: 'Failed to get configured devices',
-        details: error instanceof Error ? error.message : String(error)
-      });
+      logError('[API] Error getting configured devices:', error);
+      res.status(500).json({ error: 'Failed to get configured devices' });
     }
   });
 
-  // Remove device endpoint
-  app.delete('/device/remove/:address', async (req: Request, res: Response): Promise<void> => {
-    const { address } = req.params;
-    
-    if (!address) {
-      res.status(400).json({ error: 'Missing device address' });
-      return;
-    }
-
-    try {
-      // Get current configuration
-      const config = getRootOptions();
-      
-      if (!config.octoDevices || !Array.isArray(config.octoDevices)) {
-        res.status(404).json({ error: 'No devices configured' });
-        return;
-      }
-
-      // Find the device to remove
-      const deviceIndex = config.octoDevices.findIndex((d: { name: string }) => 
-        d.name.toLowerCase() === address.toLowerCase()
-      );
-
-      if (deviceIndex === -1) {
-        res.status(404).json({ error: 'Device not found in configuration' });
-        return;
-      }
-
-      const deviceToRemove = config.octoDevices[deviceIndex];
-      
-      // Remove the device from configuration
-      config.octoDevices.splice(deviceIndex, 1);
-
-      // Save updated configuration
-      await fs.promises.writeFile('/data/options.json', JSON.stringify(config, null, 2));
-
-      logInfo(`[BLE] Removed device: ${deviceToRemove.friendlyName || deviceToRemove.name}`);
-      logInfo(`[BLE] Configuration updated. Device removed from addon configuration.`);
-      logInfo(`[BLE] NOTE: Configuration caching has been fixed - changes should be immediate.`);
-      
-      res.json({ 
-        message: 'Device removed successfully and configuration updated',
-        removedDevice: deviceToRemove
-      });
-
-    } catch (error) {
-      logError('[BLE] Error removing device:', error);
-      res.status(500).json({ 
-        error: 'Failed to remove device',
-        details: error instanceof Error ? error.message : String(error)
-      });
-    }
-  });
-
-  // Remove device (legacy endpoint)
+  // Remove device
   app.delete('/device/:address', async (req: Request, res: Response): Promise<void> => {
     const { address } = req.params;
     
@@ -570,26 +468,6 @@ const start = async () => {
       logError('[BLE] Error removing device:', error);
       res.status(500).json({ 
         error: 'Failed to remove device',
-        details: error instanceof Error ? error.message : String(error)
-      });
-    }
-  });
-
-  // Debug endpoint to show raw configuration
-  app.get('/debug/config', (_req: Request, res: Response): void => {
-    try {
-      const rawConfigContent = fs.readFileSync('/data/options.json', 'utf8');
-      const config = getRootOptions();
-      
-      res.json({
-        rawFileContent: rawConfigContent,
-        parsedConfig: config,
-        octoDevicesCount: (config.octoDevices || []).length
-      });
-    } catch (error) {
-      logError('[DEBUG] Error reading config:', error);
-      res.status(500).json({ 
-        error: 'Failed to read configuration',
         details: error instanceof Error ? error.message : String(error)
       });
     }
@@ -636,13 +514,6 @@ const start = async () => {
     }
   });
 
-  // API endpoint to get discovered devices
-  app.get('/api/devices', (_req: Request, res: Response) => {
-    // This endpoint would return the list of discovered devices
-    // You'll need to implement device storage if you want to persist the list
-    res.json({ devices: Array.from(discoveredDevices.values()) });
-  });
-
   // Health check endpoint
   app.get('/health', (_req: Request, res: Response) => {
     res.json({
@@ -653,9 +524,26 @@ const start = async () => {
     });
   });
 
+  // Start the server
   server.listen(port, () => {
-    logInfo(`Octo-MQTT server listening on port ${port}`);
+    logInfo(`🚀 RC2 Bed Control Panel started on port ${port}`);
+    logInfo(`📱 Web interface available at: http://localhost:${port}`);
+    logInfo(`🔧 BLE Scanner: ${bleScanner ? 'Initialized' : 'Not initialized'}`);
+    
+    // Log available endpoints for debugging
+    logInfo('📋 Available API endpoints:');
+    logInfo('   POST /scan/start - Start BLE device scan');
+    logInfo('   GET  /scan/status - Get scan status');
+    logInfo('   POST /scan/stop - Stop BLE device scan');
+    logInfo('   POST /device/add - Add discovered device');
+    logInfo('   GET  /devices/configured - Get configured devices');
+    logInfo('   DELETE /device/:address - Remove device');
+    logInfo('   GET  /debug/devices - Debug device state');
+    logInfo('   GET  /health - Health check');
   });
 };
 
-void start(); 
+start().catch((error) => {
+  logError('Failed to start application:', error);
+  processExit(1);
+}); 
