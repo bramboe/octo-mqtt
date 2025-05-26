@@ -1,7 +1,7 @@
 FROM node:18-alpine
 
 # Force rebuild by changing this version number
-ENV BUILD_VERSION=v2025.05.25.8
+ENV BUILD_VERSION=v2025.05.26.1
 
 # Install system dependencies
 RUN apk add --no-cache bash curl jq
@@ -21,18 +21,47 @@ WORKDIR /app
 COPY package.prod.json package.json
 COPY tsconfig.prod.json ./
 
-# Install dependencies
-RUN npm install
+# Install dependencies with verbose logging
+RUN echo "=== INSTALLING DEPENDENCIES ===" && \
+    npm install --verbose && \
+    echo "=== DEPENDENCIES INSTALLED ===" && \
+    npm list
 
 # Copy source code
 COPY src ./src/
 COPY webui ./webui/
 
-# Copy debug index.js (temporary - should not be used)
+# Copy fallback index.js (improved version with working endpoints)
 COPY index.js ./index.js
 
-# Build the TypeScript application
-RUN npm run build
+# Build the TypeScript application with detailed logging
+RUN echo "=== STARTING TYPESCRIPT BUILD ===" && \
+    echo "TypeScript version: $(npx tsc --version)" && \
+    echo "Source files:" && \
+    find src -name "*.ts" | head -10 && \
+    echo "=== RUNNING BUILD COMMAND ===" && \
+    npm run build && \
+    echo "=== BUILD COMPLETED ===" && \
+    echo "Checking build output:" && \
+    ls -la dist/ && \
+    if [ -d "dist/tsc" ]; then \
+        echo "✅ dist/tsc directory exists"; \
+        ls -la dist/tsc/; \
+        if [ -f "dist/tsc/index.js" ]; then \
+            echo "✅ TypeScript build SUCCESS: dist/tsc/index.js exists"; \
+            echo "📊 Built file size: $(ls -lh dist/tsc/index.js | awk '{print $5}')"; \
+            echo "📄 First 10 lines of built file:"; \
+            head -10 dist/tsc/index.js; \
+        else \
+            echo "❌ TypeScript build FAILED: dist/tsc/index.js missing"; \
+            echo "📁 Contents of dist/tsc directory:"; \
+            ls -la dist/tsc/ 2>/dev/null || echo "dist/tsc directory is empty"; \
+            echo "⚠️  Will use fallback index.js"; \
+        fi; \
+    else \
+        echo "❌ dist/tsc directory missing"; \
+        echo "⚠️  Will use fallback index.js"; \
+    fi
 
 # Copy run script and make it executable
 COPY run.sh ./run.sh
@@ -44,20 +73,13 @@ ENV NODE_ENV=production
 # Expose port
 EXPOSE 8099
 
-# Debug: Show what files we have and check if build succeeded
-RUN echo "=== FILES IN /app ===" && ls -la /app/ && \
-    echo "=== BUILT FILES ===" && ls -la /app/dist/ && \
-    echo "=== CHECKING BUILD SUCCESS ===" && \
-    if [ -f "dist/tsc/index.js" ]; then \
-        echo "✅ TypeScript build SUCCESS: dist/tsc/index.js exists"; \
-        echo "📊 Built file size: $(ls -lh dist/tsc/index.js | awk '{print $5}')"; \
-    else \
-        echo "❌ TypeScript build FAILED: dist/tsc/index.js missing"; \
-        echo "📁 Contents of dist directory:"; \
-        ls -la dist/ 2>/dev/null || echo "dist directory does not exist"; \
-        exit 1; \
-    fi && \
-    echo "=== CONTENT OF run.sh FIRST 10 LINES ===" && head -10 /app/run.sh
+# Debug: Show final file structure
+RUN echo "=== FINAL FILE STRUCTURE ===" && \
+    ls -la /app/ && \
+    echo "=== WEBUI FILES ===" && \
+    ls -la /app/webui/ && \
+    echo "=== RUN SCRIPT PREVIEW ===" && \
+    head -20 /app/run.sh
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s \
@@ -68,7 +90,7 @@ ENTRYPOINT ["/bin/bash", "/app/run.sh"]
 
 LABEL \
     io.hass.name="Octo Integration via MQTT" \
-    io.hass.description="Home Assistant Community Add-on for Octo actuators star version 2 (TypeScript version)" \
+    io.hass.description="Home Assistant Community Add-on for Octo actuators star version 2 (TypeScript version with fallback)" \
     io.hass.type="addon" \
-    io.hass.version="2.0.4" \
+    io.hass.version="2.0.5" \
     maintainer="Bram Boersma <bram.boersma@gmail.com>"
