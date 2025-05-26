@@ -187,6 +187,12 @@ const start = async () => {
   app.use(express.static(webuiPath));
   app.use(express.json());
 
+  // Add comprehensive request logging middleware
+  app.use((req, _res, next) => {
+    logInfo(`[REQUEST] ${req.method} ${req.url} - Headers: ${JSON.stringify(req.headers)} - Body: ${JSON.stringify(req.body)}`);
+    next();
+  });
+
   // Main routes
   app.get('/', (_req: Request, res: Response) => {
     res.sendFile(path.join(webuiPath, 'index.html'));
@@ -197,6 +203,7 @@ const start = async () => {
 
     // BLE scanning endpoints with simplified routes
   app.post('/scan/start', async (_req: Request, res: Response): Promise<void> => {
+    logInfo('[BLE] ===== SCAN START ENDPOINT HIT =====');
     logInfo('[BLE] Received scan start request');
     
     if (!bleScanner) {
@@ -220,6 +227,7 @@ const start = async () => {
   });
 
   app.get('/scan/status', (_req: Request, res: Response): void => {
+    logInfo('[BLE] ===== SCAN STATUS ENDPOINT HIT =====');
     logInfo('[BLE] Received scan status request');
     
     if (!bleScanner) {
@@ -249,6 +257,7 @@ const start = async () => {
   });
 
   app.post('/scan/stop', async (_req: Request, res: Response): Promise<void> => {
+    logInfo('[BLE] ===== SCAN STOP ENDPOINT HIT =====');
     logInfo('[BLE] Received scan stop request');
     
     if (!bleScanner) {
@@ -521,6 +530,27 @@ const start = async () => {
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
       bleScanner: bleScanner ? 'initialized' : 'not initialized'
+    });
+  });
+
+  // Catch-all route for debugging unhandled requests
+  app.use('*', (req: Request, res: Response) => {
+    logError(`[404] Unhandled request: ${req.method} ${req.originalUrl}`);
+    logError(`[404] Available routes: GET /, POST /scan/start, GET /scan/status, POST /scan/stop, POST /device/add, GET /devices/configured, DELETE /device/:address, GET /debug/devices, GET /health`);
+    res.status(404).json({ 
+      error: 'Not Found',
+      message: `Route ${req.method} ${req.originalUrl} not found`,
+      availableRoutes: [
+        'GET /',
+        'POST /scan/start',
+        'GET /scan/status', 
+        'POST /scan/stop',
+        'POST /device/add',
+        'GET /devices/configured',
+        'DELETE /device/:address',
+        'GET /debug/devices',
+        'GET /health'
+      ]
     });
   });
 

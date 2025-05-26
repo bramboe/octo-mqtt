@@ -492,8 +492,15 @@ document.addEventListener('DOMContentLoaded', () => {
       console.log('🔍 [SCAN] Starting scan request...');
       showLoading('Scanning for RC2 beds...');
       
-      const requestUrl = '/scan/start';
+      // Get base URL from window.location like the old working version
+      const baseUrl = window.location.pathname.endsWith('/') 
+        ? window.location.pathname.slice(0, -1) 
+        : window.location.pathname;
+      
+      const requestUrl = `${baseUrl}/scan/start`;
       console.log('🔍 [SCAN] Making request to:', requestUrl);
+      console.log('🔍 [SCAN] Base URL:', baseUrl);
+      console.log('🔍 [SCAN] Window location:', window.location.href);
       
       const response = await fetch(requestUrl, { 
         method: 'POST',
@@ -584,7 +591,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function checkScanStatus() {
     try {
-      const response = await fetch('/scan/status');
+      const baseUrl = window.location.pathname.endsWith('/') 
+        ? window.location.pathname.slice(0, -1) 
+        : window.location.pathname;
+      
+      const response = await fetch(`${baseUrl}/scan/status`);
       if (!response.ok) return;
       
       const status = await response.json();
@@ -696,7 +707,11 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       showLoading('Adding device...');
       
-      const response = await fetch('/device/add', {
+      const baseUrl = window.location.pathname.endsWith('/') 
+        ? window.location.pathname.slice(0, -1) 
+        : window.location.pathname;
+      
+      const response = await fetch(`${baseUrl}/device/add`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ address, pin })
@@ -819,7 +834,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function loadConfiguredDevices() {
     try {
-      const response = await fetch('/devices/configured');
+      const baseUrl = window.location.pathname.endsWith('/') 
+        ? window.location.pathname.slice(0, -1) 
+        : window.location.pathname;
+      
+      const response = await fetch(`${baseUrl}/devices/configured`);
       if (!response.ok) return;
       
       const data = await response.json();
