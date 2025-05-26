@@ -1,15 +1,11 @@
 import { IClientOptions } from 'mqtt/types/lib/client';
 import { logInfo, logWarn } from '@utils/logger';
-import { getRootOptions } from '../Utils/options';
 
-// Get Home Assistant options
-const options = getRootOptions();
-
-// Get MQTT configuration from Home Assistant options with fallbacks
-const host = options.mqtt_host || process.env.MQTTHOST || 'core-mosquitto';
-const port = options.mqtt_port || parseInt(process.env.MQTTPORT || '1883', 10);
-const username = options.mqtt_username || process.env.MQTTUSER || '';
-const password = options.mqtt_password || process.env.MQTTPASSWORD || '';
+// Get environment variables with fallbacks
+const host = process.env.MQTTHOST || 'localhost';
+const port = parseInt(process.env.MQTTPORT || '1883', 10);
+const username = process.env.MQTTUSER || '';
+const password = process.env.MQTTPASSWORD || '';
 
 // Generate a unique client ID to avoid connection conflicts
 const clientId = `octo_mqtt_${Math.random().toString(16).substring(2, 10)}`;
