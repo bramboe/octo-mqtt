@@ -20,6 +20,7 @@ WORKDIR /app
 
 # Copy production package file and TypeScript config
 COPY package.prod.json package.json
+COPY package-lock.json ./
 COPY tsconfig.prod.json ./
 
 # Install dependencies with verbose logging
