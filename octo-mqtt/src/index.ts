@@ -213,18 +213,18 @@ const start = async () => {
 
     try {
       await bleScanner.startScan();
-      res.json({ 
-        message: 'Scan started',
+    res.json({ 
+      message: 'Scan started',
         scanDuration: 30000 // 30 seconds
-      });
-    } catch (error) {
-      logError('[BLE] Error starting scan:', error);
-      res.status(500).json({ 
-        error: 'Failed to start scan',
-        details: error instanceof Error ? error.message : String(error)
-      });
-    }
-  });
+    });
+  } catch (error) {
+    logError('[BLE] Error starting scan:', error);
+    res.status(500).json({ 
+      error: 'Failed to start scan',
+      details: error instanceof Error ? error.message : String(error)
+    });
+  }
+});
 
   app.get('/scan/status', (_req: Request, res: Response): void => {
     logInfo('[BLE] ===== SCAN STATUS ENDPOINT HIT =====');
@@ -244,7 +244,7 @@ const start = async () => {
         logInfo('[BLE] Discovered devices:');
         status.devices.forEach((device, index) => {
           logInfo(`[BLE]   Device ${index + 1}: ${device.name || 'Unknown'} (${device.address}) RSSI: ${device.rssi}`);
-        });
+});
       } else {
         logInfo('[BLE] No devices in status response');
       }
@@ -268,18 +268,18 @@ const start = async () => {
     try {
       await bleScanner.stopScan();
       const status = bleScanner.getScanStatus();
-      res.json({ 
+    res.json({
         message: 'Scan stopped',
         discoveredDevices: status.discoveredDevices
-      });
-    } catch (error) {
+    });
+  } catch (error) {
       logError('[BLE] Error stopping scan:', error);
-      res.status(500).json({ 
+    res.status(500).json({ 
         error: 'Failed to stop scan',
-        details: error instanceof Error ? error.message : String(error)
-      });
-    }
-  });
+      details: error instanceof Error ? error.message : String(error)
+    });
+  }
+});
 
   app.post('/device/add', async (req: Request, res: Response): Promise<void> => {
     const { address, pin } = req.body;
@@ -400,45 +400,45 @@ const start = async () => {
         logWarn(`[BLE] Failed to update via Supervisor API, falling back to local file: ${apiError}`);
         
         // Fallback: write directly to local file
-        const configJson = JSON.stringify(config, null, 2);
+    const configJson = JSON.stringify(config, null, 2);
         const tempFile = '/data/options.json.tmp';
-        
+    
         await fs.promises.writeFile(tempFile, configJson);
         await fs.promises.rename(tempFile, '/data/options.json');
-        
+    
         logInfo(`[BLE] Configuration saved to local file successfully`);
       }
-      
-      res.json({ 
+    
+    res.json({ 
         message: 'Device added successfully',
         device: newDevice,
         note: 'Device has been added to configuration. Restart the addon to connect to the device.'
-      });
+    });
 
-    } catch (error) {
+  } catch (error) {
       logError('[BLE] Error adding device:', error);
-      res.status(500).json({ 
+    res.status(500).json({ 
         error: 'Failed to add device',
-        details: error instanceof Error ? error.message : String(error)
-      });
-    }
-  });
+      details: error instanceof Error ? error.message : String(error)
+    });
+  }
+});
 
   // Get configured devices
   app.get('/devices/configured', (_req: Request, res: Response): void => {
-    try {
-      const config = getRootOptions();
+  try {
+    const config = getRootOptions();
       const configuredDevices = config.octoDevices || [];
       
       res.json({
         devices: configuredDevices,
         count: configuredDevices.length
       });
-    } catch (error) {
-      logError('[API] Error getting configured devices:', error);
-      res.status(500).json({ error: 'Failed to get configured devices' });
-    }
-  });
+  } catch (error) {
+    logError('[API] Error getting configured devices:', error);
+    res.status(500).json({ error: 'Failed to get configured devices' });
+  }
+});
 
   // Remove device
   app.delete('/device/:address', async (req: Request, res: Response): Promise<void> => {
@@ -523,53 +523,53 @@ const start = async () => {
     }
   });
 
-  // Health check endpoint
+// Health check endpoint
   app.get('/health', (_req: Request, res: Response) => {
-    res.json({
-      status: 'healthy',
-      timestamp: new Date().toISOString(),
+  res.json({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
       uptime: process.uptime(),
       bleScanner: bleScanner ? 'initialized' : 'not initialized'
-    });
   });
+});
 
   // Catch-all route for debugging unhandled requests
-  app.use('*', (req: Request, res: Response) => {
+app.use('*', (req: Request, res: Response) => {
     logError(`[404] Unhandled request: ${req.method} ${req.originalUrl}`);
     logError(`[404] Available routes: GET /, POST /scan/start, GET /scan/status, POST /scan/stop, POST /device/add, GET /devices/configured, DELETE /device/:address, GET /debug/devices, GET /health`);
-    res.status(404).json({ 
+  res.status(404).json({ 
       error: 'Not Found',
       message: `Route ${req.method} ${req.originalUrl} not found`,
-      availableRoutes: [
+    availableRoutes: [
         'GET /',
-        'POST /scan/start',
-        'GET /scan/status', 
+      'POST /scan/start',
+      'GET /scan/status', 
         'POST /scan/stop',
         'POST /device/add',
-        'GET /devices/configured',
+      'GET /devices/configured',
         'DELETE /device/:address',
         'GET /debug/devices',
-        'GET /health'
-      ]
-    });
+      'GET /health'
+    ]
   });
+});
 
-  // Start the server
+// Start the server
   server.listen(port, () => {
-    logInfo(`🚀 RC2 Bed Control Panel started on port ${port}`);
-    logInfo(`📱 Web interface available at: http://localhost:${port}`);
+  logInfo(`🚀 RC2 Bed Control Panel started on port ${port}`);
+  logInfo(`📱 Web interface available at: http://localhost:${port}`);
     logInfo(`🔧 BLE Scanner: ${bleScanner ? 'Initialized' : 'Not initialized'}`);
-    
-    // Log available endpoints for debugging
-    logInfo('📋 Available API endpoints:');
-    logInfo('   POST /scan/start - Start BLE device scan');
-    logInfo('   GET  /scan/status - Get scan status');
+  
+  // Log available endpoints for debugging
+  logInfo('📋 Available API endpoints:');
+  logInfo('   POST /scan/start - Start BLE device scan');
+  logInfo('   GET  /scan/status - Get scan status');
     logInfo('   POST /scan/stop - Stop BLE device scan');
     logInfo('   POST /device/add - Add discovered device');
-    logInfo('   GET  /devices/configured - Get configured devices');
+  logInfo('   GET  /devices/configured - Get configured devices');
     logInfo('   DELETE /device/:address - Remove device');
     logInfo('   GET  /debug/devices - Debug device state');
-    logInfo('   GET  /health - Health check');
+  logInfo('   GET  /health - Health check');
   });
 };
 

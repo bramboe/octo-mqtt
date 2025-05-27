@@ -55,7 +55,7 @@ EXPOSE 8099
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:8099/health || exit 1
 
-# Start the application
+# Start the application  
 CMD ["./run.sh"]
 
 LABEL \

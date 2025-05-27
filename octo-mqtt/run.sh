@@ -45,5 +45,5 @@ else
     echo "⚠️  TypeScript build not found, using fallback: index.js"
     echo "📄 Fallback file size: $(ls -lh index.js | awk '{print $5}')"
     echo "🎯 Starting fallback application with: index.js"
-    exec node index.js
+exec node index.js
 fi
