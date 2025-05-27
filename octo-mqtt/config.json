@@ -1,8 +1,8 @@
 {
   "name": "Octo Integration via MQTT",
-  "version": "2.0.6",
+  "version": "2.0.7",
   "slug": "octo-mqtt",
-  "description": "Home Assistant Community Add-on for Octo actuators star version 2 (Fixed 404 scan errors)",
+  "description": "Home Assistant Community Add-on for Octo actuators star version 2 (Fixed 404 scan errors) - Latest update",
   "url": "https://github.com/bramboe/octo-mqtt",
   "arch": ["armhf", "armv7", "aarch64", "amd64", "i386"],
   "startup": "application",
