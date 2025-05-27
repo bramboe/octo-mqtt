@@ -25,7 +25,7 @@ COPY tsconfig.prod.json ./
 
 # Install dependencies with verbose logging
 RUN echo "=== INSTALLING DEPENDENCIES ===" && \
-    npm ci --production --verbose && \
+    npm ci --production --legacy-peer-deps --verbose && \
     echo "=== DEPENDENCIES INSTALLED ==="
 
 # Copy source code
