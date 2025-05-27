@@ -22,11 +22,15 @@ export const connectToESPHome = async (): Promise<IESPConnection> => {
   
   try {
     const connections = await Promise.all(
-          proxies.map(async (config: BLEProxy) => {
+      proxies.map(async (config: BLEProxy) => {
         try {
           logInfo(`[ESPHome] Creating connection to ${config.host}:${config.port}`);
-            const connection = new Connection(config);
-            return await connect(connection);
+          const connectionConfig: Partial<BLEProxy> = { ...config };
+          if (connectionConfig.password === "") {
+            delete connectionConfig.password;
+          }
+          const connection = new Connection(connectionConfig as any);
+          return await connect(connection);
         } catch (error) {
           logWarn(`[ESPHome] Failed to connect to proxy at ${config.host}:${config.port}`);
           return null;
