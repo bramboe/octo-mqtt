@@ -20,7 +20,6 @@ WORKDIR /app
 
 # Copy production package file and TypeScript config
 COPY package.prod.json package.json
-COPY package-lock.json ./
 COPY tsconfig.prod.json ./
 
 # Install dependencies with verbose logging
@@ -63,5 +62,5 @@ LABEL \
     io.hass.name="Octo Integration via MQTT" \
     io.hass.description="Home Assistant Community Add-on for Octo actuators star version 2 (TypeScript version with fallback)" \
     io.hass.type="addon" \
-    io.hass.version="2.0.9" \
+    io.hass.version="2.0.5" \
     maintainer="Bram Boersma <bram.boersma@gmail.com>"
