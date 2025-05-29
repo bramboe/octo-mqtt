@@ -1,0 +1,60 @@
+{
+  "name": "Octo Integration via MQTT",
+  "version": "2.0.8",
+  "slug": "octo-mqtt",
+  "description": "Home Assistant Community Add-on for Octo actuators star version 2 (Fixed 404 scan errors) - Latest update",
+  "url": "https://github.com/bramboe/octo-mqtt",
+  "arch": ["armhf", "armv7", "aarch64", "amd64", "i386"],
+  "startup": "application",
+  "boot": "auto",
+  "init": false,
+  "host_network": true,
+  "hassio_api": true,
+  "hassio_role": "default",
+  "homeassistant_api": true,
+  "options": {
+    "mqtt_host": "<auto_detect>",
+    "mqtt_port": 1883,
+    "mqtt_user": "<auto_detect>",
+    "mqtt_password": "<auto_detect>",
+    "bleProxies": [
+      {
+        "host": "192.168.2.102",
+        "port": 6053,
+        "password": ""
+      }
+    ],
+    "octoDevices": [],
+    "log_level": "info"
+  },
+  "schema": {
+    "mqtt_host": "str",
+    "mqtt_port": "port",
+    "mqtt_user": "str?",
+    "mqtt_password": "password?",
+    "bleProxies": [
+      {
+        "host": "str",
+        "port": "port",
+        "password": "password?"
+      }
+    ],
+    "octoDevices": [
+      {
+        "name": "str",
+        "friendlyName": "str?"
+      }
+    ],
+    "log_level": "list(trace|debug|info|notice|warning|error|fatal)?"
+  },
+  "ports": {
+    "8099/tcp": 8099
+  },
+  "ports_description": {
+    "8099/tcp": "Web interface"
+  },
+  "ingress": true,
+  "ingress_port": 8099,
+  "panel_icon": "mdi:bed",
+  "panel_title": "Octo MQTT"
+}
