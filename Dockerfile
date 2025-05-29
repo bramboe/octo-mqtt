@@ -24,21 +24,28 @@ COPY package.json .
 COPY package-lock.json .
 COPY tsconfig.prod.json ./
 
-# Install dependencies with verbose logging
+# Install dependencies and build TypeScript
 RUN \
     apk add --no-cache \
         nodejs \
         npm \
     \
-    && npm ci --production --legacy-peer-deps \
-    && npm cache clean --force
+    && npm ci --legacy-peer-deps \
+    && npm install typescript@4.9.5 \
+    && echo "=== TypeScript Version ===" \
+    && npx tsc --version
 
 # Copy source code
 COPY src/ ./src/
 COPY webui/ ./webui/
 
 # Build TypeScript
-RUN npx tsc --project tsconfig.prod.json
+RUN npx tsc --project tsconfig.prod.json \
+    && echo "=== Build Complete ===" \
+    && ls -la dist/tsc/ \
+    && npm prune --production \
+    && npm uninstall typescript \
+    && npm cache clean --force
 
 # Copy fallback
 COPY index.js ./
