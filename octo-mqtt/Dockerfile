@@ -25,6 +25,7 @@ COPY tsconfig.prod.json ./
 
 # Install dependencies with verbose logging
 RUN echo "=== INSTALLING DEPENDENCIES ===" && \
+    apk add --no-cache npm && \
     npm ci --production --legacy-peer-deps --verbose && \
     echo "=== DEPENDENCIES INSTALLED ==="
 
