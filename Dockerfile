@@ -27,8 +27,8 @@ COPY tsconfig.prod.json ./
 # Install dependencies with verbose logging
 RUN \
     apk add --no-cache \
-        nodejs=18.19.1-r0 \
-        npm=10.2.5-r0 \
+        nodejs \
+        npm \
     \
     && npm ci --production --legacy-peer-deps \
     && npm cache clean --force
