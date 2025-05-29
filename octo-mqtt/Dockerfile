@@ -1,8 +1,8 @@
 FROM node:18-alpine
 
 # Force rebuild by changing this version number
-ENV BUILD_VERSION=v2025.05.26.3
-ENV CACHE_BUST=20250526203230
+ENV BUILD_VERSION=v2025.05.27.1
+ENV CACHE_BUST=20250527120000
 
 # Install system dependencies
 RUN apk add --no-cache bash curl jq
@@ -64,5 +64,5 @@ LABEL \
     io.hass.name="Octo Integration via MQTT" \
     io.hass.description="Home Assistant Community Add-on for Octo actuators star version 2 (TypeScript version with fallback)" \
     io.hass.type="addon" \
-    io.hass.version="2.0.5" \
+    io.hass.version="2.0.8" \
     maintainer="Bram Boersma <bram.boersma@gmail.com>"
