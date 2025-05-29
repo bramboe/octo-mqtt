@@ -10,8 +10,15 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 ARG BUILD_ARCH=aarch64
 
 # Force rebuild by changing this version number
-ENV BUILD_VERSION=v2025.05.29.1
-ENV CACHE_BUST=20250529224500
+ENV BUILD_VERSION=v2025.05.29.2
+ENV CACHE_BUST=20250529225900
+
+# Install required packages
+RUN \
+    apk add --no-cache \
+        nodejs \
+        npm \
+        nginx
 
 # Copy root filesystem
 COPY rootfs /
@@ -24,11 +31,7 @@ COPY package.json package-lock.json tsconfig.prod.json ./
 
 # Install Node.js and build dependencies
 RUN \
-    apk add --no-cache \
-        nodejs \
-        npm \
-    \
-    && npm install --production --no-optional --no-package-lock \
+    npm install --production --no-optional --no-package-lock \
     && echo "=== Dependencies Installed ==="
 
 # Copy source code
