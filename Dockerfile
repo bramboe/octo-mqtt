@@ -48,8 +48,12 @@ RUN echo "=== BUILDING TYPESCRIPT ===" && \
 # Copy fallback and run script
 COPY index.js ./
 COPY run.sh ./
-RUN chmod +x run.sh && \
-    dos2unix run.sh
+
+# Fix line endings and permissions
+RUN dos2unix run.sh && \
+    chmod +x run.sh && \
+    echo "=== FILE PERMISSIONS ===" && \
+    ls -la run.sh
 
 # Expose port
 EXPOSE 8099
