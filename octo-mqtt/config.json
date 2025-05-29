@@ -14,7 +14,7 @@
   "homeassistant_api": true,
   "options": {
     "mqtt_host": "<auto_detect>",
-    "mqtt_port": "<auto_detect>",
+    "mqtt_port": 1883,
     "mqtt_user": "<auto_detect>",
     "mqtt_password": "<auto_detect>",
     "bleProxies": [
