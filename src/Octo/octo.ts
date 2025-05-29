@@ -85,7 +85,7 @@ export const octo = async (mqtt: IMQTTConnection, esphome: IESPConnection) => {
     let featuresReceived = false;
 
     // Function to request features and wait with retry logic
-    const requestFeatures = async () => {
+    const requestFeatures = async (): Promise<void> => {
       currentAttempt++;
       
       logInfo(`[Octo] Requesting features for device ${name} (attempt ${currentAttempt}/${MAX_FEATURE_REQUEST_ATTEMPTS})`);

@@ -34,7 +34,7 @@ export const connectToESPHome = async (): Promise<IESPConnection> => {
       })
     );
     
-    const validConnections = connections.filter(c => c !== null);
+    const validConnections = connections.filter((c): c is Connection => c !== null);
     
     if (validConnections.length === 0) {
       logWarn('[ESPHome] Could not connect to any BLE proxies. BLE functionality will be limited.');
