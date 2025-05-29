@@ -5,7 +5,7 @@ ENV BUILD_VERSION=v2025.05.27.1
 ENV CACHE_BUST=20250527120000
 
 # Install system dependencies
-RUN apk add --no-cache bash curl jq
+RUN apk add --no-cache bash curl jq dos2unix
 
 # Install bashio for Home Assistant integration
 RUN curl -J -L -o /tmp/bashio.tar.gz "https://github.com/hassio-addons/bashio/archive/v0.13.1.tar.gz" && \
@@ -48,7 +48,8 @@ RUN echo "=== BUILDING TYPESCRIPT ===" && \
 # Copy fallback and run script
 COPY index.js ./
 COPY run.sh ./
-RUN chmod +x run.sh
+RUN chmod +x run.sh && \
+    dos2unix run.sh
 
 # Expose port
 EXPOSE 8099

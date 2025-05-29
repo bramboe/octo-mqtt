@@ -1,12 +1,12 @@
 #!/usr/bin/with-contenv bashio
 
 # Log startup with unique identifier
-echo "🚀 Starting Octo MQTT addon v2.0.6..."
-echo "📅 Build: v2025.05.26.3"
+echo "🚀 Starting Octo MQTT addon v2.0.8..."
+echo "📅 Build: v2025.05.27.1"
 echo "⚡ Process ID: $$"
 echo "🔧 Repository: https://github.com/bramboe/octo-mqtt"
-echo "🏷️  Git Tag: v2.0.6"
-echo "🔄 Cache Bust: 20250526203230"
+echo "🏷️  Git Tag: v2.0.8"
+echo "🔄 Cache Bust: 20250527120000"
 
 # Check if any Node.js processes are already running on port 8099
 if netstat -tulpn 2>/dev/null | grep -q ':8099 '; then
@@ -45,5 +45,5 @@ else
     echo "⚠️  TypeScript build not found, using fallback: index.js"
     echo "📄 Fallback file size: $(ls -lh index.js | awk '{print $5}')"
     echo "🎯 Starting fallback application with: index.js"
-exec node index.js
+    exec node index.js
 fi
