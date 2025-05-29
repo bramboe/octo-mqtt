@@ -89,10 +89,13 @@ const start = async () => {
   const port = process.env.PORT || 8099;
   const server = http.createServer(app);
 
+  // Get ingress path from environment
+  const ingressPath = process.env.INGRESS_PATH || '';
+  
   // Set up WebSocket server for real-time communication
   wsServer = new WebSocket.Server({ 
     server,
-    path: '/ws'
+    path: `${ingressPath}/ws`
   });
   
   wsServer.on('connection', (ws: WebSocket) => {
@@ -181,10 +184,10 @@ const start = async () => {
     }
   }
 
-  // Serve static files
+  // Serve static files with ingress path prefix
   const webuiPath = path.join(process.cwd(), 'webui');
-  logInfo(`Serving static files from ${webuiPath}`);
-  app.use(express.static(webuiPath));
+  logInfo(`Serving static files from ${webuiPath} with ingress path: ${ingressPath}`);
+  app.use(ingressPath, express.static(webuiPath));
   app.use(express.json());
 
   // Add comprehensive request logging middleware
@@ -193,8 +196,8 @@ const start = async () => {
     next();
   });
 
-  // Main routes
-  app.get('/', (_req: Request, res: Response) => {
+  // Main routes with ingress path
+  app.get(`${ingressPath}/`, (_req: Request, res: Response) => {
     res.sendFile(path.join(webuiPath, 'index.html'));
   });
 
@@ -202,7 +205,7 @@ const start = async () => {
   bleScanner = new BLEScanner(esphomeConnection as any); // TODO: Fix type casting
 
     // BLE scanning endpoints with simplified routes
-  app.post('/scan/start', async (_req: Request, res: Response): Promise<void> => {
+  app.post(`${ingressPath}/scan/start`, async (_req: Request, res: Response): Promise<void> => {
     logInfo('[BLE] ===== SCAN START ENDPOINT HIT =====');
     logInfo('[BLE] Received scan start request');
     
@@ -226,7 +229,7 @@ const start = async () => {
   }
 });
 
-  app.get('/scan/status', (_req: Request, res: Response): void => {
+  app.get(`${ingressPath}/scan/status`, (_req: Request, res: Response): void => {
     logInfo('[BLE] ===== SCAN STATUS ENDPOINT HIT =====');
     logInfo('[BLE] Received scan status request');
     
@@ -256,7 +259,7 @@ const start = async () => {
     }
   });
 
-  app.post('/scan/stop', async (_req: Request, res: Response): Promise<void> => {
+  app.post(`${ingressPath}/scan/stop`, async (_req: Request, res: Response): Promise<void> => {
     logInfo('[BLE] ===== SCAN STOP ENDPOINT HIT =====');
     logInfo('[BLE] Received scan stop request');
     
@@ -281,7 +284,7 @@ const start = async () => {
   }
 });
 
-  app.post('/device/add', async (req: Request, res: Response): Promise<void> => {
+  app.post(`${ingressPath}/device/add`, async (req: Request, res: Response): Promise<void> => {
     const { address, pin } = req.body;
     
     if (!bleScanner) {
@@ -425,7 +428,7 @@ const start = async () => {
 });
 
   // Get configured devices
-  app.get('/devices/configured', (_req: Request, res: Response): void => {
+  app.get(`${ingressPath}/devices/configured`, (_req: Request, res: Response): void => {
   try {
     const config = getRootOptions();
       const configuredDevices = config.octoDevices || [];
@@ -441,7 +444,7 @@ const start = async () => {
 });
 
   // Remove device
-  app.delete('/device/:address', async (req: Request, res: Response): Promise<void> => {
+  app.delete(`${ingressPath}/device/:address`, async (req: Request, res: Response): Promise<void> => {
     const { address } = req.params;
     
     try {
@@ -483,7 +486,7 @@ const start = async () => {
   });
 
   // Diagnostic endpoint to show device configuration state
-  app.get('/debug/devices', (_req: Request, res: Response): void => {
+  app.get(`${ingressPath}/debug/devices`, (_req: Request, res: Response): void => {
     try {
       const config = getRootOptions();
       const configuredDevices = config.octoDevices || [];
@@ -524,12 +527,13 @@ const start = async () => {
   });
 
 // Health check endpoint
-  app.get('/health', (_req: Request, res: Response) => {
+  app.get(`${ingressPath}/health`, (_req: Request, res: Response) => {
   res.json({
     status: 'healthy',
     timestamp: new Date().toISOString(),
       uptime: process.uptime(),
-      bleScanner: bleScanner ? 'initialized' : 'not initialized'
+      bleScanner: bleScanner ? 'initialized' : 'not initialized',
+      ingressPath
   });
 });
 
@@ -557,19 +561,20 @@ app.use('*', (req: Request, res: Response) => {
 // Start the server
   server.listen({ port: port, host: '0.0.0.0' }, () => {
   logInfo(`🚀 RC2 Bed Control Panel started on port ${port}`);
-  logInfo(`📱 Web interface available at: http://0.0.0.0:${port}`);
+  logInfo(`📱 Web interface available at: http://0.0.0.0:${port}${ingressPath}`);
     logInfo(`🔧 BLE Scanner: ${bleScanner ? 'Initialized' : 'Not initialized'}`);
+    logInfo(`🌐 Ingress path: ${ingressPath}`);
   
   // Log available endpoints for debugging
   logInfo('📋 Available API endpoints:');
-  logInfo('   POST /scan/start - Start BLE device scan');
-  logInfo('   GET  /scan/status - Get scan status');
-    logInfo('   POST /scan/stop - Stop BLE device scan');
-    logInfo('   POST /device/add - Add discovered device');
-  logInfo('   GET  /devices/configured - Get configured devices');
-    logInfo('   DELETE /device/:address - Remove device');
-    logInfo('   GET  /debug/devices - Debug device state');
-  logInfo('   GET  /health - Health check');
+  logInfo(`   POST ${ingressPath}/scan/start - Start BLE device scan`);
+  logInfo(`   GET  ${ingressPath}/scan/status - Get scan status`);
+    logInfo(`   POST ${ingressPath}/scan/stop - Stop BLE device scan`);
+    logInfo(`   POST ${ingressPath}/device/add - Add discovered device`);
+  logInfo(`   GET  ${ingressPath}/devices/configured - Get configured devices`);
+    logInfo(`   DELETE ${ingressPath}/device/:address - Remove device`);
+    logInfo(`   GET  ${ingressPath}/debug/devices - Debug device state`);
+  logInfo(`   GET  ${ingressPath}/health - Health check`);
   });
 };
 

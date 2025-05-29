@@ -8,7 +8,7 @@
   "startup": "application",
   "boot": "auto",
   "init": false,
-  "host_network": true,
+  "host_network": false,
   "hassio_api": true,
   "hassio_role": "default",
   "homeassistant_api": true,
@@ -55,6 +55,7 @@
   },
   "ingress": true,
   "ingress_port": 8099,
+  "ingress_stream": true,
   "panel_icon": "mdi:bed",
   "panel_title": "Octo MQTT"
 }
