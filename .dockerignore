@@ -1,0 +1,13 @@
+.git
+.gitignore
+.DS_Store
+node_modules
+data
+*.log
+dist
+README.md
+CHANGELOG.md
+.husky
+*.test.*
+__tests__
+coverage 
