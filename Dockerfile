@@ -10,8 +10,8 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 ARG BUILD_ARCH=aarch64
 
 # Force rebuild by changing this version number
-ENV BUILD_VERSION=v2025.05.27.1
-ENV CACHE_BUST=20250527120000
+ENV BUILD_VERSION=v2025.05.29.1
+ENV CACHE_BUST=20250529224500
 
 # Copy root filesystem
 COPY rootfs /
@@ -19,32 +19,28 @@ COPY rootfs /
 # Set working directory
 WORKDIR /app
 
-# Copy production package file and TypeScript config
-COPY package.json .
-COPY package-lock.json .
-COPY tsconfig.prod.json ./
+# Copy package files and TypeScript config
+COPY package.json package-lock.json tsconfig.prod.json ./
 
-# Install dependencies and build TypeScript
+# Install Node.js and build dependencies
 RUN \
     apk add --no-cache \
         nodejs \
         npm \
     \
-    && npm ci --legacy-peer-deps \
-    && npm install typescript@4.9.5 \
-    && echo "=== TypeScript Version ===" \
-    && npx tsc --version
+    && npm install --production --no-optional --no-package-lock \
+    && echo "=== Dependencies Installed ==="
 
 # Copy source code
 COPY src/ ./src/
 COPY webui/ ./webui/
 
 # Build TypeScript
-RUN npx tsc --project tsconfig.prod.json \
+RUN \
+    echo "=== Building TypeScript ===" \
+    && ./node_modules/.bin/tsc --project tsconfig.prod.json \
     && echo "=== Build Complete ===" \
     && ls -la dist/tsc/ \
-    && npm prune --production \
-    && npm uninstall typescript \
     && npm cache clean --force
 
 # Copy fallback
