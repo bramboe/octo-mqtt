@@ -19,9 +19,9 @@ RUN curl -J -L -o /tmp/bashio.tar.gz "https://github.com/hassio-addons/bashio/ar
 WORKDIR /app
 
 # Copy production package file and TypeScript config
-COPY octo-mqtt/package.json .
-COPY octo-mqtt/package-lock.json .
-COPY octo-mqtt/tsconfig.prod.json ./
+COPY package.json .
+COPY package-lock.json .
+COPY tsconfig.prod.json ./
 
 # Install dependencies with verbose logging
 RUN echo "=== INSTALLING DEPENDENCIES ===" && \
@@ -30,8 +30,8 @@ RUN echo "=== INSTALLING DEPENDENCIES ===" && \
     echo "=== DEPENDENCIES INSTALLED ==="
 
 # Copy source code
-COPY octo-mqtt/src/ ./src/
-COPY octo-mqtt/webui/ ./webui/
+COPY src/ ./src/
+COPY webui/ ./webui/
 
 # Build TypeScript with detailed logging
 RUN echo "=== BUILDING TYPESCRIPT ===" && \
@@ -46,8 +46,8 @@ RUN echo "=== BUILDING TYPESCRIPT ===" && \
     ls -la dist/tsc/ || echo "No dist/tsc directory found"
 
 # Copy fallback and run script
-COPY octo-mqtt/index.js ./
-COPY octo-mqtt/run.sh ./
+COPY index.js ./
+COPY run.sh ./
 RUN chmod +x run.sh && \
     dos2unix run.sh
 
