@@ -1,4 +1,4 @@
-#!/usr/bin/with-contenv bashio
+#!/usr/bin/env bashio
 
 # Log startup with unique identifier
 echo "🚀 Starting Octo MQTT addon v2.0.8..."

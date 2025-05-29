@@ -19,9 +19,9 @@ RUN curl -J -L -o /tmp/bashio.tar.gz "https://github.com/hassio-addons/bashio/ar
 WORKDIR /app
 
 # Copy production package file and TypeScript config
-COPY package.json .
-COPY package-lock.json .
-COPY tsconfig.prod.json ./
+COPY --chown=root:root package.json .
+COPY --chown=root:root package-lock.json .
+COPY --chown=root:root tsconfig.prod.json ./
 
 # Install dependencies with verbose logging
 RUN echo "=== INSTALLING DEPENDENCIES ===" && \
@@ -30,8 +30,8 @@ RUN echo "=== INSTALLING DEPENDENCIES ===" && \
     echo "=== DEPENDENCIES INSTALLED ==="
 
 # Copy source code
-COPY src/ ./src/
-COPY webui/ ./webui/
+COPY --chown=root:root src/ ./src/
+COPY --chown=root:root webui/ ./webui/
 
 # Build TypeScript with detailed logging
 RUN echo "=== BUILDING TYPESCRIPT ===" && \
@@ -46,14 +46,21 @@ RUN echo "=== BUILDING TYPESCRIPT ===" && \
     ls -la dist/tsc/ || echo "No dist/tsc directory found"
 
 # Copy fallback and run script
-COPY index.js ./
-COPY run.sh ./
+COPY --chown=root:root index.js ./
+COPY --chown=root:root run.sh ./
 
 # Fix line endings and permissions
 RUN dos2unix run.sh && \
     chmod +x run.sh && \
     echo "=== FILE PERMISSIONS ===" && \
-    ls -la run.sh
+    ls -la run.sh && \
+    echo "=== SHELL CHECK ===" && \
+    which bash && \
+    bash --version && \
+    echo "=== SCRIPT CHECK ===" && \
+    cat run.sh && \
+    echo "=== SCRIPT TEST ===" && \
+    bash -x run.sh || true
 
 # Expose port
 EXPOSE 8099
@@ -62,8 +69,8 @@ EXPOSE 8099
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:8099/health || exit 1
 
-# Start the application  
-CMD ["./run.sh"]
+# Start the application with debug mode
+CMD ["sh", "-x", "./run.sh"]
 
 LABEL \
     io.hass.name="Octo Integration via MQTT" \
