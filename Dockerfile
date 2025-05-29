@@ -47,20 +47,20 @@ RUN echo "=== BUILDING TYPESCRIPT ===" && \
 
 # Copy fallback and run script
 COPY --chown=root:root index.js ./
-COPY --chown=root:root run.sh ./
 
-# Fix line endings and permissions
-RUN dos2unix run.sh && \
-    chmod +x run.sh && \
+# Copy root filesystem
+COPY rootfs /
+
+# Fix permissions
+RUN chmod a+x /etc/services.d/octo-mqtt/run && \
+    dos2unix /etc/services.d/octo-mqtt/run && \
     echo "=== FILE PERMISSIONS ===" && \
-    ls -la run.sh && \
+    ls -la /etc/services.d/octo-mqtt/run && \
     echo "=== SHELL CHECK ===" && \
     which bash && \
     bash --version && \
     echo "=== SCRIPT CHECK ===" && \
-    cat run.sh && \
-    echo "=== SCRIPT TEST ===" && \
-    bash -x run.sh || true
+    cat /etc/services.d/octo-mqtt/run
 
 # Expose port
 EXPOSE 8099
@@ -69,8 +69,8 @@ EXPOSE 8099
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:8099/health || exit 1
 
-# Start the application with debug mode
-CMD ["sh", "-x", "./run.sh"]
+# Start the application with s6-overlay
+CMD ["/init"]
 
 LABEL \
     io.hass.name="Octo Integration via MQTT" \
