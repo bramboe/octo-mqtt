@@ -555,9 +555,9 @@ app.use('*', (req: Request, res: Response) => {
 });
 
 // Start the server
-  server.listen(port, () => {
+  server.listen({ port: port, host: '0.0.0.0' }, () => {
   logInfo(`🚀 RC2 Bed Control Panel started on port ${port}`);
-  logInfo(`📱 Web interface available at: http://localhost:${port}`);
+  logInfo(`📱 Web interface available at: http://0.0.0.0:${port}`);
     logInfo(`🔧 BLE Scanner: ${bleScanner ? 'Initialized' : 'Not initialized'}`);
   
   // Log available endpoints for debugging
