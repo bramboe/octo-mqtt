@@ -29,12 +29,12 @@ WORKDIR /app
 # Copy package files and TypeScript config
 COPY package.json package-lock.json tsconfig.prod.json ./
 
-# Install Node.js and build dependencies
+# Install Node.js dependencies
 RUN \
     npm install --production --no-optional --no-package-lock \
     && echo "=== Dependencies Installed ==="
 
-# Copy source code
+# Copy source code and web UI
 COPY src/ ./src/
 COPY webui/ ./webui/
 
@@ -46,8 +46,15 @@ RUN \
     && ls -la dist/tsc/ \
     && npm cache clean --force
 
-# Copy fallback
+# Copy fallback file
 COPY index.js ./
+
+# Create required NGINX directories
+RUN mkdir -p /var/log/nginx \
+    && mkdir -p /var/lib/nginx/body \
+    && mkdir -p /var/lib/nginx/fastcgi \
+    && chown -R nginx:nginx /var/log/nginx \
+    && chown -R nginx:nginx /var/lib/nginx
 
 # Build arguments
 ARG BUILD_DATE

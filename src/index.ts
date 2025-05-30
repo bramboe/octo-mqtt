@@ -86,7 +86,7 @@ const start = async () => {
 
   // Setup Express server for Ingress
   const app = express();
-  const port = process.env.PORT || 8099;
+  const port = process.env.PORT || 3000;
   const server = http.createServer(app);
 
   // Get ingress path from environment

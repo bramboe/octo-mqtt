@@ -8,10 +8,13 @@ echo "🔧 Repository: https://github.com/bramboe/octo-mqtt"
 echo "🏷️  Git Tag: v2.0.8"
 echo "🔄 Cache Bust: 20250527120000"
 
-# Check if any Node.js processes are already running on port 8099
-if netstat -tulpn 2>/dev/null | grep -q ':8099 '; then
-    echo "⚠️  Port 8099 already in use! Killing existing processes..."
-    pkill -f "node.*8099" || true
+# Change to application directory
+cd /app || exit 1
+
+# Check if any Node.js processes are already running on port 3000
+if netstat -tulpn 2>/dev/null | grep -q ':3000 '; then
+    echo "⚠️  Port 3000 already in use! Killing existing processes..."
+    pkill -f "node.*3000" || true
     sleep 2
 fi
 
