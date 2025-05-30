@@ -6,10 +6,10 @@ import { getRootOptions } from '../Utils/options';
 const options = getRootOptions();
 
 // Get MQTT configuration from Home Assistant options with fallbacks
-const host = options.mqtt_host || process.env.MQTTHOST || 'core-mosquitto';
+const host = options.mqtt_host === '<auto_detect>' ? 'core-mosquitto' : (options.mqtt_host || process.env.MQTTHOST || 'core-mosquitto');
 const port = options.mqtt_port || parseInt(process.env.MQTTPORT || '1883', 10);
-const username = options.mqtt_username || process.env.MQTTUSER || '';
-const password = options.mqtt_password || process.env.MQTTPASSWORD || '';
+const username = options.mqtt_username === '<auto_detect>' ? '' : (options.mqtt_username || process.env.MQTTUSER || '');
+const password = options.mqtt_password === '<auto_detect>' ? '' : (options.mqtt_password || process.env.MQTTPASSWORD || '');
 
 // Generate a unique client ID to avoid connection conflicts
 const clientId = `octo_mqtt_${Math.random().toString(16).substring(2, 10)}`;
@@ -31,12 +31,12 @@ const config: IClientOptions = {
   rejectUnauthorized: false
 };
 
-// Only add auth if username is provided
-if (username) {
+// Only add auth if username is provided and not auto-detect
+if (username && username !== '<auto_detect>') {
   config.username = username;
   
-  // Only set password if provided
-  if (password) {
+  // Only set password if provided and not auto-detect
+  if (password && password !== '<auto_detect>') {
     config.password = password;
   } else {
     logWarn('[MQTT] Username provided but password is empty');
