@@ -29,21 +29,24 @@ WORKDIR /app
 # Copy package files and TypeScript config
 COPY package.json package-lock.json tsconfig.prod.json ./
 
-# Install Node.js dependencies
+# Install Node.js dependencies including development dependencies for build
 RUN \
-    npm install --production --no-optional --no-package-lock \
+    npm install --no-optional --no-package-lock \
     && echo "=== Dependencies Installed ==="
 
 # Copy source code and web UI
 COPY src/ ./src/
 COPY webui/ ./webui/
 
-# Build TypeScript
+# Build TypeScript with path alias resolution
 RUN \
     echo "=== Building TypeScript ===" \
     && ./node_modules/.bin/tsc --project tsconfig.prod.json \
+    && ./node_modules/.bin/tsc-alias -p tsconfig.prod.json \
     && echo "=== Build Complete ===" \
     && ls -la dist/tsc/ \
+    && echo "=== Cleaning up development dependencies ===" \
+    && npm prune --production \
     && npm cache clean --force
 
 # Copy fallback file
