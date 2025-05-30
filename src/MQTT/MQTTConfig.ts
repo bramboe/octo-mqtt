@@ -1,5 +1,5 @@
 import { IClientOptions } from 'mqtt/types/lib/client';
-import { logInfo } from '@utils/logger';
+import { logInfo, logWarn } from '@utils/logger';
 import { getRootOptions } from '../Utils/options';
 
 // Get Home Assistant options
@@ -11,6 +11,7 @@ const port = 1883;
 
 // When using auto-detect, use the Supervisor token for authentication
 const supervisorToken = process.env.SUPERVISOR_TOKEN;
+logInfo(`[MQTT] Supervisor token available: ${supervisorToken ? 'yes' : 'no'}`);
 
 // Create base configuration
 const config: IClientOptions = {
@@ -29,6 +30,8 @@ if (supervisorToken) {
   config.username = 'addon';
   config.password = supervisorToken;
   logInfo('[MQTT] Using Supervisor token for authentication');
+} else {
+  logWarn('[MQTT] No Supervisor token available, MQTT authentication will likely fail');
 }
 
 export default config;
