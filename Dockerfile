@@ -23,12 +23,11 @@ RUN \
 # Copy root filesystem
 COPY rootfs /
 
-# Create required directories
+# Create required NGINX directories
 RUN \
     mkdir -p /var/log/nginx \
     && mkdir -p /var/lib/nginx/body \
     && mkdir -p /var/lib/nginx/fastcgi \
-    && mkdir -p /etc/services.d/mqtt \
     && chown -R nginx:nginx /var/log/nginx \
     && chown -R nginx:nginx /var/lib/nginx
 
