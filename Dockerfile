@@ -23,6 +23,15 @@ RUN \
 # Copy root filesystem
 COPY rootfs /
 
+# Create required directories
+RUN \
+    mkdir -p /var/log/nginx \
+    && mkdir -p /var/lib/nginx/body \
+    && mkdir -p /var/lib/nginx/fastcgi \
+    && mkdir -p /etc/services.d/mqtt \
+    && chown -R nginx:nginx /var/log/nginx \
+    && chown -R nginx:nginx /var/lib/nginx
+
 # Set working directory
 WORKDIR /app
 
@@ -51,13 +60,6 @@ RUN \
 
 # Copy fallback file
 COPY index.js ./
-
-# Create required NGINX directories
-RUN mkdir -p /var/log/nginx \
-    && mkdir -p /var/lib/nginx/body \
-    && mkdir -p /var/lib/nginx/fastcgi \
-    && chown -R nginx:nginx /var/log/nginx \
-    && chown -R nginx:nginx /var/lib/nginx
 
 # Build arguments
 ARG BUILD_DATE
