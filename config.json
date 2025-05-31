@@ -13,11 +13,12 @@
   "auth_api": true,
   "hassio_role": "default",
   "homeassistant_api": true,
+  "services": ["mqtt:need"],
   "options": {
-    "mqtt_host": "core-mosquitto",
-    "mqtt_port": 1883,
-    "mqtt_user": "octo_mqtt",
-    "mqtt_password": "mqtt_secure_password",
+    "mqtt_host": "<auto_detect>",
+    "mqtt_port": "<auto_detect>",
+    "mqtt_user": "<auto_detect>",
+    "mqtt_password": "<auto_detect>",
     "bleProxies": [
       {
         "host": "192.168.2.102",
@@ -30,7 +31,7 @@
   },
   "schema": {
     "mqtt_host": "str",
-    "mqtt_port": "port",
+    "mqtt_port": "str",
     "mqtt_user": "str?",
     "mqtt_password": "password?",
     "bleProxies": [

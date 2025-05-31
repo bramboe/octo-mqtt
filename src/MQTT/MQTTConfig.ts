@@ -1,28 +1,52 @@
 import { IClientOptions } from 'mqtt/types/lib/client';
-import { logInfo, logWarn } from '@utils/logger';
-import { getRootOptions } from '../Utils/options';
+import { logInfo, logWarn, logError } from '@utils/logger';
 
-// Get Home Assistant options
-const options = getRootOptions();
+// Get MQTT configuration from environment variables provided by Supervisor
+const host = process.env.MQTTHOST || 'core-mosquitto'; // Fallback if not provided
+const portEnv = process.env.MQTTPORT;
+const username = process.env.MQTTUSER;
+const password = process.env.MQTTPASSWORD;
 
-// Get MQTT configuration
-const host = 'core-mosquitto';
-const port = 1883;
+let port = 1883; // Default port
+if (portEnv) {
+  const parsedPort = parseInt(portEnv, 10);
+  if (!isNaN(parsedPort)) {
+    port = parsedPort;
+  } else {
+    logWarn(`[MQTT] Invalid MQTTPORT environment variable: ${portEnv}. Using default port ${port}.`);
+  }
+}
+
+logInfo(`[MQTT] Attempting to connect to ${host}:${port}`);
+if (username) {
+  logInfo(`[MQTT] Using username from environment: ${username}`);
+} else {
+  logWarn('[MQTT] No MQTTUSER environment variable set by Supervisor. Connection will likely be anonymous or fail.');
+}
+
+// Generate a unique client ID
+const clientId = `octo_mqtt_${Math.random().toString(16).substring(2, 10)}`;
 
 // Create base configuration
 const config: IClientOptions = {
   protocol: 'mqtt',
   host,
   port,
-  clientId: `octo_mqtt_${Math.random().toString(16).substring(2, 10)}`,
+  clientId,
   clean: true,
   reconnectPeriod: 5000,
   connectTimeout: 10000,
   rejectUnauthorized: false,
-  username: 'octo_mqtt',
-  password: 'mqtt_secure_password'
 };
 
-logInfo(`[MQTT] Connecting with username: ${config.username}`);
+if (username) {
+  config.username = username;
+  if (password) {
+    // Password is intentionally not logged for security
+    config.password = password;
+  } else {
+    logWarn('[MQTT] MQTTUSER is set, but MQTTPASSWORD is not. Attempting authentication without password.');
+  }
+}
 
 export default config;
