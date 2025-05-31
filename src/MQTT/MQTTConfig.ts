@@ -1,6 +1,20 @@
 import { IClientOptions } from 'mqtt/types/lib/client';
 import { logInfo, logWarn, logError } from '@utils/logger';
 
+// Log all environment variables for debugging
+logInfo('[MQTT Env Vars] Logging all environment variables:');
+for (const key in process.env) {
+  if (Object.prototype.hasOwnProperty.call(process.env, key)) {
+    // Be careful not to log sensitive variables like passwords directly in production
+    if (key.includes('PASS') || key.includes('TOKEN') || key.includes('KEY')) {
+      logInfo(`[MQTT Env Vars] ${key}=<hidden>`);
+    } else {
+      logInfo(`[MQTT Env Vars] ${key}=${process.env[key]}`);
+    }
+  }
+}
+logInfo('[MQTT Env Vars] Finished logging all environment variables.');
+
 // Get MQTT configuration from environment variables provided by Supervisor
 const host = process.env.MQTTHOST || 'core-mosquitto'; // Fallback if not provided
 const portEnv = process.env.MQTTPORT;
