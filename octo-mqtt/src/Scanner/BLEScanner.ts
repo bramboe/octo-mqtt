@@ -11,29 +11,9 @@ export class BLEScanner {
   private readonly SCAN_DURATION_MS = 30000; // 30 seconds scan duration
   private discoveredDevices = new Map<string, BLEDeviceAdvertisement>();
   private esphomeConnection: IESPConnection & EventEmitter;
-  private readonly RC2_NAME_PATTERN = /^RC2.*$/i;
-  private readonly MAC_ADDRESS_PATTERN = /^([0-9A-F]{2}:){5}[0-9A-F]{2}$/i;
 
   constructor(esphomeConnection: IESPConnection & EventEmitter) {
     this.esphomeConnection = esphomeConnection;
-  }
-
-  private formatMacAddress(mac: string): string {
-    // Remove colons and convert to uppercase
-    const cleanMac = mac.replace(/:/g, '').toUpperCase();
-    // Add colons back in the correct positions
-    return cleanMac.match(/.{2}/g)?.join(':') || mac;
-  }
-
-  private isValidMacAddress(mac: string): boolean {
-    return this.MAC_ADDRESS_PATTERN.test(mac);
-  }
-
-  private isRC2Device(device: BLEDeviceAdvertisement): boolean {
-    return (
-      this.RC2_NAME_PATTERN.test(device.name) ||
-      (device.service_uuids && device.service_uuids.includes('ffe0'))
-    );
   }
 
   public async startScan(): Promise<void> {
@@ -45,33 +25,26 @@ export class BLEScanner {
     }
 
     try {
+      // Clean up any previous scan state (including clearing devices for fresh start)
       this.cleanupScanState(true);
+      
+      // Initialize scan state
       this.isScanning = true;
       this.scanStartTime = Date.now();
       
+      // Set up scan timeout
       this.scanTimeout = setTimeout(() => {
         logInfo('[BLEScanner] Scan timeout reached');
+        // Don't clear devices when timeout is reached - keep them for UI
         this.cleanupScanState(false);
       }, this.SCAN_DURATION_MS);
 
+      // Start the actual scan
       await this.esphomeConnection.startBleScan(this.SCAN_DURATION_MS, (device) => {
-        // Format MAC address consistently
-        const formattedMac = this.formatMacAddress(device.address);
-        if (!this.isValidMacAddress(formattedMac)) {
-          logWarn(`[BLEScanner] Invalid MAC address format: ${device.address}`);
-          return;
-        }
-
-        // Only store RC2 devices or devices with the correct service UUID
-        if (this.isRC2Device(device)) {
-          const enhancedDevice = {
-            ...device,
-            address: formattedMac,
-            lastSeen: Date.now()
-          };
-          this.discoveredDevices.set(formattedMac, enhancedDevice);
-          logInfo(`[BLEScanner] Discovered RC2 device: ${device.name || 'Unknown'} (${formattedMac})`);
-        }
+        // Accept all devices that the ESPConnection considers RC2 devices
+        // The filtering is now done in ESPConnection.ts with broader criteria
+        this.discoveredDevices.set(device.address, device);
+        logInfo(`[BLEScanner] Discovered device: ${device.name || 'Unknown'} (${device.address})`);
       });
 
     } catch (error: any) {
@@ -83,10 +56,12 @@ export class BLEScanner {
         logError('  3. The ESPHome device has BLE proxy configured');
         logError('  4. You can access the ESPHome device\'s web interface');
       } else {
-        logError('[BLEScanner] Error starting scan:', error);
+      logError('[BLEScanner] Error starting scan:', error);
       }
       this.cleanupScanState(false);
       throw error;
+    } finally {
+      this.isScanning = false;
     }
   }
 
@@ -115,46 +90,74 @@ export class BLEScanner {
     isScanning: boolean; 
     scanTimeRemaining: number; 
     discoveredDevices: number;
-    devices: (BLEDeviceAdvertisement & { 
-      isConfigured: boolean; 
-      configuredName?: string;
-      lastSeen?: number;
-    })[];
+    devices: (BLEDeviceAdvertisement & { isConfigured: boolean; configuredName?: string })[];
   } {
     const timeRemaining = this.scanStartTime 
       ? Math.max(0, this.SCAN_DURATION_MS - (Date.now() - this.scanStartTime))
       : 0;
 
+    // Get configured devices from the addon configuration
     const config = getRootOptions();
     const configuredDevices = config.octoDevices || [];
     
+    logInfo(`[BLEScanner DEBUG] getScanStatus called. Found ${configuredDevices.length} configured devices:`);
+    configuredDevices.forEach((device: any, index: number) => {
+      logInfo(`[BLEScanner DEBUG] Configured device ${index}: name="${device.name}", friendlyName="${device.friendlyName}"`);
+    });
+
+    // Check each discovered device against configured devices
     const devicesWithStatus = Array.from(this.discoveredDevices.values())
       .map(device => {
-        const formattedMac = this.formatMacAddress(device.address);
+        logInfo(`[BLEScanner DEBUG] Checking discovered device: ${device.name || 'Unknown'} (${device.address})`);
         
-        // Check configured status
-        const configuredDevice = configuredDevices.find((configured: any) => {
-          const configMac = this.formatMacAddress(configured.name);
-          return (
-            formattedMac === configMac ||
-            (configured.mac && this.formatMacAddress(configured.mac) === formattedMac) ||
-            (device.name && configured.name === device.name)
-          );
+        // Check if this device is already configured by matching:
+        // Priority 1: MAC address matching (most reliable)
+        // Priority 2: Device name matching (only if it's a meaningful name, not generic)
+        const isConfigured = configuredDevices.some((configuredDevice: any) => {
+          // First check: MAC address as device name (new format)
+          const macAsDeviceName = device.address && configuredDevice.name &&
+            device.address.toLowerCase() === configuredDevice.name.toLowerCase();
+          
+          // Second check: MAC address pattern matching
+          const configuredNameAsAddress = configuredDevice.name && 
+            /^[0-9a-f]{2}:[0-9a-f]{2}:[0-9a-f]{2}:[0-9a-f]{2}:[0-9a-f]{2}:[0-9a-f]{2}$/i.test(configuredDevice.name) &&
+            device.address && configuredDevice.name.toLowerCase() === device.address.toLowerCase();
+          
+          // Third check: Device name matching (but avoid generic names)
+          const nameMatch = device.name && configuredDevice.name && device.name !== 'Unknown Device' &&
+            configuredDevice.name !== 'Unknown Device' && device.name === configuredDevice.name;
+
+          logInfo(`[BLEScanner DEBUG]   Comparing with configured "${configuredDevice.name}":`);
+          logInfo(`[BLEScanner DEBUG]     macAsDeviceName: ${macAsDeviceName}`);
+          logInfo(`[BLEScanner DEBUG]     configuredNameAsAddress: ${configuredNameAsAddress}`);
+          logInfo(`[BLEScanner DEBUG]     nameMatch: ${nameMatch}`);
+          
+          const match = nameMatch || macAsDeviceName || configuredNameAsAddress;
+          logInfo(`[BLEScanner DEBUG]     Final match result: ${match}`);
+          
+          return match;
         });
 
-        const isConfigured = !!configuredDevice;
-        
-        logInfo(`[BLEScanner] Device status: ${device.name} (${formattedMac}) - configured: ${isConfigured}`);
+        // Find the configured device name if it exists
+        const configuredDevice = configuredDevices.find((configuredDevice: any) => {
+          const macAsDeviceName = device.address && configuredDevice.name &&
+            device.address.toLowerCase() === configuredDevice.name.toLowerCase();
+          const configuredNameAsAddress = configuredDevice.name && 
+            /^[0-9a-f]{2}:[0-9a-f]{2}:[0-9a-f]{2}:[0-9a-f]{2}:[0-9a-f]{2}:[0-9a-f]{2}$/i.test(configuredDevice.name) &&
+            device.address && configuredDevice.name.toLowerCase() === device.address.toLowerCase();
+          const nameMatch = device.name && configuredDevice.name && device.name !== 'Unknown Device' &&
+            configuredDevice.name !== 'Unknown Device' && device.name === configuredDevice.name;
+          return nameMatch || macAsDeviceName || configuredNameAsAddress;
+        });
+
+        logInfo(`[BLEScanner DEBUG] Device ${device.name} (${device.address}) - isConfigured: ${isConfigured}, configuredName: ${configuredDevice?.friendlyName || configuredDevice?.name || 'N/A'}`);
 
         return {
           ...device,
-          address: formattedMac,
           isConfigured,
-          configuredName: configuredDevice?.friendlyName || configuredDevice?.name,
-          lastSeen: device.lastSeen || Date.now()
+          configuredName: configuredDevice?.friendlyName || configuredDevice?.name
         };
-      })
-      .sort((a, b) => (b.lastSeen || 0) - (a.lastSeen || 0)); // Sort by last seen time
+      });
 
     return {
       isScanning: this.isScanning,

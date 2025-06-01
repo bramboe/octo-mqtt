@@ -1,0 +1,5 @@
+{
+  "name": "octo-mqtt",
+  "version": "1.1.4",
+  "description": "Octo MQTT integration for Octo actuators star version 2"
+} 

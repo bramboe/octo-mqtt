@@ -6,7 +6,6 @@ export interface BLEDeviceAdvertisement {
   address: string;
   rssi: number;
   service_uuids: string[];
-  lastSeen?: number;  // Optional timestamp of last advertisement
   // raw advertisement data might also be useful
 }
 
@@ -24,9 +23,6 @@ export class BLEController extends EventEmitter {
   private lastValue: string = '';
   private pin: string = '0000'; // Default PIN
   private isScanning = false;
-  private reconnectAttempts = 0;
-  private readonly MAX_RECONNECT_ATTEMPTS = 5;
-  private readonly RECONNECT_DELAY = 5000; // 5 seconds
 
   constructor(
     public readonly deviceData: any,
@@ -37,59 +33,14 @@ export class BLEController extends EventEmitter {
     pin?: string
   ) {
     super();
+    // Store PIN if provided
     if (pin && pin.length === 4) {
       this.pin = pin;
     }
-    this.initializeConnection();
-  }
-
-  private async initializeConnection() {
-    try {
-      await this.connect();
-      this.startPolling();
-      this.startKeepAlive();
-    } catch (error) {
-      logError('[BLE] Initial connection failed:', error);
-      this.attemptReconnect();
-    }
-  }
-
-  private async connect() {
-    if (!this.bleDevice || typeof this.bleDevice.connect !== 'function') {
-      throw new Error('Invalid BLE device object');
-    }
-    
-    try {
-      await this.bleDevice.connect();
-      this.reconnectAttempts = 0; // Reset attempts on successful connection
-      logInfo('[BLE] Connected successfully');
-      this.emit('connectionStatus', { connected: true });
-    } catch (error) {
-      logError('[BLE] Connection failed:', error);
-      throw error;
-    }
-  }
-
-  private attemptReconnect() {
-    if (this.reconnectAttempts >= this.MAX_RECONNECT_ATTEMPTS) {
-      logError('[BLE] Max reconnection attempts reached');
-      this.emit('connectionStatus', { connected: false, error: 'Max reconnection attempts reached' });
-      return;
-    }
-
-    this.reconnectAttempts++;
-    logInfo(`[BLE] Attempting reconnection (${this.reconnectAttempts}/${this.MAX_RECONNECT_ATTEMPTS})`);
-    
-    setTimeout(async () => {
-      try {
-        await this.connect();
-        this.startPolling();
-        this.startKeepAlive();
-      } catch (error) {
-        logError('[BLE] Reconnection attempt failed:', error);
-        this.attemptReconnect();
-      }
-    }, this.RECONNECT_DELAY);
+    // Start polling for characteristic changes if feedback handle is provided
+    this.startPolling();
+    // Start keep-alive mechanism
+    this.startKeepAlive();
   }
 
   /**
@@ -99,8 +50,6 @@ export class BLEController extends EventEmitter {
     if (pin && pin.length === 4) {
       this.pin = pin;
       logInfo('[BLE] PIN set successfully');
-      // Restart keep-alive with new PIN
-      this.startKeepAlive();
     } else {
       logWarn('[BLE] Invalid PIN format. PIN must be 4 digits. Using default.');
     }
@@ -110,30 +59,29 @@ export class BLEController extends EventEmitter {
    * Start the keep-alive interval to maintain connection
    */
   private startKeepAlive() {
+    // Clear any existing keep-alive interval
     if (this.keepAliveInterval) {
       clearInterval(this.keepAliveInterval);
     }
     logInfo('[BLE] Starting keep-alive mechanism');
-    
+    // Send keep-alive every 30 seconds
     this.keepAliveInterval = setInterval(async () => {
       try {
         if (!this.bleDevice.connected) {
-          logWarn('[BLE] Device disconnected, attempting reconnection');
-          this.attemptReconnect();
+          logWarn('[BLE] Device not connected, skipping keep-alive');
           return;
         }
-        
+        // Send PIN-based keep-alive command (0x20, 0x43)
         const pinDigits = this.pin.split('').map(digit => parseInt(digit));
         await this.writeCommand({ 
-          command: [0x40, 0x20, 0x43, 0x00, 0x04, 0x00, 0x01, 0x09, 0x08, 0x07, 0x40],
+          command: [0x20, 0x43], 
           data: pinDigits 
         });
         logInfo('[BLE] Keep-alive sent successfully');
       } catch (error) {
         logError('[BLE] Error sending keep-alive:', error);
-        this.attemptReconnect();
       }
-    }, 30000);
+    }, 30000); // 30 seconds
   }
 
   private startPolling() {

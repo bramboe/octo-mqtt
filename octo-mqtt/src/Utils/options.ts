@@ -53,9 +53,9 @@ export function getRootOptions() {
         port: 6053
       }
     ],
-    octoDevices: []
-  };
-  
+      octoDevices: []
+    };
+
   logInfo('[Options] Using default development options');
   return rootOptions;
-}
+  }

@@ -1,5 +1,3 @@
-# Changelog
-
 ## v1.1.22
 
 **New Features**
@@ -248,19 +246,18 @@
 
 - (ESPHome) Support device name prefixes
 
-## v1.1.4 - 2024-03-21
+## v1.1.4
 
-### Added
-- Enhanced BLE connection handling with automatic reconnection
-- Improved MAC address formatting and validation
-- Better device discovery with RC2 device filtering
-- Added last seen timestamp for discovered devices
-- Improved keep-alive mechanism with proper PIN handling
+**New Features**
 
-### Fixed
-- More reliable BLE connection establishment
-- Better handling of device disconnections
-- Consistent MAC address formatting across the application
+- (Solace) Very early support for Solace beds
+
+**Bugs Fixed**
+
+- (ESPHome) Better handling of ESPHome encryption key config
+- (ESPHome) Better support for Bluetooth devices
+- (Linak) Tweaks to Linak bed prototype
+- (Sleeptracker) Fixed VOC sensor class
 
 ## v1.1.3
 
