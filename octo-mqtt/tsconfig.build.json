@@ -4,8 +4,12 @@
     "outDir": "./dist",
     // Disable unused warnings for the build
     "noUnusedLocals": false,
-    "noUnusedParameters": false
+    "noUnusedParameters": false,
+    "skipLibCheck": true,
+    "sourceMap": true,
+    "declaration": true
   },
   // Exclude tests files from being built, but keep them in the main project for linting
-  "exclude": ["**/*.test.ts", "**/__mock__"]
+  "exclude": ["**/*.test.ts", "**/__mock__", "node_modules"],
+  "include": ["src/**/*"]
 }

@@ -1,4 +1,4 @@
-FROM node:18 AS builder
+FROM node:18.19-alpine AS builder
 
 WORKDIR /octo-mqtt
 
@@ -6,8 +6,11 @@ WORKDIR /octo-mqtt
 COPY package*.json ./
 COPY tsconfig*.json ./
 
+# Install build dependencies
+RUN apk add --no-cache python3 make g++
+
 # Install all dependencies
-RUN npm install
+RUN npm ci
 
 # Copy source
 COPY src ./src/
@@ -30,7 +33,8 @@ RUN \
         npm \
         bash \
         curl \
-        jq
+        jq \
+        python3
 
 # Install bashio
 ARG BASHIO_VERSION
