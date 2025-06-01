@@ -165,6 +165,13 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('device-address').textContent = info.address;
     document.getElementById('firmware-version').textContent = info.firmwareVersion || 'Unknown';
     document.getElementById('proxy-info').textContent = info.proxy;
+    
+    // If there are multiple devices configured, show that information
+    if (info.totalConfiguredDevices && info.totalConfiguredDevices > 1) {
+      const deviceNameElement = document.getElementById('device-name');
+      deviceNameElement.textContent = `${info.name} (1 of ${info.totalConfiguredDevices})`;
+      deviceNameElement.title = `${info.totalConfiguredDevices} devices configured. Showing primary device.`;
+    }
   }
   
   function updateAddonInfo(info) {

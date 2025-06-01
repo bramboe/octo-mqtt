@@ -160,14 +160,32 @@ const start = async () => {
     const configuredDevices = config.octoDevices || [];
     
     if (configuredDevices.length > 0) {
-      // Use the first configured device for now
+      // For now, show information about the first configured device
+      // TODO: Later this could be enhanced to show a list of all devices or the currently connected device
       const device = configuredDevices[0];
+      const deviceName = device.friendlyName || device.name || 'RC2';
+      const deviceAddress = device.name || '00:00:00:00:00:00';
+      
       broadcastMessage('deviceInfo', {
-        name: device.friendlyName || device.name || 'RC2',
-        address: device.name || '00:00:00:00:00:00',
-        firmwareVersion: 'Unknown',
-        proxy: 'ESPHome Proxy'
+        name: deviceName,
+        address: deviceAddress,
+        firmwareVersion: 'Unknown', // TODO: Get actual firmware version when device is connected
+        proxy: 'ESPHome Proxy',
+        totalConfiguredDevices: configuredDevices.length
       });
+      
+      logInfo(`[WebSocket] Broadcasted device info for ${deviceName} (${configuredDevices.length} total devices configured)`);
+    } else {
+      // No devices configured, show default placeholder
+      broadcastMessage('deviceInfo', {
+        name: 'RC2',
+        address: '00:00:00:00:00:00',
+        firmwareVersion: 'Unknown',
+        proxy: 'ESPHome Proxy',
+        totalConfiguredDevices: 0
+      });
+      
+      logInfo('[WebSocket] Broadcasted default device info - no devices configured');
     }
   }
   
@@ -176,6 +194,18 @@ const start = async () => {
     const { type, payload } = data;
     
     switch (type) {
+      case 'getStatus':
+        // Send current status when requested
+        broadcastMessage('status', {
+          connected: false, // For now - will be updated when device connection is implemented
+          positions: { head: 0, feet: 0 },
+          lightState: false,
+          calibration: { head: 30.0, feet: 30.0 }
+        });
+        // Also send device info
+        broadcastDeviceInfo();
+        break;
+        
       case 'status':
         // Send current status
         broadcastMessage('status', {
