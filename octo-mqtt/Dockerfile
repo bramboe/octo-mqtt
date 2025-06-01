@@ -8,12 +8,12 @@ ENV PORT=8099
 # Install build dependencies
 RUN \
     apk add --no-cache --virtual .build-dependencies \
-        git=2.40.1-r0 \
-        python3=3.11.6-r1 \
-        make=4.4.1-r1 \
-        g++=12.2.1_git20220924-r10 \
-        nodejs=18.18.2-r0 \
-        npm=9.6.6-r0
+        git \
+        python3 \
+        make \
+        g++ \
+        nodejs \
+        npm
 
 WORKDIR /octo-mqtt
 
@@ -40,11 +40,11 @@ ENV PORT=8099
 # Install runtime dependencies
 RUN \
     apk add --no-cache \
-        nodejs=18.18.2-r0 \
-        npm=9.6.6-r0 \
-        bash=5.2.15-r5 \
-        curl=8.4.0-r0 \
-        jq=1.6-r3
+        nodejs \
+        npm \
+        bash \
+        curl \
+        jq
 
 # Install bashio
 ARG BASHIO_VERSION
