@@ -1,5 +1,6 @@
+import { logInfo, logWarn, logError } from '@utils/logger';
 import { EventEmitter } from 'events';
-import { logError, logInfo, logWarn } from '@utils/logger';
+import { IESPConnection } from '../ESPHome/IESPConnection';
 
 export interface BLEDeviceAdvertisement {
   name: string;
@@ -9,14 +10,193 @@ export interface BLEDeviceAdvertisement {
   // raw advertisement data might also be useful
 }
 
+interface BLEEvents {
+  'connected': () => void;
+  'disconnected': () => void;
+  'notification': (data: Buffer) => void;
+}
+
 export class BLEController extends EventEmitter {
-  cache: Record<string, any> = {};
+  private readonly RECONNECT_INTERVAL = 5000; // 5 seconds
+  private readonly KEEP_ALIVE_INTERVAL = 30000; // 30 seconds
+  private readonly MAX_RECONNECT_ATTEMPTS = 3;
+  private readonly SERVICE_UUID = '0000ffe0-0000-1000-8000-00805f9b34fb';
+  private readonly CONTROL_CHARACTERISTIC = '0000ffe1-0000-1000-8000-00805f9b34fb';
+
+  private isConnected = false;
+  private reconnectAttempts = 0;
+  private reconnectTimer: NodeJS.Timeout | null = null;
+  private keepAliveTimer: NodeJS.Timeout | null = null;
+  private device: any = null;
   private commandQueue: Array<{
-    command: number[] | { command: number[]; data?: number[] };
-    resolve: () => void;
-    reject: (error: Error) => void;
+    command: Buffer;
+    resolve: (value: void | PromiseLike<void>) => void;
+    reject: (reason?: any) => void;
   }> = [];
   private processing = false;
+
+  constructor(
+    private readonly espConnection: IESPConnection,
+    private readonly deviceAddress: string,
+    private readonly pin: string = '0000'
+  ) {
+    super();
+    this.setupConnectionHandling();
+  }
+
+  private setupConnectionHandling() {
+    this.on('disconnected', () => {
+      logWarn(`[BLE] Device ${this.deviceAddress} disconnected`);
+      this.isConnected = false;
+      this.clearTimers();
+      this.startReconnectTimer();
+    });
+
+    this.on('connected', () => {
+      logInfo(`[BLE] Device ${this.deviceAddress} connected`);
+      this.isConnected = true;
+      this.reconnectAttempts = 0;
+      this.startKeepAliveTimer();
+    });
+  }
+
+  private clearTimers() {
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    if (this.keepAliveTimer) {
+      clearInterval(this.keepAliveTimer);
+      this.keepAliveTimer = null;
+    }
+  }
+
+  private startReconnectTimer() {
+    if (this.reconnectAttempts >= this.MAX_RECONNECT_ATTEMPTS) {
+      logError(`[BLE] Max reconnection attempts reached for ${this.deviceAddress}`);
+      return;
+    }
+
+    this.reconnectTimer = setTimeout(async () => {
+      this.reconnectAttempts++;
+      logInfo(`[BLE] Attempting to reconnect to ${this.deviceAddress} (attempt ${this.reconnectAttempts})`);
+      await this.connect();
+    }, this.RECONNECT_INTERVAL);
+  }
+
+  private startKeepAliveTimer() {
+    this.keepAliveTimer = setInterval(async () => {
+      try {
+        await this.sendKeepAlive();
+      } catch (error) {
+        logError(`[BLE] Keep-alive failed for ${this.deviceAddress}:`, error);
+        this.emit('disconnected');
+      }
+    }, this.KEEP_ALIVE_INTERVAL);
+  }
+
+  private async sendKeepAlive() {
+    // Send a no-op command to keep the connection alive
+    const command = Buffer.from([0x00, 0x00, 0x00, 0x00]);
+    await this.sendCommand(command);
+  }
+
+  public async connect(): Promise<void> {
+    try {
+      if (this.isConnected) {
+        return;
+      }
+
+      logInfo(`[BLE] Connecting to device ${this.deviceAddress}`);
+      
+      // Connect to the device
+      this.device = await this.espConnection.getBLEDevices([this.deviceAddress]);
+      
+      if (!this.device) {
+        throw new Error('Device not found');
+      }
+
+      // Subscribe to notifications
+      await this.device.subscribeToCharacteristic(
+        this.SERVICE_UUID,
+        this.CONTROL_CHARACTERISTIC,
+        (data: Buffer) => {
+          this.handleNotification(data);
+        }
+      );
+
+      // Send PIN code
+      await this.authenticate();
+
+      this.emit('connected');
+    } catch (error) {
+      logError(`[BLE] Connection failed for ${this.deviceAddress}:`, error);
+      this.emit('disconnected');
+    }
+  }
+
+  private async authenticate() {
+    const pinBuffer = Buffer.from(this.pin.padStart(4, '0'));
+    await this.sendCommand(Buffer.concat([Buffer.from([0x01]), pinBuffer]));
+  }
+
+  public async disconnect(): Promise<void> {
+    this.clearTimers();
+    if (this.device) {
+      await this.device.disconnect();
+    }
+    this.isConnected = false;
+  }
+
+  private async sendCommand(data: Buffer): Promise<void> {
+    if (!this.isConnected) {
+      throw new Error('Device not connected');
+    }
+
+    try {
+      await this.device.writeCharacteristic(
+        this.SERVICE_UUID,
+        this.CONTROL_CHARACTERISTIC,
+        data
+      );
+    } catch (error) {
+      logError(`[BLE] Failed to send command:`, error);
+      this.emit('disconnected');
+      throw error;
+    }
+  }
+
+  private handleNotification(data: Buffer) {
+    // Handle incoming notifications from the device
+    logInfo(`[BLE] Received notification from ${this.deviceAddress}:`, data);
+    this.emit('notification', data);
+  }
+
+  public async moveHead(position: number): Promise<void> {
+    const command = Buffer.from([0x02, position]);
+    await this.sendCommand(command);
+  }
+
+  public async moveFeet(position: number): Promise<void> {
+    const command = Buffer.from([0x03, position]);
+    await this.sendCommand(command);
+  }
+
+  public async stopMovement(): Promise<void> {
+    const command = Buffer.from([0x04]);
+    await this.sendCommand(command);
+  }
+
+  public async toggleLight(): Promise<void> {
+    const command = Buffer.from([0x05]);
+    await this.sendCommand(command);
+  }
+
+  public isDeviceConnected(): boolean {
+    return this.isConnected;
+  }
+
+  cache: Record<string, any> = {};
   private timeout: NodeJS.Timeout | null = null;
   private pollingInterval: NodeJS.Timeout | null = null;
   private keepAliveInterval: NodeJS.Timeout | null = null;
