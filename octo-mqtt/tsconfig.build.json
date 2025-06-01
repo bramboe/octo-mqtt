@@ -1,6 +1,7 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
+    "outDir": "./dist",
     // Disable unused warnings for the build
     "noUnusedLocals": false,
     "noUnusedParameters": false

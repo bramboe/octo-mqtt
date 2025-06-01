@@ -1,42 +1,22 @@
-ARG BUILD_FROM
-FROM ${BUILD_FROM} as builder
-
-# Add env
-ENV LANG C.UTF-8
-ENV PORT=8099
-
-# Install build dependencies
-RUN \
-    apk add --no-cache \
-        git \
-        python3 \
-        make \
-        g++ \
-        nodejs \
-        npm
+FROM node:18 AS builder
 
 WORKDIR /octo-mqtt
 
 # Copy package files
 COPY package*.json ./
+COPY tsconfig*.json ./
 
-# Install dependencies with legacy peer deps to avoid conflicts
-RUN npm install --legacy-peer-deps
+# Install all dependencies
+RUN npm install
 
 # Copy source
-COPY tsconfig.json ./
-COPY tsconfig.build.json ./
 COPY src ./src/
 
-# Install TypeScript globally
-RUN npm install -g typescript
+# Build
+RUN npm run build:ci
 
-# Build with verbose output
-RUN npm install && \
-    npm run clean && \
-    tsc -p tsconfig.build.json --listFiles --listEmittedFiles && \
-    tsc-alias
-
+# Start fresh from Home Assistant base image
+ARG BUILD_FROM
 FROM ${BUILD_FROM}
 
 # Add env
@@ -64,9 +44,12 @@ RUN \
 
 WORKDIR /octo-mqtt
 
-# Copy built files
-COPY --from=builder /octo-mqtt/node_modules ./node_modules
-COPY --from=builder /octo-mqtt/dist/tsc/ ./
+# Copy production dependencies
+COPY package*.json ./
+RUN npm install --production
+
+# Copy built files and other necessary files
+COPY --from=builder /octo-mqtt/dist ./dist
 COPY webui ./webui/
 COPY run.sh ./
 RUN chmod a+x run.sh
