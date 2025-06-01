@@ -1,0 +1,24 @@
+{
+  "mqtt_host": "localhost",
+  "mqtt_port": "1883",
+  "mqtt_user": "addons",
+  "mqtt_password": "",
+  "bleProxies": [
+    {
+      "host": "YOUR_ESP32_IP_ADDRESS",
+      "port": 6053
+    }
+  ],
+  "octoDevices": [
+    {
+      "name": "f6:21:dd:dd:6f:19",
+      "friendlyName": "RC2 Bed (DD6F19)",
+      "pin": "1234"
+    },
+    {
+      "name": "c3:e7:63:36:0c",
+      "friendlyName": "RC2 Bed (360C0C)",
+      "pin": "0000"
+    }
+  ]
+}
