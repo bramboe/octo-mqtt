@@ -245,6 +245,10 @@
 **Bugs Fixed**
 
 - (ESPHome) Support device name prefixes
+- Fixed dependency conflicts in build process
+- Updated ESLint and TypeScript dependencies to compatible versions
+- Simplified build configuration
+- Updated configuration schema for better MQTT integration
 
 ## v1.1.4
 
