@@ -12,7 +12,6 @@ import path from 'path';
 import fs from 'fs';
 import fetch from 'node-fetch';
 import type { IESPConnection } from 'ESPHome/IESPConnection';
-import type { BLEDeviceAdvertisement } from 'BLE/BLEController';
 import { EventEmitter } from 'events';
 import { BLEScanner } from './Scanner/BLEScanner';
 
@@ -20,53 +19,10 @@ import { BLEScanner } from './Scanner/BLEScanner';
 EventEmitter.defaultMaxListeners = 50;
 
 // Global variables to track scanning state
-let isScanning = false;
-let scanTimeout: NodeJS.Timeout | null = null;
-let scanStartTime: number | null = null;
-const SCAN_DURATION_MS = 30000; // 30 seconds scan duration
-const discoveredDevices = new Map<string, BLEDeviceAdvertisement>();
 let esphomeConnection: IESPConnection & EventEmitter | null = null;
 let bleScanner: BLEScanner | null = null;
 let wsServer: WebSocket.Server | null = null;
 let connectedClients: Set<WebSocket> = new Set();
-
-// Function to cleanup scan state and remove listeners
-function cleanupScanState() {
-  isScanning = false;
-  scanStartTime = null;
-  if (scanTimeout) {
-    clearTimeout(scanTimeout);
-    scanTimeout = null;
-  }
-  discoveredDevices.clear();
-  
-  // Clean up any remaining listeners
-  if (esphomeConnection && typeof esphomeConnection === 'object') {
-    // Only try to clean up listeners if the connection has the necessary methods
-    if (typeof esphomeConnection.eventNames === 'function' && 
-        typeof esphomeConnection.removeAllListeners === 'function') {
-      const listeners = esphomeConnection.eventNames();
-      listeners.forEach(event => {
-        if (event.toString().includes('BluetoothGATTReadResponse')) {
-          esphomeConnection?.removeAllListeners(event);
-        }
-      });
-    }
-  }
-}
-
-// Function to get strongest signal device from multiple readings
-function updateDeviceWithStrongestSignal(device: BLEDeviceAdvertisement) {
-  if (!device.address) {
-    logWarn('[BLE] Device found without address, skipping');
-    return;
-  }
-
-  const existingDevice = discoveredDevices.get(device.address);
-  if (!existingDevice || (device.rssi && existingDevice.rssi && device.rssi > existingDevice.rssi)) {
-    discoveredDevices.set(device.address, device);
-  }
-}
 
 const processExit = (exitCode?: number) => {
   if (exitCode && exitCode > 0) {
@@ -77,14 +33,12 @@ const processExit = (exitCode?: number) => {
 
 process.on('exit', () => {
   logWarn('Shutting down Octo-MQTT...');
-  cleanupScanState();
   processExit(0);
 });
 process.on('SIGINT', () => processExit(0));
 process.on('SIGTERM', () => processExit(0));
 process.on('uncaughtException', (err: Error) => {
   logError(err);
-  cleanupScanState();
   processExit(2);
 });
 
@@ -191,7 +145,7 @@ const start = async () => {
   
   // Handle incoming WebSocket messages
   function handleWebSocketMessage(ws: WebSocket, data: any) {
-    const { type, payload } = data;
+    const { type } = data;
     
     switch (type) {
       case 'getStatus':
@@ -236,7 +190,7 @@ const start = async () => {
   app.use(express.json());
 
   // Main routes
-  app.get('/', (req: Request, res: Response) => {
+  app.get('/', (_req: Request, res: Response) => {
     res.sendFile(path.join(webuiPath, 'index.html'));
   });
 
@@ -244,7 +198,7 @@ const start = async () => {
   bleScanner = new BLEScanner(esphomeConnection as any); // TODO: Fix type casting
 
   // BLE scanning endpoints with simplified routes
-  app.post('/scan/start', async (req: Request, res: Response): Promise<void> => {
+  app.post('/scan/start', async (_req: Request, res: Response): Promise<void> => {
     logInfo('[BLE] Received scan start request');
     
     if (!bleScanner) {
@@ -267,7 +221,7 @@ const start = async () => {
     }
   });
 
-  app.get('/scan/status', (req: Request, res: Response): void => {
+  app.get('/scan/status', (_req: Request, res: Response): void => {
     logInfo('[BLE] Received scan status request');
     
     if (!bleScanner) {
@@ -296,7 +250,7 @@ const start = async () => {
     }
   });
 
-  app.post('/scan/stop', async (req: Request, res: Response): Promise<void> => {
+  app.post('/scan/stop', async (_req: Request, res: Response): Promise<void> => {
     logInfo('[BLE] Received scan stop request');
     
     if (!bleScanner) {
@@ -357,7 +311,6 @@ const start = async () => {
       
       // Use MAC address as unique identifier and create friendly name with MAC suffix
       const macSuffix = device.address.slice(-8).replace(/:/g, '').toUpperCase(); // Last 4 chars of MAC
-      const deviceDisplayName = device.name || 'RC2';
       
       // Create a unique friendly name based on existing devices
       const existingDevices = config.octoDevices || [];
@@ -491,7 +444,7 @@ const start = async () => {
   });
 
   // Get configured devices endpoint
-  app.get('/devices/configured', (req: Request, res: Response): void => {
+  app.get('/devices/configured', (_req: Request, res: Response): void => {
     try {
       const config = getRootOptions();
       const configuredDevices = config.octoDevices || [];
@@ -511,7 +464,7 @@ const start = async () => {
   });
 
   // Debug endpoint to show raw configuration
-  app.get('/debug/config', (req: Request, res: Response): void => {
+  app.get('/debug/config', (_req: Request, res: Response): void => {
     try {
       const rawConfigContent = fs.readFileSync('/data/options.json', 'utf8');
       const config = getRootOptions();
@@ -531,7 +484,7 @@ const start = async () => {
   });
 
   // Diagnostic endpoint to show device configuration state
-  app.get('/debug/devices', (req: Request, res: Response): void => {
+  app.get('/debug/devices', (_req: Request, res: Response): void => {
     try {
       const config = getRootOptions();
       const configuredDevices = config.octoDevices || [];
@@ -609,11 +562,17 @@ const start = async () => {
 
       logInfo(`[BLE] Removed device: ${deviceToRemove.friendlyName || deviceToRemove.name}`);
       logInfo(`[BLE] Configuration updated. Device removed from addon configuration.`);
-      logInfo(`[BLE] NOTE: Configuration caching has been fixed - changes should be immediate.`);
+      logInfo(`[BLE] Total devices in config: ${config.octoDevices.length}`);
+      
+      // Broadcast device info update via WebSocket
+      if (wsServer && connectedClients.size > 0) {
+        broadcastDeviceInfo();
+        logInfo(`[BLE] Broadcasted device info update to ${connectedClients.size} WebSocket client(s)`);
+      }
       
       res.json({ 
-        message: 'Device removed successfully and configuration updated',
-        removedDevice: deviceToRemove
+        message: 'Device removed successfully',
+        device: deviceToRemove
       });
 
     } catch (error) {
@@ -625,15 +584,9 @@ const start = async () => {
     }
   });
 
-  app.get('/api/devices', (req: Request, res: Response) => {
-    // This endpoint would return the list of discovered devices
-    // You'll need to implement device storage if you want to persist the list
-    res.json({ devices: Array.from(discoveredDevices.values()) });
-  });
-
   server.listen(port, () => {
     logInfo(`Octo-MQTT server listening on port ${port}`);
   });
 };
 
-void start();
+start();
