@@ -2,18 +2,21 @@ FROM node:18.19-alpine AS builder
 
 WORKDIR /octo-mqtt
 
+# Install build dependencies
+RUN apk add --no-cache python3 make g++ git
+
 # Copy package files
 COPY package*.json ./
 COPY tsconfig*.json ./
 
-# Install build dependencies
-RUN apk add --no-cache python3 make g++
-
-# Install all dependencies
-RUN npm ci
+# Clean npm cache and install dependencies
+RUN npm cache clean --force && \
+    npm install --no-package-lock && \
+    npm install -g typescript@5.3.3 ts-node@10.9.2 tsc-alias@1.8.2
 
 # Copy source
 COPY src ./src/
+COPY webui ./webui/
 
 # Build
 RUN npm run build:ci
