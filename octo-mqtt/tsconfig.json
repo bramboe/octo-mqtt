@@ -19,7 +19,7 @@
     "experimentalDecorators": true,
     "sourceMap": true,
     "outDir": "./dist/tsc/",
-    "types": ["node", "jest"],
+    "types": ["node"],
     "lib": ["ES2021"],
     "baseUrl": "src",
     "paths": {
@@ -27,7 +27,8 @@
       "@mqtt/*": ["MQTT/*"],
       "@utils/*": ["Utils/*"],
       "*": ["*"]
-    }
+    },
+    "resolveJsonModule": true
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "**/*.test.ts", "**/__mock__"],

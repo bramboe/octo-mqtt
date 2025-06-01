@@ -11,12 +11,11 @@ COPY tsconfig*.json ./
 
 # Clean npm cache and install dependencies with legacy peer deps
 RUN npm cache clean --force && \
-    npm install --legacy-peer-deps && \
+    npm ci --legacy-peer-deps && \
     npm install -g typescript@5.3.3 ts-node@10.9.2 tsc-alias@1.8.2
 
 # Copy source files
-COPY src ./src/
-COPY webui ./webui/
+COPY . .
 
 # Build the application
 RUN npm run build:ci
@@ -55,7 +54,7 @@ WORKDIR /octo-mqtt
 
 # Copy package files and install production dependencies
 COPY package*.json ./
-RUN npm install --production --legacy-peer-deps
+RUN npm ci --only=production --legacy-peer-deps
 
 # Copy built files and other necessary files
 COPY --from=builder /octo-mqtt/dist ./dist
