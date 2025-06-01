@@ -1,18 +1,10 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "outDir": "./dist",
     // Disable unused warnings for the build
     "noUnusedLocals": false,
-    "noUnusedParameters": false,
-    "skipLibCheck": true,
-    "sourceMap": true,
-    "declaration": true,
-    "removeComments": true,
-    "incremental": true,
-    "rootDir": "src"
+    "noUnusedParameters": false
   },
   // Exclude tests files from being built, but keep them in the main project for linting
-  "exclude": ["**/*.test.ts", "**/__mock__", "node_modules", "dist"],
-  "include": ["src/**/*"]
+  "exclude": ["**/*.test.ts", "**/__mock__"]
 }

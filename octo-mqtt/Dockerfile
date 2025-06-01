@@ -1,74 +1,57 @@
-FROM node:18.19-alpine AS builder
+FROM node:18-alpine AS builder
 
+RUN apk --no-cache add git
+
+# Add a build argument that can be changed to bust cache - use timestamp for uniqueness
+ARG CACHEBUST=default
+ENV CACHEBUST_ENV=${CACHEBUST}
+
+COPY package.json /octo-mqtt/
+# COPY yarn.lock /octo-mqtt/
 WORKDIR /octo-mqtt
 
-# Install build dependencies
-RUN apk add --no-cache python3 make g++ git
+RUN yarn install --verbose
 
-# Copy configuration files first
-COPY .npmrc package.json ./
-COPY tsconfig*.json ./
+# Force fresh copy of source code with timestamp-based cache busting
+COPY tsconfig.build.json /octo-mqtt/
+COPY tsconfig.json /octo-mqtt/
+COPY --chown=node:node src /octo-mqtt/src/
 
-# Install dependencies and global packages
-RUN npm install && \
-    npm install -g typescript ts-node tsc-alias
+# Add cache bust info to ensure source changes are detected
+RUN echo "Cache bust: ${CACHEBUST_ENV}" > /octo-mqtt/build_info.txt && \
+    echo "Build timestamp: $(date)" >> /octo-mqtt/build_info.txt
 
-# Copy source files
-COPY . .
+RUN yarn build:ci
 
-# Build the application
-RUN npm run build:ci
-
-# Start fresh from Home Assistant base image
-ARG BUILD_FROM
-FROM ${BUILD_FROM}
+FROM node:18-alpine
 
 # Add env
 ENV LANG C.UTF-8
 ENV PORT=8099
 
-# Install runtime dependencies
-RUN \
-    apk add --no-cache \
-        nodejs \
-        npm \
-        python3 \
-        make \
-        g++ \
-        bash \
-        curl \
-        jq
+RUN apk add --no-cache bash curl jq && \
+    curl -J -L -o /tmp/bashio.tar.gz "https://github.com/hassio-addons/bashio/archive/v0.13.1.tar.gz" && \
+    mkdir /tmp/bashio && \
+    tar zxvf /tmp/bashio.tar.gz --strip 1 -C /tmp/bashio && \
+    mv /tmp/bashio/lib /usr/lib/bashio && \
+    ln -s /usr/lib/bashio/bashio /usr/bin/bashio
 
-# Install bashio
-ARG BASHIO_VERSION
-RUN \
-    curl -J -L -o /tmp/bashio.tar.gz "https://github.com/hassio-addons/bashio/archive/v${BASHIO_VERSION}.tar.gz" \
-    && mkdir /tmp/bashio \
-    && tar zxvf /tmp/bashio.tar.gz --strip 1 -C /tmp/bashio \
-    && mv /tmp/bashio/lib /usr/lib/bashio \
-    && ln -s /usr/lib/bashio/bashio /usr/bin/bashio \
-    && rm -rf /tmp/bashio*
+# Set shell
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 WORKDIR /octo-mqtt
-
-# Copy package files and install production dependencies
-COPY .npmrc package.json ./
-RUN npm install --omit=dev
-
-# Copy built files and other necessary files
-COPY --from=builder /octo-mqtt/dist ./dist
-COPY webui ./webui/
-COPY run.sh ./
+COPY run.sh /octo-mqtt/
 RUN chmod a+x run.sh
 
-# Labels
-ARG BUILD_ARCH
+COPY --from=builder /octo-mqtt/node_modules /octo-mqtt/node_modules
+COPY --from=builder /octo-mqtt/dist/tsc/ /octo-mqtt/
+COPY webui /octo-mqtt/webui/
+
+ENTRYPOINT [ "/octo-mqtt/run.sh" ]
+#ENTRYPOINT [ "node", "index.js" ]
 LABEL \
     io.hass.name="Octo Integration via MQTT" \
     io.hass.description="Home Assistant Community Add-on for Octo actuators star version 2" \
     io.hass.type="addon" \
-    io.hass.arch="${BUILD_ARCH}" \
-    io.hass.version="1.1.5" \
+    io.hass.version="1.1.0" \
     maintainer="Bram Boersma <bram.boersma@gmail.com>"
-
-ENTRYPOINT ["/octo-mqtt/run.sh"]
