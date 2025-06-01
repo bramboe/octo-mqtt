@@ -56,7 +56,7 @@ export class BLEScanner {
         logError('  3. The ESPHome device has BLE proxy configured');
         logError('  4. You can access the ESPHome device\'s web interface');
       } else {
-        logError('[BLEScanner] Error starting scan:', error);
+      logError('[BLEScanner] Error starting scan:', error);
       }
       this.cleanupScanState(false);
       throw error;

@@ -13,7 +13,7 @@
   "devDependencies": {
     "@types/bonjour": "^3.5.9",
     "@types/express": "^4.17.22",
-    "@types/jest": "^26.0.23",
+    "@types/jest": "^29.5.12",
     "@types/mqtt": "^2.5.0",
     "@types/node": "^16.18.126",
     "@types/ws": "^8.18.1",
@@ -21,7 +21,7 @@
     "@typescript-eslint/parser": "^6.21.0",
     "eslint": "^8.56.0",
     "husky": "^6.0.0",
-    "jest": "29",
+    "jest": "^29.7.0",
     "jest-mock-extended": "^3.0.1",
     "lint-staged": "^11.0.0",
     "prettier": "^2.3.1",
@@ -42,9 +42,7 @@
     "prettier": "prettier --write \"src/**/**.{ts,js,json}\"",
     "test": "jest --watch",
     "test:ci": "jest",
-    "start": "ts-node -r tsconfig-paths/register src/index.ts",
-    "docker:dev": "docker build -t smqtt . && docker run -v $(pwd)/../data:/data smqtt",
-    "cachebust": "echo Build-$(date +%s)"
+    "start": "ts-node -r tsconfig-paths/register src/index.ts"
   },
   "publishConfig": {
     "access": "public"

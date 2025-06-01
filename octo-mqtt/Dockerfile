@@ -9,16 +9,16 @@ RUN apk add --no-cache python3 make g++ git
 COPY package*.json ./
 COPY tsconfig*.json ./
 
-# Clean npm cache and install dependencies
+# Clean npm cache and install dependencies with legacy peer deps
 RUN npm cache clean --force && \
-    npm install --no-package-lock && \
+    npm install --legacy-peer-deps && \
     npm install -g typescript@5.3.3 ts-node@10.9.2 tsc-alias@1.8.2
 
-# Copy source
+# Copy source files
 COPY src ./src/
 COPY webui ./webui/
 
-# Build
+# Build the application
 RUN npm run build:ci
 
 # Start fresh from Home Assistant base image
@@ -37,7 +37,9 @@ RUN \
         bash \
         curl \
         jq \
-        python3
+        python3 \
+        make \
+        g++
 
 # Install bashio
 ARG BASHIO_VERSION
@@ -51,9 +53,9 @@ RUN \
 
 WORKDIR /octo-mqtt
 
-# Copy production dependencies
+# Copy package files and install production dependencies
 COPY package*.json ./
-RUN npm install --production
+RUN npm install --production --legacy-peer-deps
 
 # Copy built files and other necessary files
 COPY --from=builder /octo-mqtt/dist ./dist
