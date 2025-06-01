@@ -7,7 +7,7 @@ ENV PORT=8099
 
 # Install build dependencies
 RUN \
-    apk add --no-cache --virtual .build-dependencies \
+    apk add --no-cache \
         git \
         python3 \
         make \
@@ -20,8 +20,8 @@ WORKDIR /octo-mqtt
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci
+# Install dependencies with legacy peer deps to avoid conflicts
+RUN npm install --legacy-peer-deps
 
 # Copy source
 COPY tsconfig.build.json ./
@@ -72,7 +72,7 @@ LABEL \
     io.hass.description="Home Assistant Community Add-on for Octo actuators star version 2" \
     io.hass.type="addon" \
     io.hass.arch="${BUILD_ARCH}" \
-    io.hass.version="1.1.4" \
+    io.hass.version="1.1.5" \
     maintainer="Bram Boersma <bram.boersma@gmail.com>"
 
 ENTRYPOINT ["/octo-mqtt/run.sh"]
