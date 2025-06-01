@@ -1,6 +1,6 @@
 {
   "name": "octo-mqtt",
-  "version": "1.0.0",
+  "version": "1.1.1",
   "description": "Octo MQTT integration for Octo actuators star version 2",
   "author": "Bram Boersma",
   "repository": "https://github.com/bramboe/octo-mqtt.git",
