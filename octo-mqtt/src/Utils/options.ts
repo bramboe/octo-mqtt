@@ -20,14 +20,30 @@ export function getRootOptions() {
     logInfo('[Options] Could not read from local path, trying /data/options.json');
   }
 
-  // Fall back to /data/options.json
+  // Try to read from /data/options.json
   try {
     const content = fs.readFileSync('/data/options.json', 'utf8');
     rootOptions = JSON.parse(content);
     logInfo('[Options] Successfully read options from /data/options.json');
     return rootOptions;
   } catch (error) {
-    logError('[Options] Failed to read options:', error);
-    throw error;
+    logInfo('[Options] Could not read from /data/options.json, using default options');
   }
+
+  // If no options file could be read, return default options
+  rootOptions = {
+    octoDevices: [],
+    mqttHost: "localhost",
+    mqttPort: 1883,
+    mqttUser: "",
+    mqttPassword: "",
+    mqttClientId: "octo_mqtt",
+    mqttTopic: "octo",
+    proxyHost: "localhost",
+    proxyPort: 6053,
+    proxyPassword: ""
+  };
+  
+  logInfo('[Options] Using default options');
+  return rootOptions;
 }
