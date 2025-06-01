@@ -5,9 +5,16 @@
   "mqtt_password": "",
   "bleProxies": [
     {
-      "host": "localhost",
-      "port": 6053
+      "host": "192.168.2.102",
+      "port": 6053,
+      "password": ""
     }
   ],
-  "octoDevices": []
+  "octoDevices": [
+    {
+      "name": "RC2",
+      "friendlyName": "Bedroom Bed",
+      "pin": "0000"
+    }
+  ]
 } 

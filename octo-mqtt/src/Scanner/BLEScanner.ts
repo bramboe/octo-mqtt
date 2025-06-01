@@ -17,6 +17,8 @@ export class BLEScanner {
   }
 
   public async startScan(): Promise<void> {
+    logInfo('[BLEScanner] Starting BLE scan...');
+
     if (this.isScanning) {
       logWarn('[BLEScanner] Scan already in progress');
       throw new Error('Scan already in progress');
@@ -29,8 +31,6 @@ export class BLEScanner {
       // Initialize scan state
       this.isScanning = true;
       this.scanStartTime = Date.now();
-      
-      logInfo('[BLEScanner] Starting BLE scan...');
       
       // Set up scan timeout
       this.scanTimeout = setTimeout(() => {
@@ -47,14 +47,26 @@ export class BLEScanner {
         logInfo(`[BLEScanner] Discovered device: ${device.name || 'Unknown'} (${device.address})`);
       });
 
-    } catch (error) {
-      logError('[BLEScanner] Error starting scan:', error);
+    } catch (error: any) {
+      if (error.message === 'No active proxy connections.') {
+        logError('[BLEScanner] No active ESPHome proxy connections available');
+        logError('[BLEScanner] Please check:');
+        logError('  1. Your ESPHome device is powered on and connected to your network');
+        logError('  2. The IP address in your configuration is correct');
+        logError('  3. The ESPHome device has BLE proxy configured');
+        logError('  4. You can access the ESPHome device\'s web interface');
+      } else {
+        logError('[BLEScanner] Error starting scan:', error);
+      }
       this.cleanupScanState(false);
       throw error;
+    } finally {
+      this.isScanning = false;
     }
   }
 
   public async stopScan(): Promise<void> {
+    logInfo('[BLEScanner] Stopping scan...');
     if (!this.isScanning) {
       logWarn('[BLEScanner] No scan in progress');
       return;
@@ -66,7 +78,7 @@ export class BLEScanner {
       }
       // Don't clear devices when manually stopped - keep them for UI
       this.cleanupScanState(false);
-      logInfo('[BLEScanner] Scan stopped successfully');
+      logInfo('[BLEScanner] Scan stopped');
     } catch (error) {
       logError('[BLEScanner] Error stopping scan:', error);
       this.cleanupScanState(false);
