@@ -1,0 +1,13 @@
+{
+  "mqtt_host": "localhost",
+  "mqtt_port": "1883",
+  "mqtt_user": "",
+  "mqtt_password": "",
+  "bleProxies": [
+    {
+      "host": "localhost",
+      "port": 6053
+    }
+  ],
+  "octoDevices": []
+} 
