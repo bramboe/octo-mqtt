@@ -24,12 +24,18 @@ COPY package*.json ./
 RUN npm install --legacy-peer-deps
 
 # Copy source
-COPY tsconfig.build.json ./
 COPY tsconfig.json ./
+COPY tsconfig.build.json ./
 COPY src ./src/
 
-# Build
-RUN npm run build:ci
+# Install TypeScript globally
+RUN npm install -g typescript
+
+# Build with verbose output
+RUN npm install && \
+    npm run clean && \
+    tsc -p tsconfig.build.json --listFiles --listEmittedFiles && \
+    tsc-alias
 
 FROM ${BUILD_FROM}
 
