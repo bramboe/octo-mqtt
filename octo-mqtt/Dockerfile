@@ -7,10 +7,9 @@ ARG CACHEBUST=default
 ENV CACHEBUST_ENV=${CACHEBUST}
 
 COPY package.json /octo-mqtt/
-# COPY yarn.lock /octo-mqtt/
 WORKDIR /octo-mqtt
 
-RUN yarn install --verbose
+RUN npm install
 
 # Force fresh copy of source code with timestamp-based cache busting
 COPY tsconfig.build.json /octo-mqtt/
@@ -21,7 +20,7 @@ COPY --chown=node:node src /octo-mqtt/src/
 RUN echo "Cache bust: ${CACHEBUST_ENV}" > /octo-mqtt/build_info.txt && \
     echo "Build timestamp: $(date)" >> /octo-mqtt/build_info.txt
 
-RUN yarn build:ci
+RUN npm run build:ci
 
 FROM node:18-alpine
 
@@ -53,5 +52,5 @@ LABEL \
     io.hass.name="Octo Integration via MQTT" \
     io.hass.description="Home Assistant Community Add-on for Octo actuators star version 2" \
     io.hass.type="addon" \
-    io.hass.version="1.1.0" \
+    io.hass.version="1.1.4" \
     maintainer="Bram Boersma <bram.boersma@gmail.com>"

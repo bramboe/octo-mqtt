@@ -34,7 +34,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json && tsc-alias",
-    "build:ci": "yarn clean && yarn build",
+    "build:ci": "npm run clean && npm run build",
     "clean": "rm -rf dist build",
     "lint": "eslint src/ --max-warnings=0",
     "prepare": "husky install",
