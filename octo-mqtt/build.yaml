@@ -1,0 +1,19 @@
+build_from:
+  aarch64: ghcr.io/home-assistant/aarch64-base:3.16
+  amd64: ghcr.io/home-assistant/amd64-base:3.16
+  armhf: ghcr.io/home-assistant/armhf-base:3.16
+  armv7: ghcr.io/home-assistant/armv7-base:3.16
+  i386: ghcr.io/home-assistant/i386-base:3.16
+args:
+  BASHIO_VERSION: 0.13.1
+  TEMPIO_VERSION: 2021.09.0
+  BUILD_ARCH: amd64
+  BUILD_FROM: ghcr.io/home-assistant/amd64-base:3.16
+  BUILD_VERSION: 1.1.4
+labels:
+  io.hass.type: addon
+  io.hass.version: 1.1.4
+  org.opencontainers.image.title: "Octo MQTT"
+  org.opencontainers.image.description: "Home Assistant Community Add-on for Octo actuators star version 2"
+  org.opencontainers.image.source: "https://github.com/bramboe/octo-mqtt"
+  org.opencontainers.image.licenses: "MIT" 
