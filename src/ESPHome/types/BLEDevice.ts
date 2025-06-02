@@ -1,5 +1,5 @@
 import { Connection } from '@2colors/esphome-native-api';
-import { logInfo, logWarn } from '@utils/logger';
+import { logInfo, logWarn } from '../../Utils/logger';
 import { IBLEDevice } from './IBLEDevice';
 import { EventEmitter } from 'events';
 

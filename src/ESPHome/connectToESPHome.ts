@@ -1,5 +1,5 @@
 import { Connection } from '@2colors/esphome-native-api';
-import { logInfo, logWarn, logError } from '@utils/logger';
+import { logInfo, logWarn, logError } from '../Utils/logger';
 import { ESPConnection } from './ESPConnection';
 import { IESPConnection } from './IESPConnection';
 import { connect } from './connect';
