@@ -42,31 +42,29 @@ export class ESPConnection implements IESPConnection {
     });
   }
 
-  async getBLEDevices(deviceNames: string[]): Promise<IBLEDevice[]> {
-    logInfo(`[ESPHome] Searching for device(s): ${deviceNames.join(', ')}`);
-    deviceNames = deviceNames.map((name) => name.toLowerCase());
+  async getBLEDevices(deviceAddresses: number[]): Promise<IBLEDevice[]> {
+    logInfo(`[ESPHome] Searching for device(s): ${deviceAddresses.join(', ')}`);
     const bleDevices: IBLEDevice[] = [];
     const complete = new Deferred<void>();
     
     await this.discoverBLEDevices(
       (bleDevice) => {
-        const { name, mac } = bleDevice;
-        let index = deviceNames.indexOf(mac);
-        if (index === -1) index = deviceNames.indexOf(name.toLowerCase());
+        const { address } = bleDevice;
+        const index = deviceAddresses.indexOf(address);
         if (index === -1) return;
 
-        deviceNames.splice(index, 1);
-        logInfo(`[ESPHome] Found device: ${name} (${mac})`);
+        deviceAddresses.splice(index, 1);
+        logInfo(`[ESPHome] Found device with address: ${address}`);
         bleDevices.push(bleDevice);
         this.activeDevices.add(bleDevice);
-        if (deviceNames.length) return;
+        if (deviceAddresses.length) return;
         complete.resolve();
       },
       complete
     );
     
-    if (deviceNames.length) {
-      logWarn(`[ESPHome] Could not find address for device(s): ${deviceNames.join(', ')}`);
+    if (deviceAddresses.length) {
+      logWarn(`[ESPHome] Could not find device(s) with addresses: ${deviceAddresses.join(', ')}`);
     }
     
     return bleDevices;

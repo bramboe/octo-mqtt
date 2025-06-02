@@ -3,13 +3,13 @@ import { buildDictionary } from '../Utils/buildDictionary';
 import { Deferred } from '../Utils/deferred';
 import { logError, logInfo, logWarn } from '../Utils/logger';
 import { BLEController } from '../BLE/BLEController';
-import { setupDeviceInfoSensor } from 'BLE/setupDeviceInfoSensor';
+import { setupDeviceInfoSensor } from '../BLE/setupDeviceInfoSensor';
 import { buildMQTTDeviceData } from '../Common/buildMQTTDeviceData';
 import { IESPConnection } from '../ESPHome/IESPConnection';
 import { calculateChecksum } from './calculateChecksum';
-import { extractFeaturesFromData } from './extractFeaturesFromData';
+import { extractFeatureValuePairFromData } from './extractFeaturesFromData';
 import { extractPacketFromMessage } from './extractPacketFromMessage';
-import { options } from './options';
+import { getDevices } from './options';
 import { setupLightSwitch } from './setupLightSwitch';
 import { setupMotorEntities } from './setupMotorEntities';
 import { byte } from '../Utils/byte';
@@ -42,7 +42,7 @@ const FEATURE_REQUEST_TIMEOUT_MS = 15000; // 15 seconds
 const MAX_FEATURE_REQUEST_ATTEMPTS = 3;
 
 export const octo = async (mqtt: IMQTTConnection, esphome: IESPConnection) => {
-  const devices = options();
+  const devices = getDevices();
   if (!devices.length) return logInfo('[Octo] No devices configured');
 
   const devicesMap = buildDictionary(devices, (device) => ({ key: device.name.toLowerCase(), value: device }));
@@ -115,7 +115,7 @@ export const octo = async (mqtt: IMQTTConnection, esphome: IESPConnection) => {
         if (command[0] == 0x21 && command[1] == 0x71) {
           // features
           logInfo(`[Octo] Received feature data: ${JSON.stringify(Array.from(data))}`);
-          const featureValue = extractFeaturesFromData(data);
+          const featureValue = extractFeatureValuePairFromData(data);
           if (featureValue == null) {
             logWarn(`[Octo] Failed to extract feature value from data`);
             return;

@@ -10,7 +10,30 @@ export interface BLEDeviceAdvertisement {
   service_uuids: string[];
 }
 
+export interface Command {
+  data: number[];
+  retries?: number;
+  waitTime?: number;
+}
+
+export interface LightCache {
+  state: boolean;
+  brightness: number;
+}
+
 export class BLEController extends EventEmitter {
+  public cache: LightCache = {
+    state: false,
+    brightness: 0
+  };
+  
+  public deviceData = {
+    name: '',
+    model: '',
+    manufacturer: '',
+    firmwareVersion: ''
+  };
+
   private connectedDevices = new Map<number, IBLEDevice>();
   private keepAliveIntervals = new Map<number, NodeJS.Timeout>();
   private reconnectAttempts = new Map<number, number>();
@@ -139,5 +162,50 @@ export class BLEController extends EventEmitter {
   async disconnectAll() {
     const addresses = Array.from(this.connectedDevices.keys());
     await Promise.all(addresses.map(addr => this.disconnectDevice(addr)));
+  }
+
+  async writeCommand(command: Command | number[]): Promise<void> {
+    const data = Array.isArray(command) ? command : command.data;
+    const retries = !Array.isArray(command) && command.retries ? command.retries : 1;
+    const waitTime = !Array.isArray(command) && command.waitTime ? command.waitTime : 0;
+
+    for (let i = 0; i < retries; i++) {
+      try {
+        for (const device of this.connectedDevices.values()) {
+          await device.writeCharacteristic(0x0B, new Uint8Array(data));
+        }
+        if (waitTime > 0) {
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+        }
+        return;
+      } catch (error) {
+        logError(`[BLE] Error writing command (attempt ${i + 1}/${retries}):`, error);
+        if (i === retries - 1) throw error;
+      }
+    }
+  }
+
+  async writeCommands(commands: Command[], count: number = 1, waitTime: number = 0): Promise<void> {
+    for (let i = 0; i < count; i++) {
+      for (const command of commands) {
+        await this.writeCommand(command);
+      }
+      if (waitTime > 0 && i < count - 1) {
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+      }
+    }
+  }
+
+  async cancelCommands(): Promise<void> {
+    // Implementation depends on your specific needs
+    logWarn('[BLE] Command cancellation not implemented');
+  }
+
+  async setPin(pin: string): Promise<void> {
+    const pinBytes = pin.split('').map(Number);
+    await this.writeCommand({
+      data: [0x40, 0x20, 0x43, 0x00, 0x04, ...pinBytes],
+      retries: 3
+    });
   }
 } 
