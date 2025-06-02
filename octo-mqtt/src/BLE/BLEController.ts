@@ -49,43 +49,41 @@ export class BLEController extends EventEmitter {
   }
 
   private setupConnectionHandling() {
-    if (this.bleDevice.on) {
-      this.bleDevice.on('disconnect', () => {
-        logWarn('[BLE] Device disconnected, attempting reconnect...');
-        this.handleDisconnect();
-      });
+    if (!this.bleDevice) return;
+    
+    this.bleDevice.on('disconnect', () => {
+      logWarn('[BLE] Device disconnected');
+      this.emit('connectionStatus', { connected: false });
+      this.handleDisconnect();
+    });
 
-      this.bleDevice.on('connect', () => {
-        logInfo('[BLE] Device connected successfully');
-        this.connectionAttempts = 0;
-        this.emit('connectionStatus', { connected: true });
-      });
-    }
+    this.bleDevice.on('connect', () => {
+      logInfo('[BLE] Device connected');
+      this.connectionAttempts = 0;
+      this.emit('connectionStatus', { connected: true });
+    });
   }
 
   private handleDisconnect() {
-    this.emit('connectionStatus', { connected: false });
-    
-    if (this.connectionAttempts < this.MAX_RECONNECT_ATTEMPTS) {
-      this.connectionAttempts++;
-      if (this.reconnectTimeout) {
-        clearTimeout(this.reconnectTimeout);
-      }
-      
-      this.reconnectTimeout = setTimeout(async () => {
-        try {
-          if (typeof this.bleDevice.connect === 'function') {
-            await this.bleDevice.connect();
-          }
-        } catch (error) {
-          logError('[BLE] Reconnection attempt failed:', error);
-          this.handleDisconnect(); // Try again
-        }
-      }, this.RECONNECT_DELAY);
-    } else {
+    if (this.connectionAttempts >= this.MAX_RECONNECT_ATTEMPTS) {
       logError('[BLE] Max reconnection attempts reached');
-      this.emit('connectionStatus', { connected: false, error: 'Max reconnection attempts reached' });
+      return;
     }
+
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
+    }
+
+    this.connectionAttempts++;
+    this.reconnectTimeout = setTimeout(async () => {
+      try {
+        logInfo(`[BLE] Attempting to reconnect (attempt ${this.connectionAttempts})`);
+        await this.bleDevice.connect();
+      } catch (error) {
+        logError('[BLE] Reconnection failed:', error);
+        this.handleDisconnect(); // Try again
+      }
+    }, this.RECONNECT_DELAY);
   }
 
   /**
@@ -112,7 +110,7 @@ export class BLEController extends EventEmitter {
     // Send keep-alive every 30 seconds
     this.keepAliveInterval = setInterval(async () => {
       try {
-        if (!this.bleDevice.connected) {
+        if (!this.bleDevice?.connected) {
           logWarn('[BLE] Device not connected, skipping keep-alive');
           return;
         }
@@ -125,10 +123,6 @@ export class BLEController extends EventEmitter {
         logInfo('[BLE] Keep-alive sent successfully');
       } catch (error) {
         logError('[BLE] Error sending keep-alive:', error);
-        // If keep-alive fails, check connection and potentially trigger reconnect
-        if (this.bleDevice.connected) {
-          this.handleDisconnect();
-        }
       }
     }, 30000); // 30 seconds
   }
@@ -182,6 +176,10 @@ export class BLEController extends EventEmitter {
     if (this.timeout) {
       clearTimeout(this.timeout);
       this.timeout = null;
+    }
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
+      this.reconnectTimeout = null;
     }
     this.stopScan(); // Ensure scanning is stopped on dispose
   }
@@ -356,7 +354,6 @@ export class BLEController extends EventEmitter {
   on(event: 'feedback', listener: (message: Uint8Array) => void): this;
   on(event: 'deviceDiscovered', listener: (device: BLEDeviceAdvertisement) => void): this;
   on(event: 'scanStatus', listener: (status: { scanning: boolean; error?: string }) => void): this;
-  on(event: 'connectionStatus', listener: (status: { connected: boolean; error?: string }) => void): this;
   on(event: string, listener: (...args: any[]) => void): this {
     return super.on(event, listener);
   }
@@ -364,7 +361,6 @@ export class BLEController extends EventEmitter {
   off(event: 'feedback', listener: (message: Uint8Array) => void): this;
   off(event: 'deviceDiscovered', listener: (device: BLEDeviceAdvertisement) => void): this;
   off(event: 'scanStatus', listener: (status: { scanning: boolean; error?: string }) => void): this;
-  off(event: 'connectionStatus', listener: (status: { connected: boolean; error?: string }) => void): this;
   off(event: string, listener: (...args: any[]) => void): this {
     return super.off(event, listener);
   }
