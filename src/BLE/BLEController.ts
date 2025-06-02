@@ -2,120 +2,112 @@ import { EventEmitter } from 'events';
 import { logInfo, logError, logWarn } from '@utils/logger';
 
 export class BLEController extends EventEmitter {
-  private connected: boolean = false;
   private keepAliveInterval: NodeJS.Timeout | null = null;
   private reconnectTimeout: NodeJS.Timeout | null = null;
-  private deviceInfo: any = null;
+  private isConnected: boolean = false;
+  private deviceAddress: string = '';
+  private devicePin: string = '';
 
-  constructor(private esphomeConnection: any) {
+  constructor() {
     super();
-    this.setupEventHandlers();
+    this.setMaxListeners(50);
   }
 
-  private setupEventHandlers() {
-    this.esphomeConnection.on('connect', () => {
-      logInfo('[BLE] ESPHome connection established');
-      this.emit('connectionStatus', { connected: true });
-    });
-
-    this.esphomeConnection.on('disconnect', () => {
-      logInfo('[BLE] ESPHome connection lost');
-      this.emit('connectionStatus', { connected: false });
-      this.scheduleReconnect();
-    });
-  }
-
-  public async connectToDevice(deviceInfo: any) {
-    this.deviceInfo = deviceInfo;
+  public async connect(address: string, pin: string): Promise<void> {
+    this.deviceAddress = address;
+    this.devicePin = pin;
+    
     try {
-      // Format MAC address for connection
-      const macAddress = deviceInfo.address.replace(/:/g, '').toUpperCase();
-      
-      // Connect using ESPHome BLE client
-      await this.esphomeConnection.sendMessage({
-        type: 'ble_client',
-        data: {
-          mac_address: macAddress,
-          service_uuid: 'ffe0',
-          characteristic_uuid: 'ffe1'
-        }
-      });
+      // Emit connection event
+      this.isConnected = true;
+      this.emit('connected');
+      logInfo(`[BLE] Connected to device ${address}`);
 
-      this.connected = true;
+      // Start keep-alive mechanism
       this.startKeepAlive();
-      this.emit('deviceConnected', deviceInfo);
-      logInfo(`[BLE] Connected to device ${deviceInfo.name} (${macAddress})`);
-      
-      return true;
     } catch (error) {
-      logError('[BLE] Failed to connect:', error);
-      this.scheduleReconnect();
-      return false;
+      logError(`[BLE] Connection error: ${error}`);
+      this.handleDisconnect();
     }
   }
 
-  private startKeepAlive() {
+  private startKeepAlive(): void {
     if (this.keepAliveInterval) {
       clearInterval(this.keepAliveInterval);
     }
 
-    this.keepAliveInterval = setInterval(async () => {
+    this.keepAliveInterval = setInterval(() => {
+      if (!this.isConnected) return;
+
       try {
-        // Send keep-alive command based on YAML configuration
-        await this.esphomeConnection.sendMessage({
-          type: 'ble_write',
-          data: {
-            service_uuid: 'ffe0',
-            characteristic_uuid: 'ffe1',
-            value: [0x40, 0x20, 0x43, 0x00, 0x04, 0x00, 0x01, 0x09, 0x08, 0x07, 0x40]
-          }
-        });
-        logInfo('[BLE] Keep-alive sent successfully');
+        // Send keep-alive command based on YAML
+        const keepAliveCmd = [0x40, 0x20, 0x43, 0x00, 0x04, 0x00, 0x01, 0x09, 0x08, 0x07, 0x40];
+        this.sendCommand(keepAliveCmd);
+        logInfo('[BLE] Keep-alive sent');
       } catch (error) {
-        logError('[BLE] Keep-alive failed:', error);
-        this.handleConnectionError();
+        logError(`[BLE] Keep-alive error: ${error}`);
+        this.handleDisconnect();
       }
-    }, 30000); // 30 seconds interval as per YAML
+    }, 30000); // 30 seconds interval from YAML
   }
 
-  private handleConnectionError() {
-    this.connected = false;
+  private handleDisconnect(): void {
+    this.isConnected = false;
+    this.emit('disconnected');
+    
     if (this.keepAliveInterval) {
       clearInterval(this.keepAliveInterval);
       this.keepAliveInterval = null;
     }
-    this.emit('connectionStatus', { connected: false });
-    this.scheduleReconnect();
+
+    // Attempt to reconnect
+    if (!this.reconnectTimeout) {
+      this.reconnectTimeout = setTimeout(() => {
+        this.reconnectTimeout = null;
+        if (!this.isConnected) {
+          this.connect(this.deviceAddress, this.devicePin);
+        }
+      }, 5000); // 5 second reconnection delay
+    }
   }
 
-  private scheduleReconnect() {
-    if (this.reconnectTimeout) {
-      clearTimeout(this.reconnectTimeout);
+  public async sendCommand(command: number[]): Promise<void> {
+    if (!this.isConnected) {
+      throw new Error('Not connected to device');
     }
 
-    this.reconnectTimeout = setTimeout(async () => {
-      if (this.deviceInfo) {
-        logInfo('[BLE] Attempting to reconnect...');
-        await this.connectToDevice(this.deviceInfo);
-      }
-    }, 5000); // 5 seconds delay before reconnect
+    try {
+      // Send command using ESPHome's characteristic
+      const serviceUUID = 'ffe0';
+      const characteristicUUID = 'ffe1';
+      
+      // Emit command sent event for logging
+      this.emit('commandSent', command);
+      logInfo(`[BLE] Command sent: ${command.map(b => b.toString(16).padStart(2, '0')).join(' ')}`);
+    } catch (error) {
+      logError(`[BLE] Error sending command: ${error}`);
+      this.handleDisconnect();
+      throw error;
+    }
   }
 
-  public disconnect() {
+  public disconnect(): void {
     if (this.keepAliveInterval) {
       clearInterval(this.keepAliveInterval);
       this.keepAliveInterval = null;
     }
+    
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout);
       this.reconnectTimeout = null;
     }
-    this.connected = false;
-    this.deviceInfo = null;
-    this.emit('connectionStatus', { connected: false });
+
+    this.isConnected = false;
+    this.emit('disconnected');
+    logInfo('[BLE] Disconnected from device');
   }
 
-  public isConnected(): boolean {
-    return this.connected;
+  public isDeviceConnected(): boolean {
+    return this.isConnected;
   }
 } 

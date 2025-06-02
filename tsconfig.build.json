@@ -4,13 +4,12 @@
   "compilerOptions": {
     "sourceMap": true,
     "outDir": "dist/tsc",
-    "baseUrl": "./src",
+    "baseUrl": "src",
     "paths": {
       "@/*": ["*"],
       "@utils/*": ["Utils/*"],
       "@mqtt/*": ["MQTT/*"],
       "@ble/*": ["BLE/*"]
     }
-  },
-  "include": ["src/**/*"]
+  }
 }
