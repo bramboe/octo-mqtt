@@ -376,7 +376,7 @@
 ## v1.2.2
 
 ### Fixed
-- Fixed BLE device scanning and connection handling
-- Improved device name comparison logic in BLEScanner
-- Updated TypeScript types and interfaces for better type safety
-- Fixed device information display in WebSocket communication
+- Fixed TypeScript compilation errors and cleaned up imports
+- Updated path aliases for better module resolution
+- Removed unused imports and interfaces
+- Fixed logger imports to include all required functions
