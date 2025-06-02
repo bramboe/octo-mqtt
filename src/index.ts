@@ -1,64 +1,32 @@
-import type { IMQTTConnection } from '@mqtt/IMQTTConnection';
-import { connectToMQTT } from '@mqtt/connectToMQTT';
-import { loadStrings } from '@utils/getString';
-import { logError, logInfo, logWarn } from '@utils/logger';
-import { getRootOptions } from './Utils/options';
-import { connectToESPHome } from 'ESPHome/connectToESPHome';
-import { octo } from 'Octo/octo';
-import express, { Request, Response } from 'express';
-import http from 'http';
-import WebSocket from 'ws';
-import path from 'path';
-import fs from 'fs';
-import type { IESPConnection } from 'ESPHome/IESPConnection';
-import { EventEmitter } from 'events';
-import { BLEScanner } from './Scanner/BLEScanner';
+import express from 'express';
+import type { Request, Response } from 'express';
+import * as fs from 'fs';
+import * as http from 'http';
+import * as WebSocket from 'ws';
+import * as path from 'path';
+import { logInfo, logError } from '@utils/logger';
+import { getRootOptions } from '@utils/options';
 
 const app = express();
-app.use(express.json());
-app.use(express.static('webui'));
+const port = process.env.PORT || 8099;
+const server = http.createServer(app);
 
-// Global variables for WebSocket handling
-let wsServer: WebSocket.Server | null = null;
-const connectedClients: Set<WebSocket> = new Set();
+// Set up WebSocket server for real-time communication
+const wsServer = new WebSocket.Server({ 
+  server,
+  path: '/api/ws'  // Update WebSocket path to match client expectations
+});
+
+// Serve static files
+const webuiPath = path.join(process.cwd(), 'webui');
+logInfo(`Serving static files from ${webuiPath}`);
+app.use(express.static(webuiPath));
+app.use(express.json());
 
 // Simple logging functions
 const logInfo = (message: string, ...args: any[]) => console.log(`[INFO] ${message}`, ...args);
 const logWarn = (message: string, ...args: any[]) => console.warn(`[WARN] ${message}`, ...args);
 const logError = (message: string, ...args: any[]) => console.error(`[ERROR] ${message}`, ...args);
-
-// Simple options loading
-function getRootOptions() {
-  try {
-    const configPath = '/data/options.json';
-    if (fs.existsSync(configPath)) {
-      const configData = fs.readFileSync(configPath, 'utf8');
-      return JSON.parse(configData);
-    }
-  } catch (error) {
-    logError('Error loading options:', error);
-  }
-  
-  // Default configuration
-  return {
-    mqtt: {
-      host: "192.168.1.2",
-      port: 1883,
-      username: "mqtt",
-      password: "mqtt"
-    },
-    bleProxies: [
-      {
-        host: "YOUR_ESP32_IP_ADDRESS", 
-        port: 6052,
-        name: "BLE Proxy",
-        enabled: false
-      }
-    ],
-    octoDevices: [],
-    webPort: 8099
-  };
-}
 
 // Global variables
 let isScanning = false;
@@ -255,45 +223,15 @@ app.get('/health', (req: Request, res: Response) => {
   });
 });
 
-const start = async () => {
-  await loadStrings();
+// Main routes
+app.get('/', (_req: Request, res: Response) => {
+  res.sendFile(path.join(webuiPath, 'index.html'));
+});
 
-  const mqtt: IMQTTConnection = await connectToMQTT();
-  const esp = await connectToESPHome();
-  
-  try {
-    await octo(mqtt, esp);
-  } catch (error) {
-    logError('Failed to initialize Octo MQTT:', error);
-    process.exit(1);
-  }
-
-  // Setup Express server for Ingress
-  const server = http.createServer(app);
-
-  // Set up WebSocket server for real-time communication
-  wsServer = new WebSocket.Server({ 
-    server,
-    path: '/api/ws'  // Match the frontend path
-  });
-  
-  wsServer.on('connection', (ws: WebSocket) => {
-    connectedClients.add(ws);
-    logInfo('[WebSocket] Client connected');
-    
-    // Send initial device info if available
-    broadcastDeviceInfo();
-  });
-
-  // Start the server
-  const config = getRootOptions();
-  const port = config.webPort || 8099;
-
-  server.listen(port, () => {
-    logInfo(`🚀 RC2 Bed Control Panel started on port ${port}`);
-    logInfo(`📱 Open http://localhost:${port} in your browser`);
-    logInfo(`💡 Enhanced error handling and BLE proxy configuration management enabled`);
-  });
-};
-
-start(); 
+// Start the server with proper error handling
+server.listen(port, '0.0.0.0', () => {  // Listen on all interfaces
+  logInfo(`Octo-MQTT server listening on port ${port}`);
+}).on('error', (error: Error) => {
+  logError(`Failed to start server: ${error.message}`);
+  processExit(1);
+}); 
