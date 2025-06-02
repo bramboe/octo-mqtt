@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { logError, logInfo } from './logger';
+import { logInfo } from './logger';
 
 let rootOptions: any = null;
 

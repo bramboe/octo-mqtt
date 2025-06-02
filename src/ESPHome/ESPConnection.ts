@@ -1,10 +1,10 @@
 import { Connection } from '@2colors/esphome-native-api';
-import { Deferred } from '../Utils/deferred';
-import { logError, logInfo, logWarn } from '../Utils/logger';
-import { IESPConnection } from './IESPConnection';
-import { connect } from './connect';
+import { Deferred } from '@utils/deferred';
+import { logError, logInfo, logWarn } from '@utils/logger';
+import { IESPConnection } from '@esphome/IESPConnection';
+import { connect } from '@esphome/connect';
 import { BLEDevice } from './types/BLEDevice';
-import { IBLEDevice } from './types/IBLEDevice';
+import { IBLEDevice } from '@esphome/types/IBLEDevice';
 import { BLEDeviceAdvertisement } from '../BLE/BLEController';
 import { EventEmitter } from 'events';
 

@@ -1,22 +1,16 @@
-import { IMQTTConnection } from '../MQTT/IMQTTConnection';
-import { buildEntityConfig } from '../Common/buildEntityConfig';
-import { IController } from '../Common/IController';
-import { Cancelable } from '../Common/Cancelable';
-import { logInfo, logError, logWarn } from '../Utils/logger';
-import { OctoStorage } from './storage';
-import { BLEController } from '../BLE/BLEController';
+import { IMQTTConnection } from '@mqtt/IMQTTConnection';
+import { logInfo, logError, logWarn } from '@utils/logger';
 import * as Commands from './commands';
-import { byte } from '@utils/byte';
-import { calculateChecksum } from './calculateChecksum';
+import { OctoStorage } from './storage';
 
-// Define a placeholder for MQTTDevice if not available
-export interface MQTTDevicePlaceholder {
+// Define interface for MQTT device data
+interface MQTTDevicePlaceholder {
   identifiers: string[];
   name: string;
-  model: string;
-  manufacturer: string;
+  model?: string;
+  manufacturer?: string;
   sw_version?: string;
-  availability_topic?: string; // Added for availability
+  availability_topic?: string;
 }
 
 // Define a placeholder for MQTTItemConfig
