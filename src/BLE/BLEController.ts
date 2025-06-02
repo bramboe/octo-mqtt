@@ -14,7 +14,8 @@ export interface BLEDeviceAdvertisement {
 }
 
 export interface Command {
-  data: number[];
+  command: number[];
+  data?: number[];
   retries?: number;
   waitTime?: number;
 }
@@ -48,7 +49,7 @@ export class BLEController extends EventEmitter implements IController<Command |
     super();
   }
 
-  async connectToDevice(deviceAddress: number, pin: string): Promise<boolean> {
+  async connectToDevice(deviceAddress: number, _pin: string): Promise<boolean> {
     try {
       logInfo(`[BLE] Attempting to connect to device: ${deviceAddress.toString(16)}`);
       
@@ -167,7 +168,7 @@ export class BLEController extends EventEmitter implements IController<Command |
   }
 
   async writeCommand(command: Command | number[], count: number = 1, waitTime: number = 0): Promise<void> {
-    const data = Array.isArray(command) ? command : command.data;
+    const commandData = Array.isArray(command) ? command : command.data || command.command;
     const retries = !Array.isArray(command) && command.retries ? command.retries : 1;
     const commandWaitTime = !Array.isArray(command) && command.waitTime ? command.waitTime : waitTime;
 
@@ -175,7 +176,7 @@ export class BLEController extends EventEmitter implements IController<Command |
       for (let j = 0; j < retries; j++) {
         try {
           for (const device of this.connectedDevices.values()) {
-            await device.writeCharacteristic(0x0B, new Uint8Array(data));
+            await device.writeCharacteristic(0x0B, new Uint8Array(commandData));
           }
           if (commandWaitTime > 0 && i < count - 1) {
             await new Promise(resolve => setTimeout(resolve, commandWaitTime));
@@ -208,7 +209,8 @@ export class BLEController extends EventEmitter implements IController<Command |
   async setPin(pin: string): Promise<void> {
     const pinBytes = pin.split('').map(Number);
     await this.writeCommand({
-      data: [0x40, 0x20, 0x43, 0x00, 0x04, ...pinBytes],
+      command: [0x40, 0x20, 0x43, 0x00, 0x04],
+      data: pinBytes,
       retries: 3
     });
   }

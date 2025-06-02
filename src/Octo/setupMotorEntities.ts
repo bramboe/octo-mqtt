@@ -1,7 +1,7 @@
 import { Cover } from '../HomeAssistant/Cover';
 import { IMQTTConnection } from '../MQTT/IMQTTConnection';
 import { buildEntityConfig } from '../Common/buildEntityConfig';
-import { Command } from './octo';
+import { Command } from '../BLE/BLEController';
 import { IController } from '../Common/IController';
 import { Cancelable } from '../Common/Cancelable';
 import { ICache } from '../Common/ICache';

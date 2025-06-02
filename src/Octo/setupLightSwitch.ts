@@ -2,7 +2,7 @@ import { IMQTTConnection } from '../MQTT/IMQTTConnection';
 import { Switch } from '../HomeAssistant/Switch';
 import { buildEntityConfig } from '../Common/buildEntityConfig';
 import { IController } from '../Common/IController';
-import { Command } from './octo';
+import { Command } from '../BLE/BLEController';
 import { logInfo, logError } from '../Utils/logger';
 import { extractFeatureValuePairFromData } from './extractFeaturesFromData';
 import { extractPacketFromMessage } from './extractPacketFromMessage';

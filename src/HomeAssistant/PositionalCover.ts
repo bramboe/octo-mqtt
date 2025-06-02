@@ -60,7 +60,7 @@ export class PositionalCover extends Cover {
 
   private sendPosition() {
     setTimeout(() => {
-      const message = this.mapPosition(this.position);
+      this.mapPosition(this.position);
       this.publishPosition(this.position);
     }, 250);
   }

@@ -1,15 +1,15 @@
 import { IESPConnection } from '../ESPHome/IESPConnection';
+import { logInfo } from '../Utils/logger';
 import { BLEDeviceAdvertisement } from '../BLE/BLEController';
-import { logError, logInfo, logWarn } from '../Utils/logger';
 import { getRootOptions } from '../Utils/options';
+import { OctoDevice } from '../Octo/options';
 
 export class BLEScanner {
-  private isScanning: boolean = false;
   private scanStartTime: number | null = null;
   private readonly SCAN_DURATION_MS = 30000; // 30 seconds
   private discoveredDevices = new Set<BLEDeviceAdvertisement>();
 
-  constructor(private espConnection: IESPConnection) {}
+  constructor(private readonly espConnection: IESPConnection) {}
 
   public getScanStatus(): { 
     isScanning: boolean; 
@@ -21,39 +21,70 @@ export class BLEScanner {
       ? Math.max(0, this.SCAN_DURATION_MS - (Date.now() - this.scanStartTime))
       : 0;
 
-    // Get configured devices from the addon configuration
-    const config = getRootOptions();
-    const configuredDevices = config.octoDevices || [];
-    
-    logInfo(`[BLEScanner DEBUG] getScanStatus called. Found ${configuredDevices.length} configured devices:`);
-    configuredDevices.forEach((device: any, index: number) => {
-      logInfo(`[BLEScanner DEBUG] Configured device ${index}: name="${device.name}", friendlyName="${device.friendlyName}"`);
-    });
-
-    const devicesWithStatus = Array.from(this.discoveredDevices).map(device => {
-      // Convert numeric address to string for comparison
-      const deviceAddress = device.address.toString(16).toLowerCase();
-      
-      const isConfigured = configuredDevices.some((configDevice: any) => 
-        deviceAddress === configDevice.name.toLowerCase()
-      );
-
-      const configuredDevice = configuredDevices.find((configDevice: any) => 
-        deviceAddress === configDevice.name.toLowerCase()
-      );
-
-      return {
-        ...device,
-        isConfigured,
-        configuredName: configuredDevice?.friendlyName || configuredDevice?.name
-      };
-    });
+    const configuredDevices = getRootOptions().devices || [];
+    const devices = Array.from(this.discoveredDevices).map(device => ({
+      ...device,
+      isConfigured: configuredDevices.some((d: OctoDevice) => d.name.toLowerCase() === device.address.toString().toLowerCase()),
+      configuredName: configuredDevices.find((d: OctoDevice) => d.name.toLowerCase() === device.address.toString().toLowerCase())?.name
+    }));
 
     return {
-      isScanning: this.isScanning,
+      isScanning: this.scanStartTime !== null && timeRemaining > 0,
       scanTimeRemaining: timeRemaining,
       discoveredDevices: this.discoveredDevices.size,
-      devices: devicesWithStatus
+      devices
     };
+  }
+
+  public async startScan(): Promise<void> {
+    if (this.scanStartTime !== null) {
+      logInfo('[BLEScanner] Scan already in progress');
+      return;
+    }
+
+    this.scanStartTime = Date.now();
+    this.discoveredDevices.clear();
+
+    try {
+      await this.espConnection.startBleScan(
+        this.SCAN_DURATION_MS,
+        (device) => {
+          this.discoveredDevices.add(device);
+          logInfo(`[BLEScanner] Found device: ${device.name} (${device.address})`);
+        }
+      );
+      logInfo('[BLEScanner] BLE scan started');
+
+      // Stop scan after duration
+      setTimeout(async () => {
+        await this.stopScan();
+      }, this.SCAN_DURATION_MS);
+
+    } catch (error) {
+      logInfo('[BLEScanner] Failed to start BLE scan:', error);
+      this.scanStartTime = null;
+      throw error;
+    }
+  }
+
+  public async stopScan(): Promise<void> {
+    if (this.scanStartTime === null) {
+      logInfo('[BLEScanner] No scan in progress');
+      return;
+    }
+
+    try {
+      await this.espConnection.stopBleScan();
+      logInfo('[BLEScanner] BLE scan stopped');
+    } catch (error) {
+      logInfo('[BLEScanner] Failed to stop BLE scan:', error);
+      throw error;
+    } finally {
+      this.scanStartTime = null;
+    }
+  }
+
+  public handleBLEAdvertisement(device: BLEDeviceAdvertisement): void {
+    this.discoveredDevices.add(device);
   }
 } 

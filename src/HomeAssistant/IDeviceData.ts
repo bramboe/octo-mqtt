@@ -5,14 +5,7 @@ export interface IDeviceData {
     name: string;
     mf: string;
     mdl: string;
-    sw_version?: string;  // Optional software/firmware version
+    sw_version?: string;
   };
-  firmwareVersion?: string;  // Added for device info tracking
-}
-
-interface IDevice {
-  ids: string[];
-  name: string;
-  mf: string;
-  mdl: string;
+  firmwareVersion?: string;
 }

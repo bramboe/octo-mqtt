@@ -167,13 +167,13 @@ export class ESPConnection implements IESPConnection {
       };
 
       if (isRC2Device) {
-        if (!discoveredDevicesDuringScan.has(discoveredDevice.address)) {
+        if (!discoveredDevicesDuringScan.has(discoveredDevice.address.toString())) {
           logInfo('[ESPHome SCAN] Found RC2 device!');
           logInfo(`[ESPHome SCAN] Name: ${discoveredDevice.name}`);
           logInfo(`[ESPHome SCAN] MAC Address: ${discoveredDevice.address}`);
           logInfo(`[ESPHome SCAN] RSSI: ${discoveredDevice.rssi}`);
           logInfo(`[ESPHome SCAN] Service UUIDs: ${discoveredDevice.service_uuids.join(', ') || 'None'}`);
-          discoveredDevicesDuringScan.set(discoveredDevice.address, discoveredDevice);
+          discoveredDevicesDuringScan.set(discoveredDevice.address.toString(), discoveredDevice);
         }
         onDeviceDiscoveredDuringScan(discoveredDevice);
       }

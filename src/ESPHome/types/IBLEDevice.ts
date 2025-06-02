@@ -1,7 +1,3 @@
-import { BluetoothGATTCharacteristic, BluetoothGATTService } from '@2colors/esphome-native-api';
-import { BLEAdvertisement } from './BLEAdvertisement';
-import { BLEDeviceInfo } from './BLEDeviceInfo';
-
 export interface IBLEDevice {
   name: string;
   mac: string;

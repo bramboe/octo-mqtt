@@ -372,3 +372,11 @@
 - Fixed ingress connection issues
 - Improved error handling for device connections
 - Enhanced WebSocket reconnection logic
+
+## v1.2.2
+
+### Fixed
+- Fixed BLE device scanning and connection handling
+- Improved device name comparison logic in BLEScanner
+- Updated TypeScript types and interfaces for better type safety
+- Fixed device information display in WebSocket communication

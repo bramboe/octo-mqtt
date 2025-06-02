@@ -16,7 +16,7 @@ const port = process.env.PORT || 8099;
 const server = http.createServer(app);
 
 // Set up WebSocket server for real-time communication
-const wsServer = new WebSocket.Server({ 
+new WebSocket.Server({
   server,
   path: '/api/ws'
 });
@@ -108,7 +108,8 @@ app.get('/health', (_req: Request, res: Response) => {
 });
 
 // Start the server with proper error handling
-server.listen(port, '0.0.0.0', () => {
+const portNumber = typeof port === 'string' ? parseInt(port) : port;
+server.listen(portNumber, '0.0.0.0', () => {
   logInfo(`Octo-MQTT server listening on port ${port}`);
 }).on('error', (error: Error) => {
   logError(`Failed to start server: ${error.message}`);

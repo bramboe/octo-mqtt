@@ -1,36 +1,17 @@
+import { buildMQTTDeviceData } from '../Common/buildMQTTDeviceData';
 import { IMQTTConnection } from '../MQTT/IMQTTConnection';
-import { buildDictionary } from '../Utils/buildDictionary';
-import { Deferred } from '../Utils/deferred';
-import { logError, logInfo, logWarn } from '../Utils/logger';
-import { BLEController, Command } from '../BLE/BLEController';
-import { setupDeviceInfoSensor } from '../BLE/setupDeviceInfoSensor';
-import { buildMQTTDeviceData, Device } from '../Common/buildMQTTDeviceData';
-import { IESPConnection } from '../ESPHome/IESPConnection';
-import { calculateChecksum } from './calculateChecksum';
+import { logInfo, logError, logWarn } from '../Utils/logger';
+import { BLEController } from '../BLE/BLEController';
 import { extractFeatureValuePairFromData } from './extractFeaturesFromData';
-import { extractPacketFromMessage } from './extractPacketFromMessage';
-import { getDevices, OctoDevice } from './options';
 import { setupLightSwitch } from './setupLightSwitch';
 import { setupMotorEntities } from './setupMotorEntities';
-import { byte } from '../Utils/byte';
-import { Dictionary } from '../Utils/Dictionary';
+import { setupDeviceInfoSensor } from '../BLE/setupDeviceInfoSensor';
+import { IESPConnection } from '../ESPHome/IESPConnection';
+import { extractPacketFromMessage } from './extractPacketFromMessage';
+import { getDevices, OctoDevice } from './options';
+import { buildDictionary } from '../Utils/buildDictionary';
+import { Deferred } from '../Utils/deferred';
 import { BLEDeviceInfo } from '../ESPHome/types/BLEDeviceInfo';
-
-const buildComplexCommand = (command: number[], data?: number[]): Command => {
-  const dataLen = data?.length || 0;
-
-  const bytes = [
-    0x40,
-    ...command,
-    dataLen >> 8,
-    dataLen,
-    0x0, // checksum byte
-    ...(data || []),
-    0x40,
-  ].map(byte);
-  bytes[5] = calculateChecksum(bytes);
-  return { data: bytes };
-};
 
 // Add a timeout for feature requests - time to wait for features before moving on
 const FEATURE_REQUEST_TIMEOUT_MS = 15000; // 15 seconds
@@ -142,7 +123,7 @@ export const octo = async (mqtt: IMQTTConnection, esphome: IESPConnection) => {
 
       try {
         // Send the feature request command
-        await controller.writeCommand({ data: [0x20, 0x71] });
+        await controller.writeCommand({ command: [0x20, 0x71], data: [] });
         await allFeaturesReturned;
       } catch (error) {
         logError(`[Octo] Error requesting features: ${error}`);
@@ -176,7 +157,10 @@ export const octo = async (mqtt: IMQTTConnection, esphome: IESPConnection) => {
       logInfo('[Octo] Sending PIN to unlock device');
       try {
         // Send initial PIN command
-        await controller.writeCommand({ data: [0x20, 0x43, ...pin.split('').map((c: string) => parseInt(c))] });
+        await controller.writeCommand({ 
+          command: [0x20, 0x43], 
+          data: pin.split('').map((c: string) => parseInt(c))
+        });
         logInfo('[Octo] PIN sent successfully, device unlocked');
       } catch (error) {
         logError(`[Octo] Error sending PIN: ${error}`);

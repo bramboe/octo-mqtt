@@ -1,11 +1,10 @@
-import { IMQTTConnection } from '@mqtt/IMQTTConnection';
-// Assuming MQTTDevice is a general type, will use a placeholder if not found
-// import { MQTTDevice } from '@mqtt/MQTTDevice'; 
-// Assuming MQTTItemConfig is a general type for Home Assistant MQTT discovery
-// import { HomeAssistantMQTTItem, MQTTItemConfig } from '@mqtt/MQTTCover';
-import { logInfo, logError, logWarn } from '@utils/logger';
+import { IMQTTConnection } from '../MQTT/IMQTTConnection';
+import { buildEntityConfig } from '../Common/buildEntityConfig';
+import { IController } from '../Common/IController';
+import { Cancelable } from '../Common/Cancelable';
+import { logInfo, logError, logWarn } from '../Utils/logger';
 import { OctoStorage } from './storage';
-import { BLEController } from 'BLE/BLEController'; // Assuming this is the correct path
+import { BLEController } from '../BLE/BLEController';
 import * as Commands from './commands';
 import { byte } from '@utils/byte';
 import { calculateChecksum } from './calculateChecksum';
@@ -32,14 +31,6 @@ export interface MQTTItemConfigPlaceholder extends Record<string, any> {
   payload_not_available?: string;
 }
 
-const buildComplexCommand = ({ command, data }: { command: number[]; data?: number[] }) => {
-  const dataLen = data?.length || 0;
-  const bytes = [0x40, ...command, dataLen >> 8, dataLen, 0x0, ...(data || []), 0x40].map(byte);
-  bytes[5] = calculateChecksum(bytes);
-  return bytes;
-};
-
-const COMMAND_TIMEOUT = 5000; // 5 seconds for commands to complete or be considered timed out
 const POSITION_UPDATE_INTERVAL = 250; // ms, how often to update position during movement
 
 interface OctoControllerMinimal {
@@ -240,248 +231,252 @@ const startTimedMovement = (
   }, moveDur + 1000); 
 };
 
+export class OctoMQTTEntities {
+  constructor(
+    private readonly mqtt: IMQTTConnection,
+    private readonly storage: OctoStorage
+  ) {}
 
-export const setupOctoMqttEntities = (
-  mqtt: IMQTTConnection,
-  bleController: OctoControllerMinimal,
-  storage: OctoStorage,
-  devicePin: string | undefined,
-  mqttDeviceData: MQTTDevicePlaceholder // Explicitly pass the device data
-) => {
-  const device = mqttDeviceData; // Use the passed device data
-  const deviceIdentifier = device.identifiers[0];
-  device.availability_topic = `octo/${deviceIdentifier}/status`; // Ensure availability topic is set
+  public setupOctoMqttEntities = (
+    bleController: OctoControllerMinimal,
+    devicePin: string | undefined,
+    mqttDeviceData: MQTTDevicePlaceholder // Explicitly pass the device data
+  ) => {
+    const device = mqttDeviceData; // Use the passed device data
+    const deviceIdentifier = device.identifiers[0];
+    device.availability_topic = `octo/${deviceIdentifier}/status`; // Ensure availability topic is set
 
-  // --- Covers (Head, Feet, Both) ---
-  ['head', 'feet', 'both'].forEach(part => {
-    const isBoth = part === 'both';
-    const currentActuatorState = part === 'head' ? headState : (part === 'feet' ? feetState : initialActuatorState());
+    // --- Covers (Head, Feet, Both) ---
+    ['head', 'feet', 'both'].forEach(part => {
+      const isBoth = part === 'both';
+      const currentActuatorState = part === 'head' ? headState : (part === 'feet' ? feetState : initialActuatorState());
 
-    const coverConfig: MQTTItemConfigPlaceholder = {
-      name_prefix: '', // Keep HA default naming: <Device Name> <Entity Name>
-      name: isBoth ? 'Bed Position' : `${part.charAt(0).toUpperCase() + part.slice(1)} Position`,
-      command_topic: `octo/${deviceIdentifier}/${part}_cover/set`,
-      position_topic: `octo/${deviceIdentifier}/${part}_cover/position`,
-      state_topic: `octo/${deviceIdentifier}/${part}_cover/state`,
-      set_position_topic: `octo/${deviceIdentifier}/${part}_cover/set_position`,
-      device_class: 'shutter',
-      payload_open: 'OPEN',
-      payload_close: 'CLOSE',
-      payload_stop: 'STOP',
-      position_open: 100,
-      position_closed: 0,
+      const coverConfig: MQTTItemConfigPlaceholder = {
+        name_prefix: '', // Keep HA default naming: <Device Name> <Entity Name>
+        name: isBoth ? 'Bed Position' : `${part.charAt(0).toUpperCase() + part.slice(1)} Position`,
+        command_topic: `octo/${deviceIdentifier}/${part}_cover/set`,
+        position_topic: `octo/${deviceIdentifier}/${part}_cover/position`,
+        state_topic: `octo/${deviceIdentifier}/${part}_cover/state`,
+        set_position_topic: `octo/${deviceIdentifier}/${part}_cover/set_position`,
+        device_class: 'shutter',
+        payload_open: 'OPEN',
+        payload_close: 'CLOSE',
+        payload_stop: 'STOP',
+        position_open: 100,
+        position_closed: 0,
+        optimistic: false,
+      };
+      publishDeviceConfig(this.mqtt, device, `${part}_cover`, 'cover', coverConfig);
+      
+      if (!isBoth) {
+          const initialPos = this.storage.get(part === 'head' ? 'head_current_position' : 'feet_current_position');
+          updateAndPublishPosition(this.mqtt, this.storage, part as 'head' | 'feet', initialPos, deviceIdentifier);
+      } else {
+          const headPos = this.storage.get('head_current_position');
+          const feetPos = this.storage.get('feet_current_position');
+          const avgPos = Math.round((headPos + feetPos) / 2);
+          this.mqtt.publish(`octo/${deviceIdentifier}/both_cover/position`, avgPos.toString());
+          this.mqtt.publish(`octo/${deviceIdentifier}/both_cover/state`, avgPos > 0 ? 'open' : 'closed');
+      }
+
+      this.mqtt.subscribe(`octo/${deviceIdentifier}/${part}_cover/set`);
+      this.mqtt.on(`octo/${deviceIdentifier}/${part}_cover/set`, (payload: Buffer | string) => {
+        const cmd = (typeof payload === 'string' ? payload : payload.toString()).toUpperCase();
+        logInfo(`[MQTTEntities] Received command for ${part} cover: ${cmd}`);
+        if (isBoth) {
+          if (cmd === 'OPEN') {
+            startTimedMovement(headState, this.mqtt, this.storage, 'head', 100, bleController, deviceIdentifier);
+            startTimedMovement(feetState, this.mqtt, this.storage, 'feet', 100, bleController, deviceIdentifier);
+          } else if (cmd === 'CLOSE') {
+            startTimedMovement(headState, this.mqtt, this.storage, 'head', 0, bleController, deviceIdentifier);
+            startTimedMovement(feetState, this.mqtt, this.storage, 'feet', 0, bleController, deviceIdentifier);
+          } else if (cmd === 'STOP') {
+            stopMovement(headState, this.mqtt, this.storage, 'head', bleController, deviceIdentifier);
+            stopMovement(feetState, this.mqtt, this.storage, 'feet', bleController, deviceIdentifier);
+          }
+        } else {
+          const actuator = part as 'head' | 'feet';
+          if (cmd === 'OPEN') startTimedMovement(currentActuatorState, this.mqtt, this.storage, actuator, 100, bleController, deviceIdentifier);
+          else if (cmd === 'CLOSE') startTimedMovement(currentActuatorState, this.mqtt, this.storage, actuator, 0, bleController, deviceIdentifier);
+          else if (cmd === 'STOP') stopMovement(currentActuatorState, this.mqtt, this.storage, actuator, bleController, deviceIdentifier);
+        }
+      });
+
+      this.mqtt.subscribe(`octo/${deviceIdentifier}/${part}_cover/set_position`);
+      this.mqtt.on(`octo/${deviceIdentifier}/${part}_cover/set_position`, (payload: Buffer | string) => {
+        const positionCmd = (typeof payload === 'string' ? payload : payload.toString());
+        const position = parseInt(positionCmd, 10);
+        logInfo(`[MQTTEntities] Received set_position for ${part} cover: ${position}`);
+        if (isNaN(position) || position < 0 || position > 100) {
+          logWarn(`[MQTTEntities] Invalid position value: ${positionCmd}`);
+          return;
+        }
+        if (isBoth) {
+          startTimedMovement(headState, this.mqtt, this.storage, 'head', position, bleController, deviceIdentifier);
+          startTimedMovement(feetState, this.mqtt, this.storage, 'feet', position, bleController, deviceIdentifier);
+        } else {
+          startTimedMovement(currentActuatorState, this.mqtt, this.storage, part as 'head' | 'feet', position, bleController, deviceIdentifier);
+        }
+      });
+    });
+
+    // --- Light ---
+    const lightConfig: MQTTItemConfigPlaceholder = {
+      name_prefix: '',
+      name: 'Bed Light',
+      command_topic: `octo/${deviceIdentifier}/light/set`,
+      state_topic: `octo/${deviceIdentifier}/light/state`,
+      payload_on: 'ON',
+      payload_off: 'OFF',
       optimistic: false,
     };
-    publishDeviceConfig(mqtt, device, `${part}_cover`, 'cover', coverConfig);
-    
-    if (!isBoth) {
-        const initialPos = storage.get(part === 'head' ? 'head_current_position' : 'feet_current_position');
-        updateAndPublishPosition(mqtt, storage, part as 'head' | 'feet', initialPos, deviceIdentifier);
-    } else {
-        const headPos = storage.get('head_current_position');
-        const feetPos = storage.get('feet_current_position');
-        const avgPos = Math.round((headPos + feetPos) / 2);
-        mqtt.publish(`octo/${deviceIdentifier}/both_cover/position`, avgPos.toString());
-        mqtt.publish(`octo/${deviceIdentifier}/both_cover/state`, avgPos > 0 ? 'open' : 'closed');
-    }
+    publishDeviceConfig(this.mqtt, device, 'light', 'light', lightConfig);
 
-    mqtt.subscribe(`octo/${deviceIdentifier}/${part}_cover/set`);
-    mqtt.on(`octo/${deviceIdentifier}/${part}_cover/set`, (payload: Buffer | string) => {
+    this.mqtt.subscribe(lightConfig.command_topic!);
+    this.mqtt.on(lightConfig.command_topic!, async (payload: Buffer | string) => {
       const cmd = (typeof payload === 'string' ? payload : payload.toString()).toUpperCase();
-      logInfo(`[MQTTEntities] Received command for ${part} cover: ${cmd}`);
-      if (isBoth) {
-        if (cmd === 'OPEN') {
-          startTimedMovement(headState, mqtt, storage, 'head', 100, bleController, deviceIdentifier);
-          startTimedMovement(feetState, mqtt, storage, 'feet', 100, bleController, deviceIdentifier);
-        } else if (cmd === 'CLOSE') {
-          startTimedMovement(headState, mqtt, storage, 'head', 0, bleController, deviceIdentifier);
-          startTimedMovement(feetState, mqtt, storage, 'feet', 0, bleController, deviceIdentifier);
-        } else if (cmd === 'STOP') {
-          stopMovement(headState, mqtt, storage, 'head', bleController, deviceIdentifier);
-          stopMovement(feetState, mqtt, storage, 'feet', bleController, deviceIdentifier);
+      logInfo(`[MQTTEntities] Received command for light: ${cmd}`);
+      const bleCmd = cmd === 'ON' ? Commands.LIGHT_ON : Commands.LIGHT_OFF;
+      try {
+          await sendBleCommand(bleController, bleCmd); 
+          this.mqtt.publish(lightConfig.state_topic!, cmd); 
+      } catch (e) {
+          logError("Failed to send light command", e);
+      }
+    });
+
+    // --- Calibration Buttons & Sensors ---
+    ['head', 'feet'].forEach(part => {
+      const actuator = part as 'head' | 'feet';
+      const currentActuatorState = actuator === 'head' ? headState : feetState;
+
+      const calStartButtonConfig: MQTTItemConfigPlaceholder = { 
+          name_prefix: '', name: `Calibrate ${part}`, command_topic: `octo/${deviceIdentifier}/calibrate_${part}/set`, payload_press: 'PRESS' 
+      };
+      publishDeviceConfig(this.mqtt, device, `calibrate_${part}_start`, 'button', calStartButtonConfig);
+      this.mqtt.subscribe(calStartButtonConfig.command_topic!);
+      this.mqtt.on(calStartButtonConfig.command_topic!, (payload: Buffer | string) => {
+        if ((typeof payload === 'string' ? payload : payload.toString()).toUpperCase() === 'PRESS') {
+          if (headState.calibrationMode || feetState.calibrationMode) { 
+              logWarn("[MQTTEntities] Calibration already in progress.");
+              return;
+          }
+          logInfo(`[MQTTEntities] Starting ${part} calibration`);
+          currentActuatorState.calibrationMode = actuator;
+          currentActuatorState.startTime = Date.now();
+          currentActuatorState.startPosition = this.storage.get(actuator === 'head' ? 'head_current_position' : 'feet_current_position'); // Store current pos before calibration movement
+          currentActuatorState.targetPosition = 100; // Calibrating to 100%
+          sendBleCommand(bleController, actuator === 'head' ? Commands.HEAD_UP : Commands.FEET_UP);
         }
-      } else {
-        const actuator = part as 'head' | 'feet';
-        if (cmd === 'OPEN') startTimedMovement(currentActuatorState, mqtt, storage, actuator, 100, bleController, deviceIdentifier);
-        else if (cmd === 'CLOSE') startTimedMovement(currentActuatorState, mqtt, storage, actuator, 0, bleController, deviceIdentifier);
-        else if (cmd === 'STOP') stopMovement(currentActuatorState, mqtt, storage, actuator, bleController, deviceIdentifier);
-      }
+      });
+
+      const calDurationSensorConfig: MQTTItemConfigPlaceholder = {
+        name_prefix: '',
+        name: `${part.charAt(0).toUpperCase() + part.slice(1)} Calibration Seconds`,
+        state_topic: `octo/${deviceIdentifier}/${part}_calibration_seconds/state`,
+        unit_of_measurement: 's',
+        icon: 'mdi:timer-outline',
+      };
+      publishDeviceConfig(this.mqtt, device, `${part}_calibration_seconds`, 'sensor', calDurationSensorConfig);
+      const initialDuration = this.storage.get(actuator === 'head' ? 'head_up_duration' : 'feet_up_duration');
+      this.mqtt.publish(calDurationSensorConfig.state_topic!, (initialDuration / 1000).toFixed(1));
     });
 
-    mqtt.subscribe(`octo/${deviceIdentifier}/${part}_cover/set_position`);
-    mqtt.on(`octo/${deviceIdentifier}/${part}_cover/set_position`, (payload: Buffer | string) => {
-      const positionCmd = (typeof payload === 'string' ? payload : payload.toString());
-      const position = parseInt(positionCmd, 10);
-      logInfo(`[MQTTEntities] Received set_position for ${part} cover: ${position}`);
-      if (isNaN(position) || position < 0 || position > 100) {
-        logWarn(`[MQTTEntities] Invalid position value: ${positionCmd}`);
-        return;
-      }
-      if (isBoth) {
-        startTimedMovement(headState, mqtt, storage, 'head', position, bleController, deviceIdentifier);
-        startTimedMovement(feetState, mqtt, storage, 'feet', position, bleController, deviceIdentifier);
-      } else {
-        startTimedMovement(currentActuatorState, mqtt, storage, part as 'head' | 'feet', position, bleController, deviceIdentifier);
-      }
-    });
-  });
-
-  // --- Light ---
-  const lightConfig: MQTTItemConfigPlaceholder = {
-    name_prefix: '',
-    name: 'Bed Light',
-    command_topic: `octo/${deviceIdentifier}/light/set`,
-    state_topic: `octo/${deviceIdentifier}/light/state`,
-    payload_on: 'ON',
-    payload_off: 'OFF',
-    optimistic: false,
-  };
-  publishDeviceConfig(mqtt, device, 'light', 'light', lightConfig);
-
-  mqtt.subscribe(lightConfig.command_topic!);
-  mqtt.on(lightConfig.command_topic!, async (payload: Buffer | string) => {
-    const cmd = (typeof payload === 'string' ? payload : payload.toString()).toUpperCase();
-    logInfo(`[MQTTEntities] Received command for light: ${cmd}`);
-    const bleCmd = cmd === 'ON' ? Commands.LIGHT_ON : Commands.LIGHT_OFF;
-    try {
-        await sendBleCommand(bleController, bleCmd); 
-        mqtt.publish(lightConfig.state_topic!, cmd); 
-    } catch (e) {
-        logError("Failed to send light command", e);
-    }
-  });
-
-  // --- Calibration Buttons & Sensors ---
-  ['head', 'feet'].forEach(part => {
-    const actuator = part as 'head' | 'feet';
-    const currentActuatorState = actuator === 'head' ? headState : feetState;
-
-    const calStartButtonConfig: MQTTItemConfigPlaceholder = { 
-        name_prefix: '', name: `Calibrate ${part}`, command_topic: `octo/${deviceIdentifier}/calibrate_${part}/set`, payload_press: 'PRESS' 
+    const calStopButtonConfig: MQTTItemConfigPlaceholder = { 
+        name_prefix: '', name: 'Stop Calibration', command_topic: `octo/${deviceIdentifier}/calibration_stop/set`, payload_press: 'PRESS' 
     };
-    publishDeviceConfig(mqtt, device, `calibrate_${part}_start`, 'button', calStartButtonConfig);
-    mqtt.subscribe(calStartButtonConfig.command_topic!);
-    mqtt.on(calStartButtonConfig.command_topic!, (payload: Buffer | string) => {
+    publishDeviceConfig(this.mqtt, device, 'calibration_stop', 'button', calStopButtonConfig);
+    this.mqtt.subscribe(calStopButtonConfig.command_topic!);
+    this.mqtt.on(calStopButtonConfig.command_topic!, (payload: Buffer | string) => {
       if ((typeof payload === 'string' ? payload : payload.toString()).toUpperCase() === 'PRESS') {
-        if (headState.calibrationMode || feetState.calibrationMode) { 
-            logWarn("[MQTTEntities] Calibration already in progress.");
+        const activeCalibrationState = headState.calibrationMode ? headState : (feetState.calibrationMode ? feetState : null);
+        const activeActuator = headState.calibrationMode ? 'head' : (feetState.calibrationMode ? 'feet' : null);
+
+        if (!activeCalibrationState || !activeActuator) {
+          logWarn("[MQTTEntities] No calibration in progress to stop.");
+          return;
+        }
+        logInfo(`[MQTTEntities] Stopping ${activeActuator} calibration`);
+        stopMovement(activeCalibrationState, this.mqtt, this.storage, activeActuator, bleController, deviceIdentifier, true); // Pass true for isCalibrationStop
+        
+        const calibrationDuration = Date.now() - activeCalibrationState.startTime;
+        activeCalibrationState.calibrationMode = null;
+
+        if (calibrationDuration < 1000) { // Safety check for too short calibration
+            logWarn("[MQTTEntities] Calibration duration too short, not saving.");
+            // Reset to previous known position or 0
+            const lastPosition = activeCalibrationState.startPosition; // Position before calibration attempt
+            updateAndPublishPosition(this.mqtt, this.storage, activeActuator, lastPosition, deviceIdentifier);
             return;
         }
-        logInfo(`[MQTTEntities] Starting ${part} calibration`);
-        currentActuatorState.calibrationMode = actuator;
-        currentActuatorState.startTime = Date.now();
-        currentActuatorState.startPosition = storage.get(actuator === 'head' ? 'head_current_position' : 'feet_current_position'); // Store current pos before calibration movement
-        currentActuatorState.targetPosition = 100; // Calibrating to 100%
-        sendBleCommand(bleController, actuator === 'head' ? Commands.HEAD_UP : Commands.FEET_UP);
+
+        if (activeActuator === 'head') {
+          this.storage.set('head_up_duration', calibrationDuration);
+          this.storage.set('head_current_position', 100);
+          this.mqtt.publish(`octo/${deviceIdentifier}/head_calibration_seconds/state`, (calibrationDuration / 1000).toFixed(1));
+          updateAndPublishPosition(this.mqtt, this.storage, 'head', 100, deviceIdentifier);
+          logInfo(`[MQTTEntities] Head calibrated. Duration: ${calibrationDuration}ms. Moving to 0%.`);
+          startTimedMovement(headState, this.mqtt, this.storage, 'head', 0, bleController, deviceIdentifier);
+
+        } else if (activeActuator === 'feet') {
+          this.storage.set('feet_up_duration', calibrationDuration);
+          this.storage.set('feet_current_position', 100);
+          this.mqtt.publish(`octo/${deviceIdentifier}/feet_calibration_seconds/state`, (calibrationDuration / 1000).toFixed(1));
+          updateAndPublishPosition(this.mqtt, this.storage, 'feet', 100, deviceIdentifier);
+          logInfo(`[MQTTEntities] Feet calibrated. Duration: ${calibrationDuration}ms. Moving to 0%.`);
+          startTimedMovement(feetState, this.mqtt, this.storage, 'feet', 0, bleController, deviceIdentifier);
+        }
       }
     });
 
-    const calDurationSensorConfig: MQTTItemConfigPlaceholder = {
-      name_prefix: '',
-      name: `${part.charAt(0).toUpperCase() + part.slice(1)} Calibration Seconds`,
-      state_topic: `octo/${deviceIdentifier}/${part}_calibration_seconds/state`,
-      unit_of_measurement: 's',
-      icon: 'mdi:timer-outline',
-    };
-    publishDeviceConfig(mqtt, device, `${part}_calibration_seconds`, 'sensor', calDurationSensorConfig);
-    const initialDuration = storage.get(actuator === 'head' ? 'head_up_duration' : 'feet_up_duration');
-    mqtt.publish(calDurationSensorConfig.state_topic!, (initialDuration / 1000).toFixed(1));
-  });
+    ['head', 'feet'].forEach(part => {
+      const actuator = part as 'head' | 'feet';
+      const sensorConfig: MQTTItemConfigPlaceholder = {
+        name_prefix: '',
+        name: `${part.charAt(0).toUpperCase() + part.slice(1)} Position Sensor`,
+        state_topic: `octo/${deviceIdentifier}/${actuator}_cover/position`,
+        unit_of_measurement: '%',
+        icon: 'mdi:angle-acute',
+      };
+      publishDeviceConfig(this.mqtt, device, `${part}_position_sensor`, 'sensor', sensorConfig);
+    });
 
-  const calStopButtonConfig: MQTTItemConfigPlaceholder = { 
-      name_prefix: '', name: 'Stop Calibration', command_topic: `octo/${deviceIdentifier}/calibration_stop/set`, payload_press: 'PRESS' 
-  };
-  publishDeviceConfig(mqtt, device, 'calibration_stop', 'button', calStopButtonConfig);
-  mqtt.subscribe(calStopButtonConfig.command_topic!);
-  mqtt.on(calStopButtonConfig.command_topic!, (payload: Buffer | string) => {
-    if ((typeof payload === 'string' ? payload : payload.toString()).toUpperCase() === 'PRESS') {
-      const activeCalibrationState = headState.calibrationMode ? headState : (feetState.calibrationMode ? feetState : null);
-      const activeActuator = headState.calibrationMode ? 'head' : (feetState.calibrationMode ? 'feet' : null);
+    if (devicePin && devicePin.length === 4) {
+      bleController.setPin(devicePin);
+      const keepAliveBaseCommand = Commands.getKeepAliveCommand(devicePin);
+      // Keep alive command from YAML is already a full packet, don't wrap in buildComplexCommand.
+      // const keepAliveFullCommand = buildComplexCommand({ command: keepAliveBaseCommand }); 
+      const keepAliveFullCommand = keepAliveBaseCommand; // Assuming getKeepAliveCommand returns the full packet
 
-      if (!activeCalibrationState || !activeActuator) {
-        logWarn("[MQTTEntities] No calibration in progress to stop.");
-        return;
-      }
-      logInfo(`[MQTTEntities] Stopping ${activeActuator} calibration`);
-      stopMovement(activeCalibrationState, mqtt, storage, activeActuator, bleController, deviceIdentifier, true); // Pass true for isCalibrationStop
-      
-      const calibrationDuration = Date.now() - activeCalibrationState.startTime;
-      activeCalibrationState.calibrationMode = null;
-
-      if (calibrationDuration < 1000) { // Safety check for too short calibration
-          logWarn("[MQTTEntities] Calibration duration too short, not saving.");
-          // Reset to previous known position or 0
-          const lastPosition = activeCalibrationState.startPosition; // Position before calibration attempt
-          updateAndPublishPosition(mqtt, storage, activeActuator, lastPosition, deviceIdentifier);
-          return;
-      }
-
-      if (activeActuator === 'head') {
-        storage.set('head_up_duration', calibrationDuration);
-        storage.set('head_current_position', 100);
-        mqtt.publish(`octo/${deviceIdentifier}/head_calibration_seconds/state`, (calibrationDuration / 1000).toFixed(1));
-        updateAndPublishPosition(mqtt, storage, 'head', 100, deviceIdentifier);
-        logInfo(`[MQTTEntities] Head calibrated. Duration: ${calibrationDuration}ms. Moving to 0%.`);
-        startTimedMovement(headState, mqtt, storage, 'head', 0, bleController, deviceIdentifier);
-
-      } else if (activeActuator === 'feet') {
-        storage.set('feet_up_duration', calibrationDuration);
-        storage.set('feet_current_position', 100);
-        mqtt.publish(`octo/${deviceIdentifier}/feet_calibration_seconds/state`, (calibrationDuration / 1000).toFixed(1));
-        updateAndPublishPosition(mqtt, storage, 'feet', 100, deviceIdentifier);
-        logInfo(`[MQTTEntities] Feet calibrated. Duration: ${calibrationDuration}ms. Moving to 0%.`);
-        startTimedMovement(feetState, mqtt, storage, 'feet', 0, bleController, deviceIdentifier);
-      }
+      if (keepAliveIntervalId) clearInterval(keepAliveIntervalId);
+      keepAliveIntervalId = setInterval(() => {
+        logInfo('[MQTTEntities] Sending Keep Alive');
+        sendBleCommand(bleController, keepAliveFullCommand).catch(e => logError("Failed to send keep alive", e));
+      }, 30000);
+    } else {
+      logWarn('[MQTTEntities] PIN not configured or invalid, keep-alive will not be sent.');
     }
-  });
 
-  ['head', 'feet'].forEach(part => {
-    const actuator = part as 'head' | 'feet';
-    const sensorConfig: MQTTItemConfigPlaceholder = {
-      name_prefix: '',
-      name: `${part.charAt(0).toUpperCase() + part.slice(1)} Position Sensor`,
-      state_topic: `octo/${deviceIdentifier}/${actuator}_cover/position`,
-      unit_of_measurement: '%',
-      icon: 'mdi:angle-acute',
-    };
-    publishDeviceConfig(mqtt, device, `${part}_position_sensor`, 'sensor', sensorConfig);
-  });
+    this.mqtt.publish(`octo/${deviceIdentifier}/status`, 'online');
+    logInfo(`[MQTTEntities] MQTT entities configured for ${device.name}`);
+  };
 
-  if (devicePin && devicePin.length === 4) {
-    bleController.setPin(devicePin);
-    const keepAliveBaseCommand = Commands.getKeepAliveCommand(devicePin);
-    // Keep alive command from YAML is already a full packet, don't wrap in buildComplexCommand.
-    // const keepAliveFullCommand = buildComplexCommand({ command: keepAliveBaseCommand }); 
-    const keepAliveFullCommand = keepAliveBaseCommand; // Assuming getKeepAliveCommand returns the full packet
+  public cleanupOctoMqttEntities = (deviceData: MQTTDevicePlaceholder | undefined) => {
+    if (keepAliveIntervalId) {
+      clearInterval(keepAliveIntervalId);
+      keepAliveIntervalId = null;
+    }
+    const tempStorage = new OctoStorage(); 
 
-    if (keepAliveIntervalId) clearInterval(keepAliveIntervalId);
-    keepAliveIntervalId = setInterval(() => {
-      logInfo('[MQTTEntities] Sending Keep Alive');
-      sendBleCommand(bleController, keepAliveFullCommand).catch(e => logError("Failed to send keep alive", e));
-    }, 30000);
-  } else {
-    logWarn('[MQTTEntities] PIN not configured or invalid, keep-alive will not be sent.');
-  }
+    if (headState.isMoving && deviceData) stopMovement(headState, this.mqtt, tempStorage, 'head', null, deviceData.identifiers[0]);
+    if (feetState.isMoving && deviceData) stopMovement(feetState, this.mqtt, tempStorage, 'feet', null, deviceData.identifiers[0]);
 
-  mqtt.publish(`octo/${deviceIdentifier}/status`, 'online');
-  logInfo(`[MQTTEntities] MQTT entities configured for ${device.name}`);
-};
+    headState = initialActuatorState();
+    feetState = initialActuatorState();
 
-export const cleanupOctoMqttEntities = (mqtt: IMQTTConnection, deviceData: MQTTDevicePlaceholder | undefined) => {
-  if (keepAliveIntervalId) {
-    clearInterval(keepAliveIntervalId);
-    keepAliveIntervalId = null;
-  }
-  const tempStorage = new OctoStorage(); 
-
-  if (headState.isMoving && deviceData) stopMovement(headState, mqtt, tempStorage, 'head', null, deviceData.identifiers[0]);
-  if (feetState.isMoving && deviceData) stopMovement(feetState, mqtt, tempStorage, 'feet', null, deviceData.identifiers[0]);
-
-  headState = initialActuatorState();
-  feetState = initialActuatorState();
-
-  if (deviceData) {
-     mqtt.publish(`octo/${deviceData.identifiers[0]}/status`, 'offline');
-  }
-  logInfo('[MQTTEntities] Cleaned up MQTT entities and keep-alive.');
-}; 
+    if (deviceData) {
+       this.mqtt.publish(`octo/${deviceData.identifiers[0]}/status`, 'offline');
+    }
+    logInfo('[MQTTEntities] Cleaned up MQTT entities and keep-alive.');
+  };
+} 
