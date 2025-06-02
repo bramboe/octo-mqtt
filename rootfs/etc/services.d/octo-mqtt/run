@@ -1,0 +1,13 @@
+#!/usr/bin/with-contenv bashio
+# ==============================================================================
+# Start the Octo MQTT service
+# ==============================================================================
+
+# Set up the environment
+cd /app || bashio::exit.nok "Could not change to app directory"
+
+export NODE_OPTIONS="--trace-warnings --trace-uncaught"
+
+# Start the application
+bashio::log.info "Starting Octo MQTT..."
+exec node index.js 
