@@ -1,45 +1,43 @@
 ARG BUILD_FROM
 FROM $BUILD_FROM
 
-# Install required packages
-RUN apk add --no-cache \
-    nodejs \
-    npm \
-    git \
-    python3 \
-    make \
-    g++ \
-    linux-headers \
-    udev \
-    bluez
+# Set shell
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-# Set work directory
+# Install requirements for add-on
+RUN \
+    apk add --no-cache \
+        nodejs \
+        npm \
+        git \
+        python3 \
+        make \
+        g++ \
+        linux-headers \
+        udev \
+        bluez
+
+# Copy root filesystem
+COPY rootfs /
+
+# Copy app
+COPY . /app
+
 WORKDIR /app
 
-# Copy package files
-COPY package.json yarn.lock ./
-COPY tsconfig.json tsconfig.build.json ./
-
 # Install dependencies
-RUN npm install -g yarn && \
-    yarn install --frozen-lockfile
+RUN npm install
 
-# Copy source code
-COPY src ./src
-COPY webui ./webui
+# Build
+RUN npm run build
 
-# Build the application
-RUN yarn build:ci
+# Set correct permissions
+RUN chown -R root:root /app
 
 # Labels
 LABEL \
     io.hass.name="Octo MQTT" \
-    io.hass.description="Octo MQTT integration for Octo actuators star version 2" \
+    io.hass.description="A Home Assistant add-on to enable controlling Octo actuators star version 2." \
     io.hass.type="addon" \
-    io.hass.version="1.1.9"
-
-# Copy run script
-COPY run.sh /
-RUN chmod a+x /run.sh
-
-CMD [ "/run.sh" ]
+    io.hass.version="1.2.0" \
+    maintainer="Bram Boersma <bram.boersma@gmail.com>"

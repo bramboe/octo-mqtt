@@ -352,3 +352,16 @@
 **Bugs Fixed**
 
 - Sleeptracker API not returning manufacturer details, which caused HA to fail to add the devices
+
+## v1.2.0
+
+**New Features**
+- Improved BLE device connection handling
+- Enhanced WebSocket communication for device status
+- Added proper ingress support for Home Assistant UI
+- Fixed version inconsistencies
+
+**Bug Fixes**
+- Fixed ingress connection issues
+- Improved error handling for device connections
+- Enhanced WebSocket reconnection logic
