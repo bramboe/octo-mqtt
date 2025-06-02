@@ -76,20 +76,13 @@ export class ESPConnection implements IESPConnection {
     onNewDeviceFound: (bleDevice: IBLEDevice) => void,
     complete: Deferred<void>
   ) {
-    const seenAddresses = new Set<string>();
+    const seenAddresses: number[] = [];
     const listenerBuilder = (connection: Connection) => ({
       connection,
       listener: (advertisement: any) => {
         let { name, address } = advertisement;
-        
-        // Convert address to MAC format for comparison
-        const macAddress = address.toString(16).padStart(12, '0').toUpperCase()
-          .match(/.{2}/g)?.join(':') || '';
-        
-        if (seenAddresses.has(macAddress) || !name) return;
-        
-        logInfo(`[BLE] Found device: ${name} (${macAddress})`);
-        seenAddresses.add(macAddress);
+        if (seenAddresses.includes(address) || !name) return;
+        seenAddresses.push(address);
         onNewDeviceFound(new BLEDevice(name, advertisement, connection));
       },
     });

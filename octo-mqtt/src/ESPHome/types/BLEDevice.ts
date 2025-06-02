@@ -1,5 +1,5 @@
 import { Connection } from '@2colors/esphome-native-api';
-import { logInfo, logWarn, logError } from '@utils/logger';
+import { logInfo, logWarn } from '@utils/logger';
 import { IBLEDevice } from './IBLEDevice';
 import { EventEmitter } from 'events';
 
@@ -18,13 +18,10 @@ export class BLEDevice implements IBLEDevice {
   private pendingReads = new Map<number, NodeJS.Timeout>();
   public mac: string;
   private emitter: EventEmitter | null = null;
-  private keepAliveInterval: NodeJS.Timeout | null = null;
   
   constructor(public name: string, public advertisement: any, private connection: Connection) {
-    // Convert numeric address to MAC format (matches ESPHome format)
-    const addr = this.address.toString(16).padStart(12, '0').toUpperCase();
-    this.mac = addr.match(/.{2}/g)?.join(':') || '';
-    
+    this.mac = this.address.toString(16).padStart(12, '0');
+    // Check if connection is an EventEmitter
     if (isEventEmitter(connection)) {
       this.emitter = connection;
     } else {
@@ -44,11 +41,9 @@ export class BLEDevice implements IBLEDevice {
     const { addressType } = this.advertisement;
     await this.connection.connectBluetoothDeviceService(this.address, addressType);
     this._connected = true;
-    this.startKeepAlive();
   };
 
   disconnect = async () => {
-    this.stopKeepAlive();
     this.cleanup();
     this._connected = false;
     await this.connection.disconnectBluetoothDeviceService(this.address);
@@ -173,41 +168,5 @@ export class BLEDevice implements IBLEDevice {
       }
     }
     this.pendingReads.clear();
-  };
-
-  private startKeepAlive = () => {
-    if (this.keepAliveInterval) {
-      clearInterval(this.keepAliveInterval);
-    }
-    
-    // Send keep-alive command every 30 seconds
-    this.keepAliveInterval = setInterval(async () => {
-      try {
-        const keepAliveCommand = new Uint8Array([0x40, 0x20, 0x43, 0x00, 0x04, 0x00, 0x01, 0x09, 0x08, 0x07, 0x40]);
-        await this.writeCharacteristic(0x0001, keepAliveCommand, true);
-        logInfo(`[BLE] Keep-alive sent to ${this.name} (${this.mac})`);
-      } catch (error) {
-        logError(`[BLE] Failed to send keep-alive to ${this.name} (${this.mac}):`, error);
-        // If keep-alive fails, try to reconnect
-        this.reconnect();
-      }
-    }, 30000);
-  };
-
-  private stopKeepAlive = () => {
-    if (this.keepAliveInterval) {
-      clearInterval(this.keepAliveInterval);
-      this.keepAliveInterval = null;
-    }
-  };
-
-  private reconnect = async () => {
-    try {
-      await this.disconnect();
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
-      await this.connect();
-    } catch (error) {
-      logError(`[BLE] Failed to reconnect to ${this.name} (${this.mac}):`, error);
-    }
   };
 }
