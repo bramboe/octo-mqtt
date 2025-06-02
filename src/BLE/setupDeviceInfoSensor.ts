@@ -1,3 +1,3 @@
-import { IMQTTConnection } from '@mqtt/IMQTTConnection';
-import { BLEController } from '@ble/BLEController';
+import { IMQTTConnection } from '../MQTT/IMQTTConnection';
+import { BLEController } from './BLEController';
 // ... existing code ... 

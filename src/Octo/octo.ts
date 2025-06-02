@@ -1,18 +1,18 @@
-import { IMQTTConnection } from '@mqtt/IMQTTConnection';
-import { buildDictionary } from '@utils/buildDictionary';
-import { Deferred } from '@utils/deferred';
-import { logError, logInfo, logWarn } from '@utils/logger';
-import { BLEController } from 'BLE/BLEController';
+import { IMQTTConnection } from '../MQTT/IMQTTConnection';
+import { buildDictionary } from '../Utils/buildDictionary';
+import { Deferred } from '../Utils/deferred';
+import { logError, logInfo, logWarn } from '../Utils/logger';
+import { BLEController } from '../BLE/BLEController';
 import { setupDeviceInfoSensor } from 'BLE/setupDeviceInfoSensor';
-import { buildMQTTDeviceData } from 'Common/buildMQTTDeviceData';
-import { IESPConnection } from 'ESPHome/IESPConnection';
+import { buildMQTTDeviceData } from '../Common/buildMQTTDeviceData';
+import { IESPConnection } from '../ESPHome/IESPConnection';
 import { calculateChecksum } from './calculateChecksum';
-import { extractFeatureValuePairFromData } from './extractFeaturesFromData';
+import { extractFeaturesFromData } from './extractFeaturesFromData';
 import { extractPacketFromMessage } from './extractPacketFromMessage';
-import { getDevices } from './options';
+import { options } from './options';
 import { setupLightSwitch } from './setupLightSwitch';
 import { setupMotorEntities } from './setupMotorEntities';
-import { byte } from '@utils/byte';
+import { byte } from '../Utils/byte';
 
 export type Command = {
   command: number[];
@@ -42,7 +42,7 @@ const FEATURE_REQUEST_TIMEOUT_MS = 15000; // 15 seconds
 const MAX_FEATURE_REQUEST_ATTEMPTS = 3;
 
 export const octo = async (mqtt: IMQTTConnection, esphome: IESPConnection) => {
-  const devices = getDevices();
+  const devices = options();
   if (!devices.length) return logInfo('[Octo] No devices configured');
 
   const devicesMap = buildDictionary(devices, (device) => ({ key: device.name.toLowerCase(), value: device }));
@@ -115,7 +115,7 @@ export const octo = async (mqtt: IMQTTConnection, esphome: IESPConnection) => {
         if (command[0] == 0x21 && command[1] == 0x71) {
           // features
           logInfo(`[Octo] Received feature data: ${JSON.stringify(Array.from(data))}`);
-          const featureValue = extractFeatureValuePairFromData(data);
+          const featureValue = extractFeaturesFromData(data);
           if (featureValue == null) {
             logWarn(`[Octo] Failed to extract feature value from data`);
             return;
