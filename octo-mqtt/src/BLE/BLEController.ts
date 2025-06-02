@@ -10,7 +10,7 @@ export interface BLEDeviceAdvertisement {
 }
 
 export class BLEController extends EventEmitter {
-  private cache: Record<string, any> = {};
+  cache: Record<string, any> = {};
   private commandQueue: Array<{
     command: number[] | { command: number[]; data?: number[] };
     resolve: () => void;
@@ -26,8 +26,7 @@ export class BLEController extends EventEmitter {
   private isScanning = false;
   private connectionAttempts = 0;
   private readonly MAX_RECONNECT_ATTEMPTS = 3;
-  private readonly RECONNECT_DELAY = 5000;
-  private readonly KEEP_ALIVE_INTERVAL = 25000;
+  private readonly RECONNECT_DELAY = 5000; // 5 seconds
 
   constructor(
     public readonly deviceData: any,
@@ -38,55 +37,51 @@ export class BLEController extends EventEmitter {
     pin?: string
   ) {
     super();
-    // Store PIN if provided
     if (pin && pin.length === 4) {
       this.pin = pin;
     }
-    // Start polling for characteristic changes if feedback handle is provided
-    this.startPolling();
-    // Start keep-alive mechanism
-    this.startKeepAlive();
-    this.monitorConnection();
+    this.initializeConnection();
   }
 
-  private monitorConnection() {
-    if (!this.bleDevice) return;
-    
-    this.bleDevice.on('disconnect', () => {
-      logWarn('[BLE] Device disconnected unexpectedly');
-      this.handleDisconnect();
-    });
+  private async initializeConnection() {
+    try {
+      await this.connect();
+      this.startPolling();
+      this.startKeepAlive();
+      this.connectionAttempts = 0; // Reset attempts on successful connection
+    } catch (error) {
+      this.handleConnectionError(error);
+    }
+  }
 
-    this.bleDevice.on('connect', () => {
-      logInfo('[BLE] Device connected successfully');
-      this.connectionAttempts = 0;
+  private async connect() {
+    if (!this.bleDevice || this.connectionAttempts >= this.MAX_RECONNECT_ATTEMPTS) {
+      throw new Error('Max reconnection attempts reached or invalid device');
+    }
+
+    try {
+      await this.bleDevice.connect();
       this.emit('connectionStatus', { connected: true });
-    });
+      logInfo('[BLE] Connected successfully');
+    } catch (error) {
+      this.connectionAttempts++;
+      throw error;
+    }
   }
 
-  private handleDisconnect() {
-    this.emit('connectionStatus', { connected: false });
-    
+  private handleConnectionError(error: any) {
+    logError('[BLE] Connection error:', error);
+    this.emit('connectionStatus', { connected: false, error: error.message });
+
     if (this.connectionAttempts < this.MAX_RECONNECT_ATTEMPTS) {
-      this.connectionAttempts++;
-      logInfo(`[BLE] Attempting to reconnect (${this.connectionAttempts}/${this.MAX_RECONNECT_ATTEMPTS})...`);
-      
       if (this.reconnectTimeout) {
         clearTimeout(this.reconnectTimeout);
       }
-      
-      this.reconnectTimeout = setTimeout(async () => {
-        try {
-          await this.bleDevice.connect();
-          logInfo('[BLE] Reconnection successful');
-        } catch (error) {
-          logError('[BLE] Reconnection failed:', error);
-          this.handleDisconnect();
-        }
+      this.reconnectTimeout = setTimeout(() => {
+        this.initializeConnection();
       }, this.RECONNECT_DELAY);
     } else {
       logError('[BLE] Max reconnection attempts reached');
-      this.emit('connectionStatus', { connected: false, error: 'Max reconnection attempts reached' });
     }
   }
 
@@ -109,11 +104,13 @@ export class BLEController extends EventEmitter {
     if (this.keepAliveInterval) {
       clearInterval(this.keepAliveInterval);
     }
+    
     logInfo('[BLE] Starting keep-alive mechanism');
     this.keepAliveInterval = setInterval(async () => {
       try {
-        if (!this.bleDevice?.connected) {
-          logWarn('[BLE] Device not connected, skipping keep-alive');
+        if (!this.bleDevice.connected) {
+          logWarn('[BLE] Device not connected, attempting reconnection');
+          await this.initializeConnection();
           return;
         }
         const pinDigits = this.pin.split('').map(digit => parseInt(digit));
@@ -124,9 +121,9 @@ export class BLEController extends EventEmitter {
         logInfo('[BLE] Keep-alive sent successfully');
       } catch (error) {
         logError('[BLE] Error sending keep-alive:', error);
-        this.handleDisconnect();
+        this.handleConnectionError(error);
       }
-    }, this.KEEP_ALIVE_INTERVAL);
+    }, 30000);
   }
 
   private startPolling() {
@@ -134,29 +131,28 @@ export class BLEController extends EventEmitter {
       logWarn('[BLE] No feedback handle provided, polling not started');
       return;
     }
-    logInfo('[BLE] Starting polling for characteristic changes');
-    // Store feedback handle in local variable to avoid undefined error
+
+    if (this.pollingInterval) {
+      clearInterval(this.pollingInterval);
+    }
+
     const feedbackHandle = this.handles.feedback;
-    // Poll every 100ms
     this.pollingInterval = setInterval(async () => {
+      if (!this.bleDevice.connected) return;
+      
       try {
-        if (typeof this.bleDevice.readCharacteristic !== 'function') {
-          logError('[BLE] readCharacteristic is not a function, polling not possible');
-          this.stopPolling();
-          return;
-        }
         const value = await this.bleDevice.readCharacteristic(feedbackHandle);
         if (!value) return;
-        // Only emit if the value has changed (to avoid spamming)
+        
         const valueString = Array.from(value).join(',');
         if (valueString !== this.lastValue) {
           this.lastValue = valueString;
           this.emit('feedback', value);
         }
       } catch (error) {
-        // Don't log errors to avoid filling up logs, just silently continue
+        // Silent fail for polling
       }
-    }, 100); // Poll every 100ms
+    }, 100);
   }
   
   private stopPolling() {
@@ -175,11 +171,16 @@ export class BLEController extends EventEmitter {
       clearInterval(this.keepAliveInterval);
       this.keepAliveInterval = null;
     }
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
+      this.reconnectTimeout = null;
+    }
     if (this.timeout) {
       clearTimeout(this.timeout);
       this.timeout = null;
     }
     this.stopScan(); // Ensure scanning is stopped on dispose
+    this.bleDevice?.disconnect().catch(() => {});
   }
 
   async writeCommand(command: number[] | { command: number[]; data?: number[] }): Promise<void> {

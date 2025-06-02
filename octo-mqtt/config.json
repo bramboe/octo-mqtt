@@ -1,65 +1,47 @@
 {
   "name": "Octo MQTT",
   "version": "1.1.8",
-  "slug": "octo-mqtt",
-  "description": "A Home Assistant add-on to enable controlling Octo actuators star version 2.",
+  "slug": "octo_mqtt",
+  "description": "Octo MQTT integration for Octo actuators star version 2",
   "url": "https://github.com/bramboe/octo-mqtt",
+  "arch": ["armhf", "armv7", "aarch64", "amd64", "i386"],
   "startup": "application",
-  "arch": ["aarch64", "amd64", "armhf", "armv7", "i386"],
   "boot": "auto",
-  "services": ["mqtt:need"],
   "host_network": true,
-  "ports": {
-    "1883/tcp": null
-  },
-  "ports_description": {
-    "1883/tcp": "MQTT broker port (only needed if not using Home Assistant's MQTT broker)"
-  },
-  "map": ["config:ro"],
-  "init": false,
-  "protection": true,
-  "privileged": [],
-  "apparmor": true,
-  "auth_api": true,
   "ingress": true,
-  "ingress_port": 8099,
   "panel_icon": "mdi:bed",
-  "panel_title": "Octo MQTT",
   "options": {
-    "mqtt_host": "<auto_detect>",
-    "mqtt_port": "<auto_detect>",
-    "mqtt_user": "<auto_detect>",
-    "mqtt_password": "<auto_detect>",
-    "bleProxies": [
-      {
-        "host": "192.168.2.102",
-        "port": 6053
-      }
-    ],
-    "octoDevices": []
+    "devices": [],
+    "mqtt": {
+      "broker": "core-mosquitto",
+      "port": 1883,
+      "username": "",
+      "password": ""
+    },
+    "esphome": {
+      "host": "",
+      "port": 6053,
+      "password": ""
+    }
   },
   "schema": {
-    "mqtt_host": "str",
-    "mqtt_port": "str",
-    "mqtt_user": "str",
-    "mqtt_password": "password",
-    "bleProxies": [
-      {
-        "host": "str",
-        "port": "int(1,65536)?",
-        "password": "password?",
-        "encryptionKey": "match(^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)$)?",
-        "expectedServerName": "str?"
-      }
-    ],
-    "octoDevices": [
+    "devices": [
       {
         "name": "str",
-        "friendlyName": "str",
+        "mac": "str?",
         "pin": "str?"
       }
-    ]
-  },
-  "hassio_api": true,
-  "hassio_role": "default"
+    ],
+    "mqtt": {
+      "broker": "str",
+      "port": "int",
+      "username": "str",
+      "password": "str"
+    },
+    "esphome": {
+      "host": "str",
+      "port": "int",
+      "password": "str"
+    }
+  }
 }

@@ -352,3 +352,29 @@
 **Bugs Fixed**
 
 - Sleeptracker API not returning manufacturer details, which caused HA to fail to add the devices
+
+# Changelog
+
+## [1.1.8] - 2024-03-17
+
+### Added
+- Improved BLE connection handling with automatic reconnection
+- Added connection status tracking and events
+- Enhanced keep-alive mechanism with better error handling
+- Added maximum reconnection attempts to prevent infinite loops
+- Added connection status events for better UI feedback
+
+### Fixed
+- Fixed BLE connection stability issues
+- Improved error handling in BLE controller
+- Fixed potential memory leaks in connection handling
+- Improved cleanup of resources on disconnect
+
+### Changed
+- Refactored BLE controller for better reliability
+- Updated connection initialization process
+- Improved logging for connection events
+
+## [1.1.3] - 2024-03-16
+
+- Initial release with basic BLE functionality

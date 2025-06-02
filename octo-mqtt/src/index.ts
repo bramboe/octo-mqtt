@@ -64,7 +64,7 @@ const start = async () => {
   // Set up WebSocket server for real-time communication
   wsServer = new WebSocket.Server({ 
     server,
-    path: '/api/ws'  // Update path to match the frontend expectation
+    path: '/ws'
   });
   
   wsServer.on('connection', (ws: WebSocket) => {
@@ -183,24 +183,15 @@ const start = async () => {
     }
   }
 
-  // Serve static files with proper base path for ingress
+  // Serve static files
   const webuiPath = path.join(process.cwd(), 'webui');
   logInfo(`Serving static files from ${webuiPath}`);
-  app.use('/api/static', express.static(path.join(webuiPath, 'static')));
+  app.use(express.static(webuiPath));
   app.use(express.json());
 
-  // Main routes with proper base path
+  // Main routes
   app.get('/', (_req: Request, res: Response) => {
     res.sendFile(path.join(webuiPath, 'index.html'));
-  });
-
-  // Health check endpoint
-  app.get('/api/health', (_req: Request, res: Response) => {
-    res.json({
-      status: 'healthy',
-      timestamp: new Date().toISOString(),
-      uptime: process.uptime()
-    });
   });
 
   // Initialize BLE scanner
@@ -593,10 +584,8 @@ const start = async () => {
     }
   });
 
-  // Start the server with proper host binding
   server.listen(port, () => {
     logInfo(`Octo-MQTT server listening on port ${port}`);
-    logInfo(`Web interface available at http://localhost:${port}`);
   });
 };
 
