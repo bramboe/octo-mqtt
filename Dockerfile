@@ -1,33 +1,38 @@
-ARG BUILD_FROM
-FROM $BUILD_FROM
+FROM node:18-alpine
 
-# Set shell
-SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+# Install build dependencies
+RUN apk add --no-cache \
+    python3 \
+    make \
+    g++ \
+    linux-headers \
+    udev \
+    bluez
 
-# Install dependencies
-RUN \
-    apk add --no-cache \
-        nodejs \
-        npm \
-        git \
-        python3 \
-        make \
-        g++ \
-        linux-headers \
-        udev \
-        bluez
+# Create app directory
+WORKDIR /usr/src/app
 
 # Copy package files
-COPY package*.json ./
+COPY package.json yarn.lock ./
+COPY tsconfig.json tsconfig.build.json ./
 
 # Install dependencies
-RUN npm install
+RUN yarn install --frozen-lockfile
 
-# Copy your code
+# Copy source code
 COPY . .
 
 # Build the application
-RUN npm run build
+RUN yarn build:ci
+
+# Expose port
+EXPOSE 8099
+
+# Start the application
+CMD ["node", "dist/tsc/index.js"]
+
+# Set correct permissions
+RUN chown -R root:root /usr/src/app
 
 # Labels
 LABEL \
@@ -35,10 +40,4 @@ LABEL \
     io.hass.description="A Home Assistant add-on to enable controlling Octo actuators star version 2." \
     io.hass.type="addon" \
     io.hass.version="1.2.0" \
-    maintainer="Bram Boersma" \
-    org.opencontainers.image.title="Octo MQTT" \
-    org.opencontainers.image.description="A Home Assistant add-on to enable controlling Octo actuators star version 2." \
-    org.opencontainers.image.source="https://github.com/bramboe/octo-mqtt" \
-    org.opencontainers.image.licenses="MIT"
-
-CMD [ "npm", "start" ]
+    maintainer="Bram Boersma <bram.boersma@gmail.com>"

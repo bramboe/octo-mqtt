@@ -1,10 +1,16 @@
 {
   "extends": "./tsconfig.json",
+  "exclude": ["src/**/*.test.ts", "src/**/*.spec.ts", "test/**/*"],
   "compilerOptions": {
-    // Disable unused warnings for the build
-    "noUnusedLocals": false,
-    "noUnusedParameters": false
+    "sourceMap": true,
+    "outDir": "dist/tsc",
+    "baseUrl": "./src",
+    "paths": {
+      "@/*": ["*"],
+      "@utils/*": ["Utils/*"],
+      "@mqtt/*": ["MQTT/*"],
+      "@ble/*": ["BLE/*"]
+    }
   },
-  // Exclude tests files from being built, but keep them in the main project for linting
-  "exclude": ["**/*.test.ts", "**/__mock__"]
+  "include": ["src/**/*"]
 }

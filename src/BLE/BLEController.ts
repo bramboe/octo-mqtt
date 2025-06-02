@@ -1,99 +1,57 @@
-import { Connection } from '@2colors/esphome-native-api';
-import { logInfo, logError, logWarn } from '@utils/logger';
 import { EventEmitter } from 'events';
-
-export interface BLEDeviceAdvertisement {
-  name: string;
-  address: string;
-  rssi: number;
-}
+import { logInfo, logError, logWarn } from '@utils/logger';
 
 export class BLEController extends EventEmitter {
+  private connected: boolean = false;
   private keepAliveInterval: NodeJS.Timeout | null = null;
-  private isConnected = false;
-  private readonly SERVICE_UUID = 'ffe0';
-  private readonly CHARACTERISTIC_UUID = 'ffe1';
-  private readonly KEEP_ALIVE_INTERVAL = 30000; // 30 seconds
-  private address: number = 0;
+  private reconnectTimeout: NodeJS.Timeout | null = null;
+  private deviceInfo: any = null;
 
-  constructor(private connection: Connection) {
+  constructor(private esphomeConnection: any) {
     super();
-    this.setupConnectionHandlers();
+    this.setupEventHandlers();
   }
 
-  private setupConnectionHandlers() {
-    this.connection.on('error', (error) => {
-      logError('[BLE] Connection error:', error);
-      this.emit('error', error);
+  private setupEventHandlers() {
+    this.esphomeConnection.on('connect', () => {
+      logInfo('[BLE] ESPHome connection established');
+      this.emit('connectionStatus', { connected: true });
     });
 
-    this.connection.on('disconnect', () => {
-      logInfo('[BLE] Device disconnected');
-      this.isConnected = false;
-      this.stopKeepAlive();
-      this.emit('disconnected');
+    this.esphomeConnection.on('disconnect', () => {
+      logInfo('[BLE] ESPHome connection lost');
+      this.emit('connectionStatus', { connected: false });
+      this.scheduleReconnect();
     });
   }
 
-  async connectToDevice(macAddress: string) {
+  public async connectToDevice(deviceInfo: any) {
+    this.deviceInfo = deviceInfo;
     try {
-      logInfo(`[BLE] Attempting to connect to device: ${macAddress}`);
+      // Format MAC address for connection
+      const macAddress = deviceInfo.address.replace(/:/g, '').toUpperCase();
       
-      // Format MAC address to match ESPHome format (uppercase, no colons)
-      const formattedMac = macAddress.replace(/:/g, '').toUpperCase();
-      
-      // Subscribe to BLE advertisements to find the device
-      await this.connection.subscribeBluetoothAdvertisementService();
-      
-      // Wait for the device advertisement
-      const device = await this.waitForDevice(formattedMac);
-      if (!device) {
-        throw new Error(`Device with MAC ${macAddress} not found`);
-      }
+      // Connect using ESPHome BLE client
+      await this.esphomeConnection.sendMessage({
+        type: 'ble_client',
+        data: {
+          mac_address: macAddress,
+          service_uuid: 'ffe0',
+          characteristic_uuid: 'ffe1'
+        }
+      });
 
-      // Set the device address
-      this.address = parseInt(device.address, 16);
-
-      // Connect to the device
-      await this.connection.connectBluetoothDeviceService(this.address, 0);
-      this.isConnected = true;
-      
-      // Start keep-alive mechanism
+      this.connected = true;
       this.startKeepAlive();
-      
-      logInfo(`[BLE] Successfully connected to device: ${macAddress}`);
-      this.emit('connected');
+      this.emit('deviceConnected', deviceInfo);
+      logInfo(`[BLE] Connected to device ${deviceInfo.name} (${macAddress})`);
       
       return true;
     } catch (error) {
       logError('[BLE] Failed to connect:', error);
-      this.emit('error', error);
+      this.scheduleReconnect();
       return false;
     }
-  }
-
-  private async waitForDevice(macAddress: string): Promise<BLEDeviceAdvertisement | null> {
-    return new Promise((resolve) => {
-      const timeout = setTimeout(() => {
-        this.connection.off('message.BluetoothLEAdvertisementResponse', listener);
-        resolve(null);
-      }, 30000); // 30 second timeout
-
-      const listener = (advertisement: any) => {
-        const deviceMac = advertisement.address.toString(16).padStart(12, '0').toUpperCase();
-        if (deviceMac === macAddress) {
-          clearTimeout(timeout);
-          this.connection.off('message.BluetoothLEAdvertisementResponse', listener);
-          resolve({
-            name: advertisement.name,
-            address: deviceMac,
-            rssi: advertisement.rssi
-          });
-        }
-      };
-
-      this.connection.on('message.BluetoothLEAdvertisementResponse', listener);
-    });
   }
 
   private startKeepAlive() {
@@ -101,72 +59,63 @@ export class BLEController extends EventEmitter {
       clearInterval(this.keepAliveInterval);
     }
 
-    // Send initial keep-alive
-    this.sendKeepAlive();
-
-    // Set up interval for subsequent keep-alive messages
-    this.keepAliveInterval = setInterval(() => {
-      this.sendKeepAlive();
-    }, this.KEEP_ALIVE_INTERVAL);
-  }
-
-  private async sendKeepAlive() {
-    try {
-      if (!this.isConnected) {
-        return;
+    this.keepAliveInterval = setInterval(async () => {
+      try {
+        // Send keep-alive command based on YAML configuration
+        await this.esphomeConnection.sendMessage({
+          type: 'ble_write',
+          data: {
+            service_uuid: 'ffe0',
+            characteristic_uuid: 'ffe1',
+            value: [0x40, 0x20, 0x43, 0x00, 0x04, 0x00, 0x01, 0x09, 0x08, 0x07, 0x40]
+          }
+        });
+        logInfo('[BLE] Keep-alive sent successfully');
+      } catch (error) {
+        logError('[BLE] Keep-alive failed:', error);
+        this.handleConnectionError();
       }
-
-      const keepAliveCommand = new Uint8Array([
-        0x40, 0x20, 0x43, 0x00, 0x04, 0x00, 0x01, 0x09, 0x08, 0x07, 0x40
-      ]);
-
-      await this.writeCharacteristic(keepAliveCommand);
-      logInfo('[BLE] Keep-alive sent successfully');
-    } catch (error) {
-      logError('[BLE] Failed to send keep-alive:', error);
-      this.stopKeepAlive();
-      this.emit('error', error);
-    }
+    }, 30000); // 30 seconds interval as per YAML
   }
 
-  private stopKeepAlive() {
+  private handleConnectionError() {
+    this.connected = false;
     if (this.keepAliveInterval) {
       clearInterval(this.keepAliveInterval);
       this.keepAliveInterval = null;
     }
+    this.emit('connectionStatus', { connected: false });
+    this.scheduleReconnect();
   }
 
-  async writeCharacteristic(data: Uint8Array) {
-    try {
-      const services = await this.connection.listBluetoothGATTServicesService(this.address);
-      const service = services.servicesList.find(s => s.uuid === this.SERVICE_UUID);
-      
-      if (!service) {
-        throw new Error(`Service ${this.SERVICE_UUID} not found`);
-      }
-
-      const characteristic = service.characteristicsList.find(c => c.uuid === this.CHARACTERISTIC_UUID);
-      if (!characteristic) {
-        throw new Error(`Characteristic ${this.CHARACTERISTIC_UUID} not found`);
-      }
-
-      await this.connection.writeBluetoothGATTCharacteristicService(
-        this.address,
-        characteristic.handle,
-        data,
-        true
-      );
-    } catch (error) {
-      logError('[BLE] Failed to write characteristic:', error);
-      throw error;
+  private scheduleReconnect() {
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
     }
+
+    this.reconnectTimeout = setTimeout(async () => {
+      if (this.deviceInfo) {
+        logInfo('[BLE] Attempting to reconnect...');
+        await this.connectToDevice(this.deviceInfo);
+      }
+    }, 5000); // 5 seconds delay before reconnect
   }
 
-  disconnect() {
-    this.stopKeepAlive();
-    if (this.isConnected) {
-      this.connection.disconnectBluetoothDeviceService(this.address);
-      this.isConnected = false;
+  public disconnect() {
+    if (this.keepAliveInterval) {
+      clearInterval(this.keepAliveInterval);
+      this.keepAliveInterval = null;
     }
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
+      this.reconnectTimeout = null;
+    }
+    this.connected = false;
+    this.deviceInfo = null;
+    this.emit('connectionStatus', { connected: false });
+  }
+
+  public isConnected(): boolean {
+    return this.connected;
   }
 } 
