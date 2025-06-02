@@ -1,12 +1,43 @@
 #!/usr/bin/with-contenv bashio
 # ==============================================================================
 # Start the Octo MQTT service
+# s6-overlay docs: https://github.com/just-containers/s6-overlay
 # ==============================================================================
 
 # Set up the environment
 cd /app || bashio::exit.nok "Could not change to app directory"
 
+# Export Node.js options
 export NODE_OPTIONS="--trace-warnings --trace-uncaught"
+
+# Export MQTT configuration
+if bashio::config.has_value 'mqtt_host'; then
+    export MQTTHOST=$(bashio::config 'mqtt_host')
+    bashio::log.info "Using configured MQTT host: ${MQTTHOST}"
+else
+    bashio::log.info "No MQTT host configured, using auto-discovery"
+fi
+
+if bashio::config.has_value 'mqtt_port'; then
+    export MQTTPORT=$(bashio::config 'mqtt_port')
+    bashio::log.info "Using configured MQTT port: ${MQTTPORT}"
+else
+    bashio::log.info "No MQTT port configured, using auto-discovery"
+fi
+
+if bashio::config.has_value 'mqtt_user'; then
+    export MQTTUSER=$(bashio::config 'mqtt_user')
+    bashio::log.info "Using configured MQTT user"
+else
+    bashio::log.info "No MQTT user configured, using auto-discovery"
+fi
+
+if bashio::config.has_value 'mqtt_password'; then
+    export MQTTPASSWORD=$(bashio::config 'mqtt_password')
+    bashio::log.info "Using configured MQTT password"
+else
+    bashio::log.info "No MQTT password configured, using auto-discovery"
+fi
 
 # Start the application
 bashio::log.info "Starting Octo MQTT..."
