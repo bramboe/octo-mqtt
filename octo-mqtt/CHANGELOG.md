@@ -236,9 +236,16 @@
 
 ## v1.1.6
 
-**Bugs Fixed**
+**New Features**
 
-- (ESPHome) Build error caused by changes in discovery
+- (BLE) Improved connection handling with automatic reconnection
+- (BLE) Enhanced keep-alive mechanism with better error handling
+- (BLE) Added connection status monitoring and events
+
+**Bug Fixes**
+
+- (BLE) Fixed potential connection loss issues
+- (BLE) Improved reliability of device connections
 
 ## v1.1.5
 
