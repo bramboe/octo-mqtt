@@ -1,5 +1,26 @@
 {
   "name": "octo-mqtt",
-  "version": "1.2.0",
-  "description": "Octo MQTT integration for Octo actuators star version 2"
+  "version": "1.2.1",
+  "description": "Octo MQTT integration for Octo actuators star version 2",
+  "main": "dist/index.js",
+  "scripts": {
+    "clean": "rm -rf dist build",
+    "build": "tsc -p tsconfig.build.json && tsc-alias -p tsconfig.build.json",
+    "build:ci": "yarn clean && yarn build",
+    "start": "ts-node -r tsconfig-paths/register src/index.ts",
+    "dev": "nodemon"
+  },
+  "dependencies": {
+    "@2colors/esphome-native-api": "^1.1.0",
+    "mqtt": "^4.3.7",
+    "tslib": "^2.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^18.15.11",
+    "nodemon": "^2.0.22",
+    "ts-node": "^10.9.1",
+    "tsc-alias": "^1.8.5",
+    "tsconfig-paths": "^4.2.0",
+    "typescript": "^5.0.4"
+  }
 }

@@ -2,24 +2,21 @@ import { IMQTTConnection } from '../MQTT/IMQTTConnection';
 import { buildDictionary } from '../Utils/buildDictionary';
 import { Deferred } from '../Utils/deferred';
 import { logError, logInfo, logWarn } from '../Utils/logger';
-import { BLEController } from '../BLE/BLEController';
+import { BLEController, Command } from '../BLE/BLEController';
 import { setupDeviceInfoSensor } from '../BLE/setupDeviceInfoSensor';
-import { buildMQTTDeviceData } from '../Common/buildMQTTDeviceData';
+import { buildMQTTDeviceData, Device } from '../Common/buildMQTTDeviceData';
 import { IESPConnection } from '../ESPHome/IESPConnection';
 import { calculateChecksum } from './calculateChecksum';
 import { extractFeatureValuePairFromData } from './extractFeaturesFromData';
 import { extractPacketFromMessage } from './extractPacketFromMessage';
-import { getDevices } from './options';
+import { getDevices, OctoDevice } from './options';
 import { setupLightSwitch } from './setupLightSwitch';
 import { setupMotorEntities } from './setupMotorEntities';
 import { byte } from '../Utils/byte';
+import { Dictionary } from '../Utils/Dictionary';
+import { BLEDeviceInfo } from '../ESPHome/types/BLEDeviceInfo';
 
-export type Command = {
-  command: number[];
-  data?: number[];
-};
-
-const buildComplexCommand = ({ command, data }: Command) => {
+const buildComplexCommand = (command: number[], data?: number[]): Command => {
   const dataLen = data?.length || 0;
 
   const bytes = [
@@ -32,7 +29,7 @@ const buildComplexCommand = ({ command, data }: Command) => {
     0x40,
   ].map(byte);
   bytes[5] = calculateChecksum(bytes);
-  return bytes;
+  return { data: bytes };
 };
 
 // Add a timeout for feature requests - time to wait for features before moving on
@@ -45,14 +42,17 @@ export const octo = async (mqtt: IMQTTConnection, esphome: IESPConnection) => {
   const devices = getDevices();
   if (!devices.length) return logInfo('[Octo] No devices configured');
 
-  const devicesMap = buildDictionary(devices, (device) => ({ key: device.name.toLowerCase(), value: device }));
+  const devicesMap = buildDictionary<OctoDevice, OctoDevice>(devices, (device) => ({ key: device.name.toLowerCase(), value: device }));
   const deviceNames = Object.keys(devicesMap);
   if (deviceNames.length !== devices.length) return logError('[Octo] Duplicate name detected in configuration');
-  const bleDevices = await esphome.getBLEDevices(deviceNames);
+  const bleDevices = await esphome.getBLEDevices(deviceNames.map(name => parseInt(name, 16)));
   for (const bleDevice of bleDevices) {
     const { name, mac, address, connect, disconnect, getCharacteristic, getDeviceInfo } = bleDevice;
-    const { pin, ...device } = devicesMap[mac] || devicesMap[name.toLowerCase()];
-    const deviceData = buildMQTTDeviceData({ ...device, address }, 'Octo');
+    const device = devicesMap[mac] || devicesMap[name.toLowerCase()];
+    if (!device) continue;
+    
+    const { pin, friendlyName } = device;
+    const deviceData = buildMQTTDeviceData({ friendlyName, name: device.name, address }, 'Octo');
     await connect();
 
     const characteristic = await getCharacteristic(
@@ -68,16 +68,8 @@ export const octo = async (mqtt: IMQTTConnection, esphome: IESPConnection) => {
     logInfo(`[Octo] Found characteristic with handle: ${characteristic.handle}`);
 
     // Create the BLE controller
-    const controller = new BLEController(
-      deviceData,
-      bleDevice,
-      characteristic.handle,
-      (command: number[] | Command) => buildComplexCommand(Array.isArray(command) ? { command: command } : command),
-      {
-        feedback: characteristic.handle,
-      },
-      pin
-    );
+    const controller = new BLEController(esphome);
+    controller.deviceData = deviceData;
 
     // Set up feature detection
     const featureState = { hasLight: false, lightState: false, hasPin: false, pinLock: false };
@@ -101,7 +93,7 @@ export const octo = async (mqtt: IMQTTConnection, esphome: IESPConnection) => {
       }, FEATURE_REQUEST_TIMEOUT_MS);
 
       const loadFeatures = (message: Uint8Array) => {
-        logInfo(`[Octo] Received data from device: ${Array.from(message).map(b => b.toString(16)).join(' ')}`);
+        logInfo(`[Octo] Received data from device: ${Array.from(message).map((b: number) => b.toString(16)).join(' ')}`);
         
         const packet = extractPacketFromMessage(message);
         if (!packet) {
@@ -110,7 +102,7 @@ export const octo = async (mqtt: IMQTTConnection, esphome: IESPConnection) => {
         }
         
         const { command, data } = packet;
-        logInfo(`[Octo] Extracted packet - command: ${command.map(b => b.toString(16)).join(' ')}, data length: ${data.length}`);
+        logInfo(`[Octo] Extracted packet - command: ${command.map((b: number) => b.toString(16)).join(' ')}, data length: ${data.length}`);
         
         if (command[0] == 0x21 && command[1] == 0x71) {
           // features
@@ -142,7 +134,7 @@ export const octo = async (mqtt: IMQTTConnection, esphome: IESPConnection) => {
               return allFeaturesReturned.resolve();
           }
         } else {
-          logInfo(`[Octo] Received non-feature packet with command: ${command.map(b => b.toString(16)).join(' ')}`);
+          logInfo(`[Octo] Received non-feature packet with command: ${command.map((b: number) => b.toString(16)).join(' ')}`);
         }
       };
       
@@ -150,7 +142,7 @@ export const octo = async (mqtt: IMQTTConnection, esphome: IESPConnection) => {
 
       try {
         // Send the feature request command
-        await controller.writeCommand([0x20, 0x71]);
+        await controller.writeCommand({ data: [0x20, 0x71] });
         await allFeaturesReturned;
       } catch (error) {
         logError(`[Octo] Error requesting features: ${error}`);
@@ -183,11 +175,8 @@ export const octo = async (mqtt: IMQTTConnection, esphome: IESPConnection) => {
       }
       logInfo('[Octo] Sending PIN to unlock device');
       try {
-        // Set PIN for keep-alive
-        controller.setPin(pin);
-        
         // Send initial PIN command
-        await controller.writeCommand({ command: [0x20, 0x43], data: pin.split('').map((c) => parseInt(c)) });
+        await controller.writeCommand({ data: [0x20, 0x43, ...pin.split('').map((c: string) => parseInt(c))] });
         logInfo('[Octo] PIN sent successfully, device unlocked');
       } catch (error) {
         logError(`[Octo] Error sending PIN: ${error}`);
@@ -197,18 +186,42 @@ export const octo = async (mqtt: IMQTTConnection, esphome: IESPConnection) => {
     }
 
     logInfo('[Octo] Setting up entities for device:', name);
-    const deviceInfo = await getDeviceInfo();
-    if (deviceInfo) setupDeviceInfoSensor(mqtt, controller, deviceInfo);
+    const deviceInfo = await getDeviceInfo() as BLEDeviceInfo;
+    if (deviceInfo) {
+      logInfo(`[Octo] Retrieved device info:`, deviceInfo);
+      // Update controller's device data with firmware version
+      controller.deviceData = {
+        ...controller.deviceData,
+        firmwareVersion: deviceInfo.firmwareRevision || 'Unknown'
+      };
+      
+      setupDeviceInfoSensor(
+        mqtt,
+        controller,
+        mac,
+        friendlyName,
+        deviceInfo.modelNumber || 'RC2',  // Default to RC2 if no model number
+        deviceInfo.manufacturerName || 'Ergomotion'  // Default to Ergomotion if no manufacturer
+      );
+      
+      // Log success for debugging
+      logInfo(`[Octo] Device info sensor setup complete for ${friendlyName}`);
+    } else {
+      logWarn(`[Octo] Could not retrieve device info for ${friendlyName}, using defaults`);
+      // Set up with default values
+      setupDeviceInfoSensor(
+        mqtt,
+        controller,
+        mac,
+        friendlyName,
+        'RC2',
+        'Ergomotion'
+      );
+    }
 
     if (featureState.hasLight) {
       setupLightSwitch(mqtt, controller, featureState.lightState);
     }
-    setupMotorEntities(mqtt, {
-      cache: controller.cache,
-      deviceData: controller.deviceData,
-      writeCommand: (command, _count?, _waitTime?) => controller.writeCommand(command),
-      writeCommands: (commands, count?, _waitTime?) => controller.writeCommands(commands, count),
-      cancelCommands: () => controller.cancelCommands()
-    });
+    setupMotorEntities(mqtt, controller);
   }
 };

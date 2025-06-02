@@ -353,6 +353,13 @@
 
 - Sleeptracker API not returning manufacturer details, which caused HA to fail to add the devices
 
+## v1.2.1
+
+### Fixed
+- Fixed device information display in UI
+- Improved device info handling and display
+- Fixed build issues with TypeScript compilation
+
 ## v1.2.0
 
 **New Features**

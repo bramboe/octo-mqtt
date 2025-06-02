@@ -1,5 +1,5 @@
-import { IDeviceData } from '@ha/IDeviceData';
-import { IMQTTConnection } from '@mqtt/IMQTTConnection';
+import { IDeviceData } from '../IDeviceData';
+import { IMQTTConnection } from '../../MQTT/IMQTTConnection';
 import { ComponentType } from './ComponentTypeWithState';
 import { Entity, EntityConfig } from './Entity';
 import { IStateful } from './IStateful';

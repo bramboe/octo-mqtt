@@ -1,7 +1,10 @@
 import { EventEmitter } from 'events';
-import { logInfo, logError, logWarn } from '@utils/logger';
+import { logInfo, logError, logWarn } from '../Utils/logger';
 import { IBLEDevice } from '../ESPHome/types/IBLEDevice';
 import { IESPConnection } from '../ESPHome/IESPConnection';
+import { IController } from '../Common/IController';
+import { Dictionary } from '../Utils/Dictionary';
+import { IDeviceData } from '../HomeAssistant/IDeviceData';
 
 export interface BLEDeviceAdvertisement {
   name: string;
@@ -21,17 +24,16 @@ export interface LightCache {
   brightness: number;
 }
 
-export class BLEController extends EventEmitter {
-  public cache: LightCache = {
-    state: false,
-    brightness: 0
-  };
-  
-  public deviceData = {
-    name: '',
-    model: '',
-    manufacturer: '',
-    firmwareVersion: ''
+export class BLEController extends EventEmitter implements IController<Command | number[]> {
+  public cache: Dictionary<Object> = {};
+  public deviceData: IDeviceData = {
+    deviceTopic: '',
+    device: {
+      ids: [],
+      name: '',
+      mf: '',
+      mdl: ''
+    }
   };
 
   private connectedDevices = new Map<number, IBLEDevice>();
@@ -164,28 +166,30 @@ export class BLEController extends EventEmitter {
     await Promise.all(addresses.map(addr => this.disconnectDevice(addr)));
   }
 
-  async writeCommand(command: Command | number[]): Promise<void> {
+  async writeCommand(command: Command | number[], count: number = 1, waitTime: number = 0): Promise<void> {
     const data = Array.isArray(command) ? command : command.data;
     const retries = !Array.isArray(command) && command.retries ? command.retries : 1;
-    const waitTime = !Array.isArray(command) && command.waitTime ? command.waitTime : 0;
+    const commandWaitTime = !Array.isArray(command) && command.waitTime ? command.waitTime : waitTime;
 
-    for (let i = 0; i < retries; i++) {
-      try {
-        for (const device of this.connectedDevices.values()) {
-          await device.writeCharacteristic(0x0B, new Uint8Array(data));
+    for (let i = 0; i < count; i++) {
+      for (let j = 0; j < retries; j++) {
+        try {
+          for (const device of this.connectedDevices.values()) {
+            await device.writeCharacteristic(0x0B, new Uint8Array(data));
+          }
+          if (commandWaitTime > 0 && i < count - 1) {
+            await new Promise(resolve => setTimeout(resolve, commandWaitTime));
+          }
+          break;
+        } catch (error) {
+          logError(`[BLE] Error writing command (attempt ${j + 1}/${retries}):`, error);
+          if (j === retries - 1) throw error;
         }
-        if (waitTime > 0) {
-          await new Promise(resolve => setTimeout(resolve, waitTime));
-        }
-        return;
-      } catch (error) {
-        logError(`[BLE] Error writing command (attempt ${i + 1}/${retries}):`, error);
-        if (i === retries - 1) throw error;
       }
     }
   }
 
-  async writeCommands(commands: Command[], count: number = 1, waitTime: number = 0): Promise<void> {
+  async writeCommands(commands: (Command | number[])[], count: number = 1, waitTime: number = 0): Promise<void> {
     for (let i = 0; i < count; i++) {
       for (const command of commands) {
         await this.writeCommand(command);

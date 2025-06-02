@@ -1,5 +1,5 @@
-import { IDeviceData } from '@ha/IDeviceData';
-import { Dictionary } from '@utils/Dictionary';
+import { IDeviceData } from '../HomeAssistant/IDeviceData';
+import { Dictionary } from '../Utils/Dictionary';
 
 export interface IDeviceCache {
   cache: Dictionary<Object>;

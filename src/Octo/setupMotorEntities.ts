@@ -1,13 +1,13 @@
-import { Cover } from 'HomeAssistant/Cover';
-import { IMQTTConnection } from '@mqtt/IMQTTConnection';
-import { buildEntityConfig } from 'Common/buildEntityConfig';
+import { Cover } from '../HomeAssistant/Cover';
+import { IMQTTConnection } from '../MQTT/IMQTTConnection';
+import { buildEntityConfig } from '../Common/buildEntityConfig';
 import { Command } from './octo';
-import { IController } from 'Common/IController';
-import { Cancelable } from 'Common/Cancelable';
-import { ICache } from 'Common/ICache';
-import { arrayEquals } from '@utils/arrayEquals';
-import { logInfo, logError } from '@utils/logger';
-import { Button } from 'HomeAssistant/Button';
+import { IController } from '../Common/IController';
+import { Cancelable } from '../Common/Cancelable';
+import { ICache } from '../Common/ICache';
+import { arrayEquals } from '../Utils/arrayEquals';
+import { logInfo, logError } from '../Utils/logger';
+import { Button } from '../HomeAssistant/Button';
 
 interface MotorState {
   head: boolean;

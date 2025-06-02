@@ -1,5 +1,6 @@
 import { IMQTTConnection } from '../MQTT/IMQTTConnection';
-import { BLEController } from './BLEController';
+import { BLEController } from '../BLE/BLEController';
+import { logInfo } from '../Utils/logger';
 // ... existing code ... 
 
 export const setupDeviceInfoSensor = async (
@@ -10,6 +11,8 @@ export const setupDeviceInfoSensor = async (
   model: string,
   manufacturer: string
 ) => {
+  logInfo(`[DeviceInfo] Setting up device info sensor for ${name}`);
+  
   const deviceData = {
     identifiers: [deviceId],
     name,
@@ -28,22 +31,31 @@ export const setupDeviceInfoSensor = async (
     retain: true
   };
 
+  // Publish device info configuration
   mqtt.publish(
     `homeassistant/sensor/${deviceId}/device_info/config`,
-    JSON.stringify(config)
+    config
   );
 
+  // Publish device state
   mqtt.publish(
     `homeassistant/sensor/${deviceId}/device_info/state`,
     'Online'
   );
 
+  // Publish detailed attributes
+  const attributes = {
+    firmware_version: controller.deviceData.firmwareVersion || 'Unknown',
+    model,
+    manufacturer,
+    mac_address: deviceId,
+    friendly_name: name
+  };
+
   mqtt.publish(
     `homeassistant/sensor/${deviceId}/device_info/attributes`,
-    JSON.stringify({
-      firmware_version: controller.deviceData.firmwareVersion || 'Unknown',
-      model,
-      manufacturer
-    })
+    attributes
   );
+
+  logInfo(`[DeviceInfo] Successfully set up device info sensor for ${name}`);
 }; 
