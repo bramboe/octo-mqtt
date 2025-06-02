@@ -4,7 +4,7 @@ FROM $BUILD_FROM
 # Set shell
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-# Install requirements for add-on
+# Install dependencies
 RUN \
     apk add --no-cache \
         nodejs \
@@ -17,22 +17,17 @@ RUN \
         udev \
         bluez
 
-# Copy root filesystem
-COPY rootfs /
-
-# Copy app
-COPY . /app
-
-WORKDIR /app
+# Copy package files
+COPY package*.json ./
 
 # Install dependencies
 RUN npm install
 
-# Build
-RUN npm run build
+# Copy your code
+COPY . .
 
-# Set correct permissions
-RUN chown -R root:root /app
+# Build the application
+RUN npm run build
 
 # Labels
 LABEL \
@@ -40,4 +35,10 @@ LABEL \
     io.hass.description="A Home Assistant add-on to enable controlling Octo actuators star version 2." \
     io.hass.type="addon" \
     io.hass.version="1.2.0" \
-    maintainer="Bram Boersma <bram.boersma@gmail.com>"
+    maintainer="Bram Boersma" \
+    org.opencontainers.image.title="Octo MQTT" \
+    org.opencontainers.image.description="A Home Assistant add-on to enable controlling Octo actuators star version 2." \
+    org.opencontainers.image.source="https://github.com/bramboe/octo-mqtt" \
+    org.opencontainers.image.licenses="MIT"
+
+CMD [ "npm", "start" ]
