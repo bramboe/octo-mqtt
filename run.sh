@@ -1,72 +1,77 @@
-#!/usr/bin/env bashio
-
-export MQTTHOST=$(bashio::config "mqtt_host")
-export MQTTPORT=$(bashio::config "mqtt_port")
-export MQTTUSER=$(bashio::config "mqtt_user")
-export MQTTPASSWORD=$(bashio::config "mqtt_password")
+#!/usr/bin/with-contenv bashio
+# ==============================================================================
+# Start the Octo MQTT service
+# ==============================================================================
 
 # Enable full error stack traces for debugging
 export NODE_OPTIONS="--trace-warnings --trace-uncaught"
 
-if [ $MQTTHOST = '<auto_detect>' ]; then
+# Get MQTT configuration
+if bashio::config.is_default 'mqtt_host'; then
     if bashio::services.available 'mqtt'; then
-        MQTTHOST=$(bashio::services mqtt "host")
-	if [ $MQTTHOST = 'localhost' ] || [ $MQTTHOST = '127.0.0.1' ]; then
-	    echo "Discovered invalid value for MQTT host: ${MQTTHOST}"
-	    echo "Overriding with default alias for Mosquitto MQTT addon"
-	    MQTTHOST="core-mosquitto"
-	fi
-        echo "Using discovered MQTT Host: ${MQTTHOST}"
+        export MQTTHOST=$(bashio::services mqtt "host")
+        if [ "$MQTTHOST" = 'localhost' ] || [ "$MQTTHOST" = '127.0.0.1' ]; then
+            bashio::log.info "Overriding localhost MQTT host with core-mosquitto"
+            export MQTTHOST="core-mosquitto"
+        fi
+        bashio::log.info "Using discovered MQTT Host: ${MQTTHOST}"
     else
-    	echo "No Home Assistant MQTT service found, using defaults"
-        MQTTHOST="172.30.32.1"
-        echo "Using default MQTT Host: ${MQTTHOST}"
+        export MQTTHOST="172.30.32.1"
+        bashio::log.info "No MQTT service found, using default host: ${MQTTHOST}"
     fi
 else
-    echo "Using configured MQTT Host: ${MQTTHOST}"
+    export MQTTHOST=$(bashio::config "mqtt_host")
+    bashio::log.info "Using configured MQTT Host: ${MQTTHOST}"
 fi
 
-if [ $MQTTPORT = '<auto_detect>' ]; then
+if bashio::config.is_default 'mqtt_port'; then
     if bashio::services.available 'mqtt'; then
-        MQTTPORT=$(bashio::services mqtt "port")
-        echo "Using discovered MQTT Port: ${MQTTPORT}"
+        export MQTTPORT=$(bashio::services mqtt "port")
+        bashio::log.info "Using discovered MQTT Port: ${MQTTPORT}"
     else
-        MQTTPORT="1883"
-        echo "Using default MQTT Port: ${MQTTPORT}"
+        export MQTTPORT="1883"
+        bashio::log.info "Using default MQTT Port: ${MQTTPORT}"
     fi
 else
-    echo "Using configured MQTT Port: ${MQTTPORT}"
+    export MQTTPORT=$(bashio::config "mqtt_port")
+    bashio::log.info "Using configured MQTT Port: ${MQTTPORT}"
 fi
 
-if [ $MQTTUSER = '<auto_detect>' ]; then
+if bashio::config.is_default 'mqtt_user'; then
     if bashio::services.available 'mqtt'; then
-        MQTTUSER=$(bashio::services mqtt "username")
-        echo "Using discovered MQTT User: ${MQTTUSER}"
+        export MQTTUSER=$(bashio::services mqtt "username")
+        bashio::log.info "Using discovered MQTT User: ${MQTTUSER}"
     else
-        MQTTUSER=""
-        echo "Using anonymous MQTT connection"
+        export MQTTUSER=""
+        bashio::log.info "Using anonymous MQTT connection"
     fi
 else
-    echo "Using configured MQTT User: ${MQTTUSER}"
+    export MQTTUSER=$(bashio::config "mqtt_user")
+    bashio::log.info "Using configured MQTT User: ${MQTTUSER}"
 fi
 
-if [ $MQTTPASSWORD = '<auto_detect>' ]; then
+if bashio::config.is_default 'mqtt_password'; then
     if bashio::services.available 'mqtt'; then
-        MQTTPASSWORD=$(bashio::services mqtt "password")
-        echo "Using discovered MQTT password: <hidden>"
+        export MQTTPASSWORD=$(bashio::services mqtt "password")
+        bashio::log.info "Using discovered MQTT password"
     else
-        MQTTPASSWORD=""
+        export MQTTPASSWORD=""
+        bashio::log.info "Using anonymous MQTT connection"
     fi
 else
-    echo "Using configured MQTT password: <hidden>"
+    export MQTTPASSWORD=$(bashio::config "mqtt_password")
+    bashio::log.info "Using configured MQTT password"
 fi
 
 # Debug info
-echo "Starting Octo-MQTT with the following configuration:"
-echo "- MQTT Host: ${MQTTHOST}"
-echo "- MQTT Port: ${MQTTPORT}"
-echo "- BLE Proxy count: $(bashio::config 'bleProxies | length')"
-echo "- Octo device count: $(bashio::config 'octoDevices | length')"
+bashio::log.info "Starting Octo-MQTT with the following configuration:"
+bashio::log.info "- MQTT Host: ${MQTTHOST}"
+bashio::log.info "- MQTT Port: ${MQTTPORT}"
+bashio::log.info "- BLE Proxy count: $(bashio::config 'bleProxies | length')"
+bashio::log.info "- Octo device count: $(bashio::config 'octoDevices | length')"
 
-# Run without debugger for better stability
-node index.js
+cd /app || bashio::exit.nok "Could not change to app directory"
+
+# Start the application
+bashio::log.info "Starting Octo MQTT..."
+exec node index.js

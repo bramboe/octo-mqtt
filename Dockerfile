@@ -7,8 +7,6 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 # Install requirements for add-on
 RUN \
     apk add --no-cache \
-        nodejs \
-        npm \
         git \
         python3 \
         make \
@@ -25,14 +23,20 @@ COPY . /app
 
 WORKDIR /app
 
-# Install dependencies
-RUN npm install
-
-# Build
-RUN npm run build
+# Install dependencies and build
+RUN \
+    npm install && \
+    npm run build && \
+    npm prune --production
 
 # Set correct permissions
-RUN chown -R root:root /app
+RUN \
+    chown -R root:root /app && \
+    chmod a+x /app/run.sh
+
+# S6 overlay
+ENTRYPOINT ["/init"]
+CMD []
 
 # Labels
 LABEL \
