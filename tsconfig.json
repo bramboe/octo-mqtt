@@ -27,7 +27,13 @@
     "paths": {
       "@ha/*": ["HomeAssistant/*"],
       "@mqtt/*": ["MQTT/*"],
-      "@utils/*": ["Utils/*"]
+      "@utils/*": ["Utils/*"],
+      "@ble/*": ["BLE/*"],
+      "@esphome/*": ["ESPHome/*"],
+      "@common/*": ["Common/*"],
+      "@octo/*": ["Octo/*"],
+      "@scanner/*": ["Scanner/*"],
+      "*": ["*"]
     }
   },
   "include": ["src/**/*.ts"],
