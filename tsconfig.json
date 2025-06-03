@@ -21,7 +21,7 @@
     "experimentalDecorators": true,
     "sourceMap": true,
     "outDir": "./dist/tsc/",
-    "types": ["node", "jest"],
+    "types": ["node"],
     "lib": ["ES2021"],
     "baseUrl": "./src",
     "paths": {

@@ -10,4 +10,4 @@ export const testDevice: IDeviceData = {
   },
 };
 
-export const mocked = <T>(func: T): T & jest.MockedFunction<any> => func as any;
+// export const mocked = <T>(func: T): T & jest.MockedFunction<any> => func as any;

@@ -12,11 +12,15 @@
   },
   "dependencies": {
     "@2colors/esphome-native-api": "^1.1.0",
+    "express": "^5.1.0",
     "mqtt": "^4.3.7",
-    "tslib": "^2.5.0"
+    "tslib": "^2.5.0",
+    "ws": "^8.18.2"
   },
   "devDependencies": {
+    "@types/express": "^5.0.2",
     "@types/node": "^18.15.11",
+    "@types/ws": "^8.18.1",
     "nodemon": "^2.0.22",
     "ts-node": "^10.9.1",
     "tsc-alias": "^1.8.5",
