@@ -7,7 +7,7 @@ ARG CACHEBUST=default
 ENV CACHEBUST_ENV=${CACHEBUST}
 
 COPY package.json /octo-mqtt/
-# COPY yarn.lock /octo-mqtt/
+COPY yarn.lock /octo-mqtt/
 WORKDIR /octo-mqtt
 
 RUN yarn install --verbose
