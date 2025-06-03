@@ -1,8 +1,8 @@
-import { IESPConnection } from '@esphome/IESPConnection';
-import { BLEDeviceAdvertisement } from '@ble/BLEController';
-import { logInfo } from '@utils/logger';
-import { getRootOptions } from '@utils/options';
-import { OctoDevice } from '@octo/options';
+import { IESPConnection } from '../ESPHome/IESPConnection';
+import { BLEDeviceAdvertisement } from '../BLE/BLEController';
+import { logInfo } from '../Utils/logger';
+import { getRootOptions } from '../Utils/options';
+import { OctoDevice } from '../Octo/options';
 
 export class BLEScanner {
   private scanStartTime: number | null = null;
