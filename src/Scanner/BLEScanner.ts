@@ -1,8 +1,8 @@
-import { IESPConnection } from '../ESPHome/IESPConnection';
-import { BLEDeviceAdvertisement } from '../BLE/BLEController';
-import { logInfo } from '../Utils/logger';
-import { getRootOptions } from '../Utils/options';
-import { OctoDevice } from '../Octo/options';
+import { IESPConnection } from '@esphome/IESPConnection';
+import { BLEDeviceAdvertisement } from '@ble/BLEController';
+import { logInfo } from '@utils/logger';
+import { getRootOptions } from '@utils/options';
+import { OctoDevice } from '@octo/options';
 
 export class BLEScanner {
   private scanStartTime: number | null = null;
@@ -21,7 +21,7 @@ export class BLEScanner {
       ? Math.max(0, this.SCAN_DURATION_MS - (Date.now() - this.scanStartTime))
       : 0;
 
-    const configuredDevices = getRootOptions().devices || [];
+    const configuredDevices = getRootOptions().octoDevices || [];
     const devices = Array.from(this.discoveredDevices).map(device => ({
       ...device,
       isConfigured: configuredDevices.some((d: OctoDevice) => d.name.toLowerCase() === device.address.toString().toLowerCase()),
@@ -48,7 +48,7 @@ export class BLEScanner {
     try {
       await this.espConnection.startBleScan(
         this.SCAN_DURATION_MS,
-        (device) => {
+        (device: BLEDeviceAdvertisement) => {
           this.discoveredDevices.add(device);
           logInfo(`[BLEScanner] Found device: ${device.name} (${device.address})`);
         }

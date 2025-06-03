@@ -20,7 +20,7 @@
       "@common/*": ["src/Common/*"],
       "@octo/*": ["src/Octo/*"],
       "@scanner/*": ["src/Scanner/*"],
-      "*": ["src/*"]
+      "*": ["src/*", "node_modules/*"]
     }
   }
 }

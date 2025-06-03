@@ -23,7 +23,7 @@
     "@types/ws": "^8.18.1",
     "nodemon": "^2.0.22",
     "ts-node": "^10.9.1",
-    "tsc-alias": "^1.8.5",
+    "tsc-alias": "^1.8.16",
     "tsconfig-paths": "^4.2.0",
     "typescript": "^5.0.4"
   }

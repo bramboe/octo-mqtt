@@ -1,17 +1,17 @@
-import { IMQTTConnection } from '../MQTT/IMQTTConnection';
-import { buildDictionary } from '../Utils/buildDictionary';
-import { Deferred } from '../Utils/deferred';
-import { logInfo, logError, logWarn } from '../Utils/logger';
-import { BLEController } from '../BLE/BLEController';
-import { buildMQTTDeviceData } from '../Common/buildMQTTDeviceData';
-import { IESPConnection } from '../ESPHome/IESPConnection';
+import { IMQTTConnection } from '@mqtt/IMQTTConnection';
+import { buildDictionary } from '@utils/buildDictionary';
+import { Deferred } from '@utils/deferred';
+import { logInfo, logError, logWarn } from '@utils/logger';
+import { BLEController } from '@ble/BLEController';
+import { buildMQTTDeviceData } from '@common/buildMQTTDeviceData';
+import { IESPConnection } from '@esphome/IESPConnection';
 import { extractFeatureValuePairFromData } from './extractFeaturesFromData';
 import { extractPacketFromMessage } from './extractPacketFromMessage';
 import { OctoDevice, getDevices } from './options';
 import { setupLightSwitch } from './setupLightSwitch';
 import { setupMotorEntities } from './setupMotorEntities';
-import { setupDeviceInfoSensor } from '../BLE/setupDeviceInfoSensor';
-import { BLEDeviceInfo } from '../ESPHome/types/BLEDeviceInfo';
+import { setupDeviceInfoSensor } from '@ble/setupDeviceInfoSensor';
+import { BLEDeviceInfo } from '@esphome/types/BLEDeviceInfo';
 
 // Add a timeout for feature requests - time to wait for features before moving on
 const FEATURE_REQUEST_TIMEOUT_MS = 15000; // 15 seconds
@@ -74,7 +74,7 @@ export const octo = async (mqtt: IMQTTConnection, esphome: IESPConnection) => {
       }, FEATURE_REQUEST_TIMEOUT_MS);
 
       const loadFeatures = (message: Uint8Array) => {
-        logInfo(`[Octo] Received data from device: ${Array.from(message).map((b: number) => b.toString(16)).join(' ')}`);
+        logInfo(`[Octo] Received data from device: ${Array.from(message).map((b) => b.toString(16)).join(' ')}`);
         
         const packet = extractPacketFromMessage(message);
         if (!packet) {
@@ -83,7 +83,7 @@ export const octo = async (mqtt: IMQTTConnection, esphome: IESPConnection) => {
         }
         
         const { command, data } = packet;
-        logInfo(`[Octo] Extracted packet - command: ${command.map((b: number) => b.toString(16)).join(' ')}, data length: ${data.length}`);
+        logInfo(`[Octo] Extracted packet - command: ${command.map((b) => b.toString(16)).join(' ')}, data length: ${data.length}`);
         
         if (command[0] == 0x21 && command[1] == 0x71) {
           // features
@@ -115,7 +115,7 @@ export const octo = async (mqtt: IMQTTConnection, esphome: IESPConnection) => {
               return allFeaturesReturned.resolve();
           }
         } else {
-          logInfo(`[Octo] Received non-feature packet with command: ${command.map((b: number) => b.toString(16)).join(' ')}`);
+          logInfo(`[Octo] Received non-feature packet with command: ${command.map((b) => b.toString(16)).join(' ')}`);
         }
       };
       
@@ -159,7 +159,7 @@ export const octo = async (mqtt: IMQTTConnection, esphome: IESPConnection) => {
         // Send initial PIN command
         await controller.writeCommand({ 
           command: [0x20, 0x43], 
-          data: pin.split('').map((c: string) => parseInt(c))
+          data: pin.split('').map((c) => parseInt(c))
         });
         logInfo('[Octo] PIN sent successfully, device unlocked');
       } catch (error) {

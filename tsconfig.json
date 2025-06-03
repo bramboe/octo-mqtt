@@ -33,13 +33,14 @@
       "@common/*": ["src/Common/*"],
       "@octo/*": ["src/Octo/*"],
       "@scanner/*": ["src/Scanner/*"],
-      "*": ["src/*"]
+      "*": ["src/*", "node_modules/*"]
     }
   },
   "include": ["src/**/*.ts"],
-  "exclude": ["node_modules"],
+  "exclude": ["node_modules", "dist"],
 
   "ts-node": {
-    "require": ["tsconfig-paths/register"]
+    "require": ["tsconfig-paths/register"],
+    "transpileOnly": true
   }
 }

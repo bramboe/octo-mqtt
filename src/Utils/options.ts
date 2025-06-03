@@ -1,10 +1,22 @@
 import fs from 'fs';
 import path from 'path';
-import { logInfo } from './logger';
+import { logInfo } from '@utils/logger';
 
-let rootOptions: any = null;
+interface RootOptions {
+  mqtt_host: string;
+  mqtt_port: string;
+  mqtt_user: string;
+  mqtt_password: string;
+  bleProxies: Array<{
+    host: string;
+    port: number;
+  }>;
+  octoDevices: any[]; // TODO: Define proper type for octoDevices
+}
 
-export function getRootOptions() {
+let rootOptions: RootOptions | null = null;
+
+export function getRootOptions(): RootOptions {
   if (rootOptions) return rootOptions;
 
   logInfo('[Options] Attempting to read options');
@@ -13,7 +25,7 @@ export function getRootOptions() {
   const devPath = path.join(process.cwd(), 'dev.config.json');
   try {
     const content = fs.readFileSync(devPath, 'utf8');
-    rootOptions = JSON.parse(content);
+    rootOptions = JSON.parse(content) as RootOptions;
     logInfo('[Options] Successfully read development config from:', devPath);
     return rootOptions;
   } catch (error) {
@@ -24,7 +36,7 @@ export function getRootOptions() {
   const localPath = path.join(process.cwd(), 'data', 'options.json');
   try {
     const content = fs.readFileSync(localPath, 'utf8');
-    rootOptions = JSON.parse(content);
+    rootOptions = JSON.parse(content) as RootOptions;
     logInfo('[Options] Successfully read options from local path:', localPath);
     return rootOptions;
   } catch (error) {
@@ -34,7 +46,7 @@ export function getRootOptions() {
   // Try to read from /data/options.json (Home Assistant environment)
   try {
     const content = fs.readFileSync('/data/options.json', 'utf8');
-    rootOptions = JSON.parse(content);
+    rootOptions = JSON.parse(content) as RootOptions;
     logInfo('[Options] Successfully read options from /data/options.json');
     return rootOptions;
   } catch (error) {
@@ -53,9 +65,9 @@ export function getRootOptions() {
         port: 6053
       }
     ],
-      octoDevices: []
-    };
+    octoDevices: []
+  };
 
   logInfo('[Options] Using default development options');
   return rootOptions;
-  }
+}
