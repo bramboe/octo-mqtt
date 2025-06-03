@@ -23,17 +23,17 @@
     "outDir": "./dist/tsc/",
     "types": ["node"],
     "lib": ["ES2021"],
-    "baseUrl": "./src",
+    "baseUrl": ".",
     "paths": {
-      "@ha/*": ["HomeAssistant/*"],
-      "@mqtt/*": ["MQTT/*"],
-      "@utils/*": ["Utils/*"],
-      "@ble/*": ["BLE/*"],
-      "@esphome/*": ["ESPHome/*"],
-      "@common/*": ["Common/*"],
-      "@octo/*": ["Octo/*"],
-      "@scanner/*": ["Scanner/*"],
-      "*": ["*"]
+      "@ha/*": ["src/HomeAssistant/*"],
+      "@mqtt/*": ["src/MQTT/*"],
+      "@utils/*": ["src/Utils/*"],
+      "@ble/*": ["src/BLE/*"],
+      "@esphome/*": ["src/ESPHome/*"],
+      "@common/*": ["src/Common/*"],
+      "@octo/*": ["src/Octo/*"],
+      "@scanner/*": ["src/Scanner/*"],
+      "*": ["src/*"]
     }
   },
   "include": ["src/**/*.ts"],
