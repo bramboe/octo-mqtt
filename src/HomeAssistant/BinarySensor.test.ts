@@ -1,6 +1,6 @@
-import { BinarySensor } from '@ha/BinarySensor';
-import { IMQTTConnection } from '@mqtt/IMQTTConnection';
-import { mocked, testDevice } from '@utils/testHelpers';
+import { BinarySensor } from '../HomeAssistant/BinarySensor';
+import { IMQTTConnection } from '../MQTT/IMQTTConnection';
+import { mocked, testDevice } from '../Utils/testHelpers';
 import { mock } from 'jest-mock-extended';
 
 const mqtt: IMQTTConnection = mock<IMQTTConnection>();

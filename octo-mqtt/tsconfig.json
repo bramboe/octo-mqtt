@@ -22,13 +22,7 @@
     "sourceMap": true,
     "outDir": "./dist/tsc/",
     "types": ["node", "jest"],
-    "lib": ["ES2021"],
-    "baseUrl": "./src",
-    "paths": {
-      "@ha/*": ["HomeAssistant/*"],
-      "@mqtt/*": ["MQTT/*"],
-      "@utils/*": ["Utils/*"]
-    }
+    "lib": ["ES2021"]
   },
   "include": ["src/**/*.ts"],
   "exclude": ["node_modules"],

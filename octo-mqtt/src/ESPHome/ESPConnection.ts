@@ -1,6 +1,6 @@
 import { Connection } from '@2colors/esphome-native-api';
-import { Deferred } from '@utils/deferred';
-import { logError, logInfo, logWarn } from '@utils/logger';
+import { Deferred } from '../Utils/deferred';
+import { logError, logInfo, logWarn } from '../Utils/logger';
 import { IESPConnection } from './IESPConnection';
 import { connect } from './connect';
 import { BLEDevice } from './types/BLEDevice';

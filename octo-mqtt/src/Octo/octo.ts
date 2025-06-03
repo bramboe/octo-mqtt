@@ -1,18 +1,18 @@
-import { IMQTTConnection } from '@mqtt/IMQTTConnection';
-import { buildDictionary } from '@utils/buildDictionary';
-import { Deferred } from '@utils/deferred';
-import { logError, logInfo, logWarn } from '@utils/logger';
-import { BLEController } from 'BLE/BLEController';
-import { setupDeviceInfoSensor } from 'BLE/setupDeviceInfoSensor';
-import { buildMQTTDeviceData } from 'Common/buildMQTTDeviceData';
-import { IESPConnection } from 'ESPHome/IESPConnection';
+import { IMQTTConnection } from '../MQTT/IMQTTConnection';
+import { buildDictionary } from '../Utils/buildDictionary';
+import { Deferred } from '../Utils/deferred';
+import { logError, logInfo, logWarn } from '../Utils/logger';
+import { BLEController } from '../BLE/BLEController';
+import { setupDeviceInfoSensor } from '../BLE/setupDeviceInfoSensor';
+import { buildMQTTDeviceData } from '../Common/buildMQTTDeviceData';
+import { IESPConnection } from '../ESPHome/IESPConnection';
 import { calculateChecksum } from './calculateChecksum';
 import { extractFeatureValuePairFromData } from './extractFeaturesFromData';
 import { extractPacketFromMessage } from './extractPacketFromMessage';
 import { getDevices } from './options';
 import { setupLightSwitch } from './setupLightSwitch';
 import { setupMotorEntities } from './setupMotorEntities';
-import { byte } from '@utils/byte';
+import { byte } from '../Utils/byte';
 
 export type Command = {
   command: number[];

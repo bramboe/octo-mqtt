@@ -1,4 +1,4 @@
-import { IDeviceData } from '@ha/IDeviceData';
+import { IDeviceData } from '../HomeAssistant/IDeviceData';
 
 export const testDevice: IDeviceData = {
   deviceTopic: 'device_topic',

@@ -1,4 +1,4 @@
-import { IMQTTConnection } from '@mqtt/IMQTTConnection';
+import { IMQTTConnection } from '../MQTT/IMQTTConnection';
 import { IDeviceData } from './IDeviceData';
 import { Sensor } from './Sensor';
 import { EntityConfig } from './base/Entity';

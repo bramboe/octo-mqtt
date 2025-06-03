@@ -1,5 +1,5 @@
-import { IMQTTConnection } from '@mqtt/IMQTTConnection';
-import { mocked, testDevice } from '@utils/testHelpers';
+import { IMQTTConnection } from '../MQTT/IMQTTConnection';
+import { mocked, testDevice } from '../Utils/testHelpers';
 import { mock } from 'jest-mock-extended';
 import { JsonSensor, JsonSensorConfig } from './JsonSensor';
 

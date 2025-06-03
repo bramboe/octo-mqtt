@@ -9,7 +9,6 @@
   ],
   "compilerOptions": {
     "sourceMap": false,
-    "inlineSourceMap": false,
-    "baseUrl": "."
+    "inlineSourceMap": false
   }
 }

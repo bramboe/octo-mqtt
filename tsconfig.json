@@ -22,8 +22,7 @@
     "sourceMap": true,
     "outDir": "./dist/tsc/",
     "types": ["node"],
-    "lib": ["ES2021"],
-    "baseUrl": "."
+    "lib": ["ES2021"]
   },
   "include": ["src/**/*.ts"],
   "exclude": ["node_modules", "dist"],
