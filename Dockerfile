@@ -39,5 +39,5 @@ LABEL \
     io.hass.name="Octo MQTT" \
     io.hass.description="A Home Assistant add-on to enable controlling Octo actuators star version 2." \
     io.hass.type="addon" \
-    io.hass.version="1.2.2" \
+    io.hass.version="1.2.3" \
     maintainer="Bram Boersma <bram.boersma@gmail.com>"
