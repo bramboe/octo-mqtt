@@ -1,5 +1,5 @@
 import { IClientOptions } from 'mqtt/types/lib/client';
-import { logInfo, logWarn } from '@utils/logger';
+import { logInfo, logWarn } from '../Utils/logger';
 
 // Get environment variables with fallbacks
 const host = process.env.MQTTHOST || 'localhost';

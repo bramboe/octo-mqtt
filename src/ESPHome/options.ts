@@ -1,4 +1,4 @@
-import { getRootOptions } from '@utils/options';
+import { getRootOptions } from '../Utils/options';
 
 export interface BLEProxy {
   host: string;

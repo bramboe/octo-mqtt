@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { logError, logInfo, logWarn } from '@utils/logger';
+import { logError, logInfo, logWarn } from '../Utils/logger';
 
 const STORAGE_FILE_PATH = '/data/octo_storage.json';
 

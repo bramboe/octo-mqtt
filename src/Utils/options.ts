@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { logInfo } from '@utils/logger';
+import { logInfo } from './logger';
 
 interface RootOptions {
   mqtt_host: string;

@@ -1,5 +1,5 @@
-import { Deferred } from '@utils/deferred';
-import { wait } from '@utils/wait';
+import { Deferred } from './deferred';
+import { wait } from './wait';
 
 export class Timer {
   private finished = new Deferred<void>();

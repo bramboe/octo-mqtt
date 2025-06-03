@@ -1,4 +1,4 @@
-import { logWarn } from '@utils/logger';
+import { logWarn } from '../Utils/logger';
 import { calculateChecksum } from './calculateChecksum';
 
 export const extractPacketFromMessage = (message: Uint8Array) => {

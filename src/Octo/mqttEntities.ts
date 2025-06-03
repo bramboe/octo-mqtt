@@ -1,5 +1,5 @@
-import { IMQTTConnection } from '@mqtt/IMQTTConnection';
-import { logInfo, logError, logWarn } from '@utils/logger';
+import { IMQTTConnection } from '../MQTT/IMQTTConnection';
+import { logInfo, logError, logWarn } from '../Utils/logger';
 import * as Commands from './commands';
 import { OctoStorage } from './storage';
 

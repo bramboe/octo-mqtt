@@ -1,4 +1,4 @@
-import { logWarn } from '@utils/logger';
+import { logWarn } from '../Utils/logger';
 
 export const extractFeatureValuePairFromData = (data: number[]) => {
   try {

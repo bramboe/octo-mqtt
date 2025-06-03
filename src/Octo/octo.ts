@@ -1,17 +1,17 @@
-import { IMQTTConnection } from '@mqtt/IMQTTConnection';
-import { buildDictionary } from '@utils/buildDictionary';
-import { Deferred } from '@utils/deferred';
-import { logInfo, logError, logWarn } from '@utils/logger';
-import { BLEController } from '@ble/BLEController';
-import { buildMQTTDeviceData } from '@common/buildMQTTDeviceData';
-import { IESPConnection } from '@esphome/IESPConnection';
+import { IMQTTConnection } from '../MQTT/IMQTTConnection';
+import { buildDictionary } from '../Utils/buildDictionary';
+import { Deferred } from '../Utils/deferred';
+import { logInfo, logError, logWarn } from '../Utils/logger';
+import { BLEController } from '../BLE/BLEController';
+import { buildMQTTDeviceData } from '../Common/buildMQTTDeviceData';
+import { IESPConnection } from '../ESPHome/IESPConnection';
 import { extractFeatureValuePairFromData } from './extractFeaturesFromData';
 import { extractPacketFromMessage } from './extractPacketFromMessage';
 import { OctoDevice, getDevices } from './options';
 import { setupLightSwitch } from './setupLightSwitch';
 import { setupMotorEntities } from './setupMotorEntities';
-import { setupDeviceInfoSensor } from '@ble/setupDeviceInfoSensor';
-import { BLEDeviceInfo } from '@esphome/types/BLEDeviceInfo';
+import { setupDeviceInfoSensor } from '../BLE/setupDeviceInfoSensor';
+import { BLEDeviceInfo } from '../ESPHome/types/BLEDeviceInfo';
 
 // Add a timeout for feature requests - time to wait for features before moving on
 const FEATURE_REQUEST_TIMEOUT_MS = 15000; // 15 seconds

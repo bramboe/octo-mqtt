@@ -4,8 +4,8 @@ import * as fs from 'fs';
 import * as http from 'http';
 import * as WebSocket from 'ws';
 import * as path from 'path';
-import { logInfo, logError } from '@utils/logger';
-import { getRootOptions } from '@utils/options';
+import { logInfo, logError } from './Utils/logger';
+import { getRootOptions } from './Utils/options';
 import { BLEController } from './BLE/BLEController';
 import { connectToESPHome } from './ESPHome/connectToESPHome';
 

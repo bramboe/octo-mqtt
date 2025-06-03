@@ -1,7 +1,7 @@
-import { Button } from '@ha/Button';
-import { IMQTTConnection } from '@mqtt/IMQTTConnection';
-import { StringsKey, getString } from '@utils/getString';
-import { logError } from '@utils/logger';
+import { Button } from '../HomeAssistant/Button';
+import { IMQTTConnection } from '../MQTT/IMQTTConnection';
+import { StringsKey, getString } from '../Utils/getString';
+import { logError } from '../Utils/logger';
 import { IController } from './IController';
 import { buildEntityConfig } from './buildEntityConfig';
 

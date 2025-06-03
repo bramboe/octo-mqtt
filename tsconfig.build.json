@@ -10,17 +10,6 @@
   "compilerOptions": {
     "sourceMap": false,
     "inlineSourceMap": false,
-    "baseUrl": ".",
-    "paths": {
-      "@ha/*": ["src/HomeAssistant/*"],
-      "@mqtt/*": ["src/MQTT/*"],
-      "@utils/*": ["src/Utils/*"],
-      "@ble/*": ["src/BLE/*"],
-      "@esphome/*": ["src/ESPHome/*"],
-      "@common/*": ["src/Common/*"],
-      "@octo/*": ["src/Octo/*"],
-      "@scanner/*": ["src/Scanner/*"],
-      "*": ["src/*", "node_modules/*"]
-    }
+    "baseUrl": "."
   }
 }
