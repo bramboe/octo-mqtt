@@ -216,13 +216,13 @@ export class ESPConnection implements IESPConnection {
       this.advertisementPacketListener = null;
     }
 
-      this.isProxyScanning = false; 
+    this.isProxyScanning = false; 
 
     // Clean up any active devices
     for (const device of this.activeDevices) {
       try {
         await device.disconnect();
-    } catch (error) {
+      } catch (error) {
         logError('[ESPHome] Error disconnecting device during cleanup:', error);
       }
     }

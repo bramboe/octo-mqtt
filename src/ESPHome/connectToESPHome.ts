@@ -4,8 +4,6 @@ import { ESPConnection } from './ESPConnection';
 import { IESPConnection } from './IESPConnection';
 import { connect } from './connect';
 import { BLEProxy, getProxies } from './options';
-import { ESPHomeService } from './ESPConnection';
-import { AddonConfig } from '../Utils/AddonConfig';
 
 const RETRY_DELAY = 5000; // 5 seconds
 
@@ -28,10 +26,10 @@ export const connectToESPHome = async (): Promise<IESPConnection> => {
   
   try {
     const connectionResults = await Promise.all(
-          proxies.map(async (config: BLEProxy) => {
+      proxies.map(async (config: BLEProxy) => {
         try {
           logInfo(`[ESPHome] Creating connection to ${config.host}:${config.port}`);
-            const connection = new Connection(config);
+          const connection = new Connection(config);
           return {
             success: true,
             connection: await connect(connection),

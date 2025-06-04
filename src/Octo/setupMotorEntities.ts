@@ -50,7 +50,12 @@ const PRESETS = {
 };
 
 export const setupMotorEntities = (mqtt: IMQTTConnection, controller: BLEController) => {
-  const deviceData = buildMQTTDeviceData(controller.deviceData, 'Octo');
+  const deviceData = buildMQTTDeviceData({
+    friendlyName: controller.deviceData.device.name,
+    name: controller.deviceData.device.mdl,
+    address: controller.deviceData.device.ids[0]
+  }, 'Octo');
+  
   const deviceId = deviceData.deviceTopic;
 
   // Head motor
