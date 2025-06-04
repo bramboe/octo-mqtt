@@ -2,6 +2,8 @@ import { IMQTTConnection } from '../MQTT/IMQTTConnection';
 import { logInfo, logError, logWarn } from '../Utils/logger';
 import * as Commands from './commands';
 import { OctoStorage, OctoStorageData } from './storage';
+import { BLEController } from '../BLE/BLEController';
+import { buildMQTTDeviceData, Device } from '../Common/buildMQTTDeviceData';
 
 // Define interface for MQTT device data
 interface MQTTDevicePlaceholder {
@@ -223,6 +225,134 @@ const startTimedMovement = (
       stopMovement(actuatorState, mqtt, storage, actuator, bleController, deviceIdentifier);
     }
   }, moveDur + 1000); 
+};
+
+interface StorageData {
+  headPosition: number;
+  legsPosition: number;
+  headUpDuration: number;
+  feetUpDuration: number;
+}
+
+export const setupMQTTEntities = (mqtt: IMQTTConnection, controller: BLEController) => {
+  const deviceData = buildMQTTDeviceData({
+    friendlyName: controller.deviceData.device.name,
+    name: controller.deviceData.device.mdl,
+    address: controller.deviceData.device.ids[0]
+  }, 'Octo');
+  
+  const deviceId = deviceData.deviceTopic;
+
+  // Create storage data
+  const storageData: StorageData = {
+    headPosition: 0,
+    legsPosition: 0,
+    headUpDuration: 30000, // 30 seconds default
+    feetUpDuration: 30000  // 30 seconds default
+  };
+
+  // Head position sensor
+  const headPositionConfig = {
+    name: 'Head Position',
+    unique_id: `${deviceId}_head_position`,
+    device: deviceData.device,
+    state_topic: `homeassistant/sensor/${deviceId}/head_position/state`,
+    unit_of_measurement: '%',
+    icon: 'mdi:bed-single',
+    retain: true
+  };
+
+  mqtt.publish(
+    `homeassistant/sensor/${deviceId}/head_position/config`,
+    headPositionConfig
+  );
+
+  // Feet position sensor
+  const feetPositionConfig = {
+    name: 'Feet Position',
+    unique_id: `${deviceId}_feet_position`,
+    device: deviceData.device,
+    state_topic: `homeassistant/sensor/${deviceId}/feet_position/state`,
+    unit_of_measurement: '%',
+    icon: 'mdi:bed-single',
+    retain: true
+  };
+
+  mqtt.publish(
+    `homeassistant/sensor/${deviceId}/feet_position/config`,
+    feetPositionConfig
+  );
+
+  // Head up duration number input
+  const headUpDurationConfig = {
+    name: 'Head Up Duration',
+    unique_id: `${deviceId}_head_up_duration`,
+    device: deviceData.device,
+    command_topic: `homeassistant/number/${deviceId}/head_up_duration/set`,
+    state_topic: `homeassistant/number/${deviceId}/head_up_duration/state`,
+    min: 10000,
+    max: 60000,
+    step: 1000,
+    unit_of_measurement: 'ms',
+    icon: 'mdi:timer',
+    retain: true
+  };
+
+  mqtt.publish(
+    `homeassistant/number/${deviceId}/head_up_duration/config`,
+    headUpDurationConfig
+  );
+
+  // Feet up duration number input
+  const feetUpDurationConfig = {
+    name: 'Feet Up Duration',
+    unique_id: `${deviceId}_feet_up_duration`,
+    device: deviceData.device,
+    command_topic: `homeassistant/number/${deviceId}/feet_up_duration/set`,
+    state_topic: `homeassistant/number/${deviceId}/feet_up_duration/state`,
+    min: 10000,
+    max: 60000,
+    step: 1000,
+    unit_of_measurement: 'ms',
+    icon: 'mdi:timer',
+    retain: true
+  };
+
+  mqtt.publish(
+    `homeassistant/number/${deviceId}/feet_up_duration/config`,
+    feetUpDurationConfig
+  );
+
+  // Subscribe to command topics
+  mqtt.subscribe(headUpDurationConfig.command_topic);
+  mqtt.subscribe(feetUpDurationConfig.command_topic);
+
+  // Handle commands
+  mqtt.on(headUpDurationConfig.command_topic, (value) => {
+    const duration = parseInt(value);
+    if (!isNaN(duration)) {
+      storageData.headUpDuration = duration;
+      mqtt.publish(headUpDurationConfig.state_topic, duration.toString());
+      logInfo(`[MQTTEntities] Head up duration set to ${duration}ms`);
+    }
+  });
+
+  mqtt.on(feetUpDurationConfig.command_topic, (value) => {
+    const duration = parseInt(value);
+    if (!isNaN(duration)) {
+      storageData.feetUpDuration = duration;
+      mqtt.publish(feetUpDurationConfig.state_topic, duration.toString());
+      logInfo(`[MQTTEntities] Feet up duration set to ${duration}ms`);
+    }
+  });
+
+  // Publish initial states
+  mqtt.publish(headPositionConfig.state_topic, storageData.headPosition.toString());
+  mqtt.publish(feetPositionConfig.state_topic, storageData.legsPosition.toString());
+  mqtt.publish(headUpDurationConfig.state_topic, storageData.headUpDuration.toString());
+  mqtt.publish(feetUpDurationConfig.state_topic, storageData.feetUpDuration.toString());
+
+  logInfo('[MQTTEntities] MQTT entities setup complete');
 };
 
 export class OctoMQTTEntities {

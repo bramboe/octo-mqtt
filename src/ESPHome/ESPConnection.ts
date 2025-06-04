@@ -42,7 +42,7 @@ export class ESPConnection implements IESPConnection {
     });
   }
 
-  async getBLEDevices(deviceAddresses: string[]): Promise<IBLEDevice[]> {
+  async getBLEDevices(deviceAddresses: number[]): Promise<IBLEDevice[]> {
     if (this.connections.length === 0) {
       logWarn('[ESPHome] No active proxy connections to get BLE devices.');
       return [];
@@ -53,8 +53,8 @@ export class ESPConnection implements IESPConnection {
 
     await this.discoverBLEDevices(
       (device: IBLEDevice) => {
-        const deviceAddr = device.mac.toLowerCase();
-        if (deviceAddresses.some(addr => addr.toLowerCase() === deviceAddr)) {
+        const deviceAddr = device.address;
+        if (deviceAddresses.includes(deviceAddr)) {
           devices.push(device);
           if (devices.length === deviceAddresses.length) {
             complete.resolve();

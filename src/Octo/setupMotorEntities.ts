@@ -7,6 +7,9 @@ import { Cancelable } from '../Common/Cancelable';
 import { ICache } from '../Common/ICache';
 import { logInfo, logError } from '../Utils/logger';
 import { Button } from '../HomeAssistant/Button';
+import { BLEController } from '../BLE/BLEController';
+import { buildMQTTDeviceData } from '../Common/buildMQTTDeviceData';
+import { buildComplexCommand } from './commands';
 
 interface MotorState {
   head: boolean;
@@ -46,355 +49,74 @@ const PRESETS = {
   READING: { head: 60, legs: 10 }
 };
 
-export const setupMotorEntities = (
-  mqtt: IMQTTConnection,
-  { cache, deviceData, writeCommand, cancelCommands }: IController<number[] | Command> & ICache<Cache>
-) => {
-  logInfo('[Octo] Setting up motor entities...');
-  
-  if (!cache.motorState) {
-    cache.motorState = {
-      direction: 'STOP',
-      head: false,
-      legs: false,
-      canceled: false,
-      headPosition: 0,
-      legsPosition: 0,
-      headUpDuration: DEFAULT_UP_DURATION_MS,
-      feetUpDuration: DEFAULT_UP_DURATION_MS
-    };
-  }
+export const setupMotorEntities = (mqtt: IMQTTConnection, controller: BLEController) => {
+  const deviceData = buildMQTTDeviceData(controller.deviceData, 'Octo');
+  const deviceId = deviceData.deviceTopic;
 
-  let movementStartTime = 0;
-  let headStartPosition = 0;
-  let legsStartPosition = 0;
-
-  const updateMotorState = (main: keyof Pick<MotorState, 'head' | 'legs'>, command: string) => {
-    const other = motorPairs[main];
-    const motorState = cache.motorState!;
-    const { direction, canceled, ...motors } = motorState;
-    const moveMotors = command !== 'STOP';
-    
-    if (direction === command && motors[main as keyof typeof motors] === moveMotors) return;
-
-    motorState[main] = moveMotors;
-    if (motors[other as keyof typeof motors]) {
-      if (!moveMotors) command = direction;
-      else if (direction != command) motorState[other] = false;
-    }
-    motorState.direction = command;
-    
-    if (moveMotors) {
-      movementStartTime = Date.now();
-      headStartPosition = motorState.headPosition;
-      legsStartPosition = motorState.legsPosition;
-    }
+  // Head motor
+  const headConfig = {
+    name: 'Head Motor',
+    unique_id: `${deviceId}_head_motor`,
+    device: deviceData.device,
+    command_topic: `homeassistant/cover/${deviceId}/head/set`,
+    position_topic: `homeassistant/cover/${deviceId}/head/position`,
+    state_topic: `homeassistant/cover/${deviceId}/head/state`,
+    device_class: 'motor',
+    payload_open: 'OPEN',
+    payload_close: 'CLOSE',
+    payload_stop: 'STOP',
+    position_open: 100,
+    position_closed: 0,
+    optimistic: false,
+    retain: true
   };
 
-  const move = (motorState: MotorState & Directional): Command | undefined => {
-    const { head, legs, direction } = motorState;
-    const motor = (head ? 0x2 : 0x0) + (legs ? 0x4 : 0x0);
-    if (direction === 'STOP' || motor === 0x0) return undefined;
-    return {
-      command: [0x2, direction == 'OPEN' ? 0x70 : 0x71],
-      data: [motor],
-    };
+  mqtt.publish(
+    `homeassistant/cover/${deviceId}/head/config`,
+    headConfig
+  );
+
+  // Feet motor
+  const feetConfig = {
+    name: 'Feet Motor',
+    unique_id: `${deviceId}_feet_motor`,
+    device: deviceData.device,
+    command_topic: `homeassistant/cover/${deviceId}/feet/set`,
+    position_topic: `homeassistant/cover/${deviceId}/feet/position`,
+    state_topic: `homeassistant/cover/${deviceId}/feet/state`,
+    device_class: 'motor',
+    payload_open: 'OPEN',
+    payload_close: 'CLOSE',
+    payload_stop: 'STOP',
+    position_open: 100,
+    position_closed: 0,
+    optimistic: false,
+    retain: true
   };
 
-  const stopAllMotors = async () => {
-    logInfo('[Octo] Stopping all motors');
-    try {
-      await writeCommand([0x2, 0x73]);
-      await writeCommand([0x2, 0x73]);
-      
-      const motorState = cache.motorState!;
-      motorState.head = false;
-      motorState.legs = false;
-      motorState.direction = 'STOP';
-      
-      updatePositionBasedOnElapsed();
-      movementStartTime = 0;
-      
-      publishState('head');
-      publishState('legs');
-      
-      logInfo('[Octo] All motors stopped successfully');
-      return true;
-    } catch (error) {
-      logError(`[Octo] Error stopping motors: ${error}`);
-      return false;
-    }
-  };
+  mqtt.publish(
+    `homeassistant/cover/${deviceId}/feet/config`,
+    feetConfig
+  );
 
-  const updatePositionBasedOnElapsed = () => {
-    if (movementStartTime === 0) return;
-    
-    const motorState = cache.motorState!;
-    const elapsedMs = Date.now() - movementStartTime;
-    
-    if (motorState.head) {
-      const headDuration = motorState.headUpDuration || DEFAULT_UP_DURATION_MS;
-      const headChange = (elapsedMs / headDuration) * 100;
-      
-      if (motorState.direction === 'OPEN') {
-        motorState.headPosition = Math.min(100, headStartPosition + headChange);
-      } else {
-        motorState.headPosition = Math.max(0, headStartPosition - headChange);
-      }
-      
-      if (Math.floor(motorState.headPosition) % 5 === 0) {
-        logInfo(`[Octo] Head position updated: ${motorState.headPosition.toFixed(1)}%`);
-      }
-    }
-    
-    if (motorState.legs) {
-      const legsDuration = motorState.feetUpDuration || DEFAULT_UP_DURATION_MS;
-      const legsChange = (elapsedMs / legsDuration) * 100;
-      
-      if (motorState.direction === 'OPEN') {
-        motorState.legsPosition = Math.min(100, legsStartPosition + legsChange);
-      } else {
-        motorState.legsPosition = Math.max(0, legsStartPosition - legsChange);
-      }
-      
-      if (Math.floor(motorState.legsPosition) % 5 === 0) {
-        logInfo(`[Octo] Legs position updated: ${motorState.legsPosition.toFixed(1)}%`);
-      }
-    }
-  };
+  // Subscribe to command topics
+  mqtt.subscribe(headConfig.command_topic);
+  mqtt.subscribe(feetConfig.command_topic);
 
-  const buildCoverCommand = (main: keyof Pick<MotorState, 'head' | 'legs'>) => async (command: string) => {
-    if (!cache.motorState) return false;
+  // Handle commands
+  mqtt.on(headConfig.command_topic, async (message) => {
+    logInfo(`[MotorEntities] Head motor command: ${message}`);
+    const command = buildComplexCommand({ command: [0x20, message === 'OPEN' ? 0x01 : message === 'CLOSE' ? 0x02 : 0x03] });
+    await controller.writeCommand(command);
+    mqtt.publish(headConfig.state_topic, message);
+  });
 
-    if (command !== 'STOP') {
-      updateMotorState(main, command);
-    } else {
-      cache.motorState[main] = false;
-      if (!cache.motorState[motorPairs[main]]) {
-        cache.motorState.direction = command;
-      }
-    }
+  mqtt.on(feetConfig.command_topic, async (message) => {
+    logInfo(`[MotorEntities] Feet motor command: ${message}`);
+    const command = buildComplexCommand({ command: [0x20, message === 'OPEN' ? 0x04 : message === 'CLOSE' ? 0x05 : 0x06] });
+    await controller.writeCommand(command);
+    mqtt.publish(feetConfig.state_topic, message);
+  });
 
-    const sendCommand = async () => {
-      if (cancelCommands) cancelCommands();
-      const motorState = cache.motorState!;
-      motorState.canceled = false;
-
-      const currentCommand = move(motorState);
-      if (motorState.canceled) {
-        motorState.canceled = false;
-        return false;
-      }
-      if (!currentCommand) {
-        await writeCommand([0x2, 0x73]);
-      } else {
-        await writeCommand(currentCommand);
-      }
-      
-      // Update positions during movement
-      if (command !== 'STOP') {
-        const intervalId = setInterval(() => {
-          if (!motorState[main] || motorState.direction !== command) {
-            clearInterval(intervalId);
-            return;
-          }
-          updatePositionBasedOnElapsed();
-          publishState(main);
-        }, 250); // Update every 250ms
-      }
-      
-      return true;
-    };
-
-    try {
-      const result = await sendCommand();
-      // After command, ensure we update the final position and publish state
-      updatePositionBasedOnElapsed(); 
-      publishState(main);
-      // If stopping, also ensure the movementStartTime is reset so subsequent short presses don't miscalculate
-      if (command === 'STOP') {
-        movementStartTime = 0;
-      }
-      return result;
-    } catch (err) {
-      logError(`[Octo] Error in cover command for ${main}: ${err}`);
-      return false;
-    }
-  };
-
-  const publishState = (main: keyof Pick<MotorState, 'head' | 'legs'>) => {
-    if (!cache.motorState) return;
-    const motorState = cache.motorState;
-    const cover = main === 'head' ? cache.headMotor : cache.legsMotor;
-    if (!cover) return;
-
-    const position = main === 'head' ? motorState.headPosition : motorState.legsPosition;
-    cover.publishPosition(Math.round(position) / 100);
-  };
-
-  const moveToPreset = async (presetName: keyof typeof PRESETS): Promise<void> => {
-    if (!cache.motorState) {
-      return;
-    }
-    const motorState = cache.motorState;
-    const preset = PRESETS[presetName];
-    logInfo(`[Octo] Moving to preset: ${presetName}`);
-
-    // Target positions
-    const targetHead = preset.head;
-    const targetLegs = preset.legs;
-
-    // Current positions
-    let currentHead = motorState.headPosition;
-    let currentLegs = motorState.legsPosition;
-
-    // Durations
-    const headDuration = motorState.headUpDuration || DEFAULT_UP_DURATION_MS;
-    const legsDuration = motorState.feetUpDuration || DEFAULT_UP_DURATION_MS;
-
-    // Calculate time needed for each motor
-    const headTime = (Math.abs(targetHead - currentHead) / 100) * headDuration;
-    const legsTime = (Math.abs(targetLegs - currentLegs) / 100) * legsDuration;
-    const maxTime = Math.max(headTime, legsTime);
-
-    if (maxTime <= 0) {
-      logInfo('[Octo] Already at preset position.');
-      return;
-    }
-
-    // Determine direction for each motor
-    const headDirection = targetHead > currentHead ? 'OPEN' : 'CLOSE';
-    const legsDirection = targetLegs > currentLegs ? 'OPEN' : 'CLOSE';
-
-    // Start movement
-    logInfo(`[Octo] Preset - Head: ${headDirection} (${headTime.toFixed(0)}ms), Legs: ${legsDirection} (${legsTime.toFixed(0)}ms). Max time: ${maxTime.toFixed(0)}ms`);
-    movementStartTime = Date.now();
-    headStartPosition = currentHead;
-    legsStartPosition = currentLegs;
-
-    // Logic for sending commands - simplified here, may need Octo-specific handling for simultaneous different directions
-    let finalCommandData: number | null = null;
-    let separateLegsCommand: Command | null = null;
-
-    if (headTime > 0 && legsTime > 0) { // Both motors need to move
-      motorState.head = true;
-      motorState.legs = true;
-      if (headDirection === legsDirection) {
-        motorState.direction = headDirection;
-        finalCommandData = 0x06; // Command for both head and legs
-      } else {
-        // Different directions: prioritize head direction for main command, send legs separately
-        motorState.direction = headDirection;
-        finalCommandData = 0x02; // Head only for the main command
-        separateLegsCommand = { command: [0x2, legsDirection === 'OPEN' ? 0x70 : 0x71], data: [0x04] };
-      }
-    } else if (headTime > 0) { // Only head moves
-      motorState.head = true;
-      motorState.legs = false;
-      motorState.direction = headDirection;
-      finalCommandData = 0x02;
-    } else if (legsTime > 0) { // Only legs move
-      motorState.legs = true;
-      motorState.head = false;
-      motorState.direction = legsDirection;
-      finalCommandData = 0x04;
-    } else { // No movement (should be caught by maxTime check, but as a fallback)
-      motorState.head = false;
-      motorState.legs = false;
-      motorState.direction = 'STOP';
-      await writeCommand([0x2, 0x73]); // Send stop
-      return;
-    }
-
-    if (finalCommandData !== null) {
-      const commandType = motorState.direction === 'OPEN' ? 0x70 : 0x71;
-      await writeCommand({ command: [0x2, commandType], data: [finalCommandData] });
-    }
-    if (separateLegsCommand) {
-      await writeCommand(separateLegsCommand);
-      logInfo('[Octo] Preset - Legs moving separately due to different direction.');
-    }
-
-    const presetInterval = setInterval(() => {
-      const elapsed = Date.now() - movementStartTime;
-      let headReached = headTime <= 0 || !motorState.head;
-      let legsReached = legsTime <= 0 || !motorState.legs;
-
-      if (!headReached) {
-        const headProgress = Math.min(1, elapsed / headTime);
-        motorState.headPosition = headStartPosition + (targetHead - headStartPosition) * headProgress;
-        publishState('head');
-        if (elapsed >= headTime) {
-          headReached = true;
-          motorState.head = false; 
-          if (finalCommandData === 0x02 || (finalCommandData === 0x06 && legsReached)) { // Stop head if it was its own command or if both stopped
-             // No explicit stop command here, rely on timeout or next command
-          }
-          logInfo('[Octo] Preset - Head reached target.');
-        }
-      }
-
-      if (!legsReached) {
-        const legsProgress = Math.min(1, elapsed / legsTime);
-        motorState.legsPosition = legsStartPosition + (targetLegs - legsStartPosition) * legsProgress;
-        publishState('legs');
-        if (elapsed >= legsTime) {
-          legsReached = true;
-          motorState.legs = false; 
-          if (finalCommandData === 0x04 || (finalCommandData === 0x06 && headReached) || separateLegsCommand) {
-            // No explicit stop command here
-          }
-          logInfo('[Octo] Preset - Legs reached target.');
-        }
-      }
-
-      if (headReached && legsReached) {
-        clearInterval(presetInterval);
-        logInfo(`[Octo] Preset ${presetName} reached.`);
-        motorState.direction = 'STOP';
-        motorState.head = false;
-        motorState.legs = false;
-        movementStartTime = 0; 
-        motorState.headPosition = targetHead;
-        motorState.legsPosition = targetLegs;
-        publishState('head');
-        publishState('legs');
-        // Send a final explicit stop for all motors as a safeguard.
-        writeCommand([0x2, 0x73]).catch(err => logError("Error sending final stop after preset", err));
-      }
-    }, 250);
-
-    // Timeout for the whole preset operation
-    setTimeout(async () => {
-      if (motorState.head || motorState.legs) { 
-        clearInterval(presetInterval);
-        logWarn(`[Octo] Preset ${presetName} timed out. Stopping motors.`);
-        await stopAllMotors();
-      }
-    }, maxTime + 2000); // Increased buffer slightly
-  };
-
-  if (!cache.headMotor) {
-    cache.headMotor = new Cover(mqtt, deviceData, buildEntityConfig('MotorHead'), buildCoverCommand('head'));
-    publishState('head');
-  }
-  if (!cache.legsMotor) {
-    cache.legsMotor = new Cover(mqtt, deviceData, buildEntityConfig('MotorLegs'), buildCoverCommand('legs'));
-    publishState('legs');
-  }
-  if (!cache.flatButton) {
-    cache.flatButton = new Button(mqtt, deviceData, buildEntityConfig('PresetFlat', { icon: 'mdi:bed-empty' }), () => moveToPreset('FLAT'));
-  }
-  if (!cache.zeroGButton) {
-    cache.zeroGButton = new Button(mqtt, deviceData, buildEntityConfig('PresetZeroG', { icon: 'mdi:transfer' }), () => moveToPreset('ZERO_G'));
-  }
-  if (!cache.tvButton) {
-    cache.tvButton = new Button(mqtt, deviceData, buildEntityConfig('PresetTV', { icon: 'mdi:television' }), () => moveToPreset('TV'));
-  }
-  if (!cache.readingButton) {
-    // Using PresetLounge as a substitute for ReadingPreset as per en.ts
-    cache.readingButton = new Button(mqtt, deviceData, buildEntityConfig('PresetLounge', { icon: 'mdi:book-open-variant' }), () => moveToPreset('READING'));
-  }
-  
-  logInfo('[Octo] Motor entities setup complete.');
+  logInfo('[MotorEntities] Motor entities setup complete');
 };

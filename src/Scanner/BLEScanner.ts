@@ -15,6 +15,10 @@ export class BLEScanner {
     return address.toString(16).padStart(12, '0').match(/.{2}/g)?.join(':').toLowerCase() || '';
   }
 
+  private compareAddresses(addr1: string, addr2: string): boolean {
+    return addr1.toLowerCase().replace(/[^0-9a-f]/g, '') === addr2.toLowerCase().replace(/[^0-9a-f]/g, '');
+  }
+
   public getScanStatus(): { 
     isScanning: boolean; 
     scanTimeRemaining: number; 
@@ -31,10 +35,10 @@ export class BLEScanner {
       return {
         ...device,
         isConfigured: configuredDevices.some((d: OctoDevice) => 
-          d.name === device.name || (normalizedDeviceAddr && d.name === normalizedDeviceAddr)
+          d.name === device.name || (normalizedDeviceAddr && this.compareAddresses(d.name, normalizedDeviceAddr))
         ),
         configuredName: configuredDevices.find((d: OctoDevice) => 
-          d.name === device.name || (normalizedDeviceAddr && d.name === normalizedDeviceAddr)
+          d.name === device.name || (normalizedDeviceAddr && this.compareAddresses(d.name, normalizedDeviceAddr))
         )?.name
       };
     });
