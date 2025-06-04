@@ -18,7 +18,8 @@ RUN \
         g++ \
         linux-headers \
         udev \
-        bluez
+        bluez && \
+    npm install -g yarn
 
 WORKDIR /app
 
