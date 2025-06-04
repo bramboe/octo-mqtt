@@ -4,6 +4,10 @@ import { ESPConnection } from './ESPConnection';
 import { IESPConnection } from './IESPConnection';
 import { connect } from './connect';
 import { BLEProxy, getProxies } from './options';
+import { ESPHomeService } from './ESPConnection';
+import { AddonConfig } from '../Utils/AddonConfig';
+
+const RETRY_DELAY = 5000; // 5 seconds
 
 export const connectToESPHome = async (): Promise<IESPConnection> => {
   logInfo('[ESPHome] Connecting...');

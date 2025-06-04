@@ -20,7 +20,10 @@ export class BLEDevice implements IBLEDevice {
   private emitter: EventEmitter | null = null;
   
   constructor(public name: string, public advertisement: any, private connection: Connection) {
-    this.mac = this.address.toString(16).padStart(12, '0');
+    // Convert numeric address to MAC format
+    const address = advertisement.address;
+    this.mac = address.toString(16).padStart(12, '0').match(/.{2}/g)?.join(':').toLowerCase() || '';
+    
     // Check if connection is an EventEmitter
     if (isEventEmitter(connection)) {
       this.emitter = connection;
@@ -29,7 +32,7 @@ export class BLEDevice implements IBLEDevice {
     }
   }
   
-  public get address() {
+  get address(): number {
     return this.advertisement.address;
   }
 

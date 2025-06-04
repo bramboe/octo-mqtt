@@ -42,32 +42,29 @@ export class ESPConnection implements IESPConnection {
     });
   }
 
-  async getBLEDevices(deviceAddresses: number[]): Promise<IBLEDevice[]> {
-    logInfo(`[ESPHome] Searching for device(s): ${deviceAddresses.join(', ')}`);
-    const bleDevices: IBLEDevice[] = [];
-    const complete = new Deferred<void>();
-    
-    await this.discoverBLEDevices(
-      (bleDevice) => {
-        const { address } = bleDevice;
-        const index = deviceAddresses.indexOf(address);
-        if (index === -1) return;
+  async getBLEDevices(deviceAddresses: string[]): Promise<IBLEDevice[]> {
+    if (this.connections.length === 0) {
+      logWarn('[ESPHome] No active proxy connections to get BLE devices.');
+      return [];
+    }
 
-        deviceAddresses.splice(index, 1);
-        logInfo(`[ESPHome] Found device with address: ${address}`);
-        bleDevices.push(bleDevice);
-        this.activeDevices.add(bleDevice);
-        if (deviceAddresses.length) return;
-        complete.resolve();
+    const devices: IBLEDevice[] = [];
+    const complete = new Deferred<void>();
+
+    await this.discoverBLEDevices(
+      (device: IBLEDevice) => {
+        const deviceAddr = device.mac.toLowerCase();
+        if (deviceAddresses.some(addr => addr.toLowerCase() === deviceAddr)) {
+          devices.push(device);
+          if (devices.length === deviceAddresses.length) {
+            complete.resolve();
+          }
+        }
       },
       complete
     );
-    
-    if (deviceAddresses.length) {
-      logWarn(`[ESPHome] Could not find device(s) with addresses: ${deviceAddresses.join(', ')}`);
-    }
-    
-    return bleDevices;
+
+    return devices;
   }
 
   async discoverBLEDevices(
@@ -161,7 +158,7 @@ export class ESPConnection implements IESPConnection {
 
       const discoveredDevice: BLEDeviceAdvertisement = {
         name: data.name || (isRC2Device ? 'RC2' : 'Unknown Device'),
-        address: finalAddress, 
+        address: rawAddress,
         rssi: data.rssi,
         service_uuids: data.serviceUuids || data.service_uuids || [],
       };

@@ -11,6 +11,10 @@ export class BLEScanner {
 
   constructor(private readonly espConnection: IESPConnection) {}
 
+  private normalizeAddress(address: number): string {
+    return address.toString(16).padStart(12, '0').match(/.{2}/g)?.join(':').toLowerCase() || '';
+  }
+
   public getScanStatus(): { 
     isScanning: boolean; 
     scanTimeRemaining: number; 
@@ -22,11 +26,18 @@ export class BLEScanner {
       : 0;
 
     const configuredDevices = getRootOptions().octoDevices || [];
-    const devices = Array.from(this.discoveredDevices).map(device => ({
-      ...device,
-      isConfigured: configuredDevices.some((d: OctoDevice) => d.name.toLowerCase() === device.address.toString().toLowerCase()),
-      configuredName: configuredDevices.find((d: OctoDevice) => d.name.toLowerCase() === device.address.toString().toLowerCase())?.name
-    }));
+    const devices = Array.from(this.discoveredDevices).map(device => {
+      const normalizedDeviceAddr = this.normalizeAddress(device.address);
+      return {
+        ...device,
+        isConfigured: configuredDevices.some((d: OctoDevice) => 
+          d.name === device.name || (normalizedDeviceAddr && d.name === normalizedDeviceAddr)
+        ),
+        configuredName: configuredDevices.find((d: OctoDevice) => 
+          d.name === device.name || (normalizedDeviceAddr && d.name === normalizedDeviceAddr)
+        )?.name
+      };
+    });
 
     return {
       isScanning: this.scanStartTime !== null && timeRemaining > 0,
@@ -50,7 +61,7 @@ export class BLEScanner {
         this.SCAN_DURATION_MS,
         (device: BLEDeviceAdvertisement) => {
           this.discoveredDevices.add(device);
-          logInfo(`[BLEScanner] Found device: ${device.name} (${device.address})`);
+          logInfo(`[BLEScanner] Found device: ${device.name} (${this.normalizeAddress(device.address)})`);
         }
       );
       logInfo('[BLEScanner] BLE scan started');

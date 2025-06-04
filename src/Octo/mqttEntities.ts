@@ -1,7 +1,7 @@
 import { IMQTTConnection } from '../MQTT/IMQTTConnection';
 import { logInfo, logError, logWarn } from '../Utils/logger';
 import * as Commands from './commands';
-import { OctoStorage } from './storage';
+import { OctoStorage, OctoStorageData } from './storage';
 
 // Define interface for MQTT device data
 interface MQTTDevicePlaceholder {
@@ -372,7 +372,8 @@ export class OctoMQTTEntities {
         icon: 'mdi:timer-outline',
       };
       publishDeviceConfig(this.mqtt, device, `${part}_calibration_seconds`, 'sensor', calDurationSensorConfig);
-      const initialDuration = this.storage.get(actuator === 'head' ? 'head_up_duration' : 'feet_up_duration');
+      const durationKey: 'head_up_duration' | 'feet_up_duration' = actuator === 'head' ? 'head_up_duration' : 'feet_up_duration';
+      const initialDuration = this.storage.get(durationKey);
       this.mqtt.publish(calDurationSensorConfig.state_topic!, (initialDuration / 1000).toFixed(1));
     });
 
@@ -383,6 +384,7 @@ export class OctoMQTTEntities {
     this.mqtt.subscribe(calStopButtonConfig.command_topic!);
     this.mqtt.on(calStopButtonConfig.command_topic!, (payload: Buffer | string) => {
       if ((typeof payload === 'string' ? payload : payload.toString()).toUpperCase() === 'PRESS') {
+        const localStore = this.storage; // Assign to local const
         const activeCalibrationState = headState.calibrationMode ? headState : (feetState.calibrationMode ? feetState : null);
         const activeActuator = headState.calibrationMode ? 'head' : (feetState.calibrationMode ? 'feet' : null);
 
@@ -391,34 +393,33 @@ export class OctoMQTTEntities {
           return;
         }
         logInfo(`[MQTTEntities] Stopping ${activeActuator} calibration`);
-        stopMovement(activeCalibrationState, this.mqtt, this.storage, activeActuator, bleController, deviceIdentifier, true); // Pass true for isCalibrationStop
+        stopMovement(activeCalibrationState, this.mqtt, localStore, activeActuator, bleController, deviceIdentifier, true);
         
         const calibrationDuration = Date.now() - activeCalibrationState.startTime;
         activeCalibrationState.calibrationMode = null;
 
-        if (calibrationDuration < 1000) { // Safety check for too short calibration
+        if (calibrationDuration < 1000) {
             logWarn("[MQTTEntities] Calibration duration too short, not saving.");
-            // Reset to previous known position or 0
-            const lastPosition = activeCalibrationState.startPosition; // Position before calibration attempt
-            updateAndPublishPosition(this.mqtt, this.storage, activeActuator, lastPosition, deviceIdentifier);
+            const lastPosition = activeCalibrationState.startPosition;
+            updateAndPublishPosition(this.mqtt, localStore, activeActuator, lastPosition, deviceIdentifier);
             return;
         }
 
         if (activeActuator === 'head') {
-          this.storage.set('head_up_duration', calibrationDuration);
-          this.storage.set('head_current_position', 100);
+          localStore.set('head_up_duration', calibrationDuration);
+          localStore.set('head_current_position', 100);
           this.mqtt.publish(`octo/${deviceIdentifier}/head_calibration_seconds/state`, (calibrationDuration / 1000).toFixed(1));
-          updateAndPublishPosition(this.mqtt, this.storage, 'head', 100, deviceIdentifier);
+          updateAndPublishPosition(this.mqtt, localStore, 'head', 100, deviceIdentifier);
           logInfo(`[MQTTEntities] Head calibrated. Duration: ${calibrationDuration}ms. Moving to 0%.`);
-          startTimedMovement(headState, this.mqtt, this.storage, 'head', 0, bleController, deviceIdentifier);
+          startTimedMovement(headState, this.mqtt, localStore, 'head', 0, bleController, deviceIdentifier);
 
         } else if (activeActuator === 'feet') {
-          this.storage.set('feet_up_duration', calibrationDuration);
-          this.storage.set('feet_current_position', 100);
+          localStore.set('feet_up_duration', calibrationDuration);
+          localStore.set('feet_current_position', 100);
           this.mqtt.publish(`octo/${deviceIdentifier}/feet_calibration_seconds/state`, (calibrationDuration / 1000).toFixed(1));
-          updateAndPublishPosition(this.mqtt, this.storage, 'feet', 100, deviceIdentifier);
+          updateAndPublishPosition(this.mqtt, localStore, 'feet', 100, deviceIdentifier);
           logInfo(`[MQTTEntities] Feet calibrated. Duration: ${calibrationDuration}ms. Moving to 0%.`);
-          startTimedMovement(feetState, this.mqtt, this.storage, 'feet', 0, bleController, deviceIdentifier);
+          startTimedMovement(feetState, this.mqtt, localStore, 'feet', 0, bleController, deviceIdentifier);
         }
       }
     });
