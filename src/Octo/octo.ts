@@ -57,10 +57,10 @@ export const octo = async (mqtt: IMQTTConnection, esphome: IESPConnection) => {
     const controller = new BLEController(esphome);
     controller.deviceData = deviceData;
 
-    // Connect to the device
+    // Connect to the device using numeric address from bleDevice
     const connectedDevice = await controller.connect(address);
     if (!connectedDevice) {
-      logError(`[Octo] Failed to connect to device ${address}`);
+      logError(`[Octo] Failed to connect to device ${mac}`);
       continue;
     }
 
@@ -117,10 +117,12 @@ export const setupOcto = async (
     throw new Error('No devices configured');
   }
 
+  // Use a placeholder MAC address since we don't have a real device yet
+  const placeholderMac = '00:00:00:00:00:00';
   const deviceData = buildMQTTDeviceData({
     friendlyName: firstDevice.friendlyName || firstDevice.name,
     name: firstDevice.name,
-    address: firstDevice.name
+    address: placeholderMac
   }, 'Ergomotion');
 
   const controller = new BLEController(espConnection);
@@ -188,10 +190,10 @@ export class OctoMQTT {
         const controller = new BLEController(this.esphome);
         controller.deviceData = deviceData;
 
-        // Connect to the device
+        // Connect to the device using numeric address from bleDevice
         const connectedDevice = await controller.connect(device.address);
         if (!connectedDevice) {
-          logError(`[Octo] Failed to connect to device ${device.address}`);
+          logError(`[Octo] Failed to connect to device ${mac}`);
           continue;
         }
 

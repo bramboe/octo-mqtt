@@ -53,15 +53,16 @@ export class BLEController extends EventEmitter implements IController<CommandIn
   }
 
   private updateDeviceData(deviceAddress: number, device: IBLEDevice) {
+    const mac = this.convertAddressToMac(deviceAddress);
     const mqttDevice: MQTTDevicePlaceholder = {
-      identifiers: [deviceAddress.toString(16)],
+      identifiers: [mac],
       name: device.name,
       manufacturer: 'Ergomotion',
       model: 'RC2'
     };
 
     this.deviceData = {
-      deviceTopic: `ergomotion/${deviceAddress.toString(16)}`,
+      deviceTopic: `ergomotion/${mac}`,
       device: {
         ids: mqttDevice.identifiers,
         name: mqttDevice.name,
@@ -73,17 +74,18 @@ export class BLEController extends EventEmitter implements IController<CommandIn
   }
 
   public async connect(deviceAddress: number): Promise<IBLEDevice | null> {
-    logInfo(`[BLE] Connecting to device ${deviceAddress}`);
+    const mac = this.convertAddressToMac(deviceAddress);
+    logInfo(`[BLE] Connecting to device ${mac} (address: ${deviceAddress})`);
     
     if (this.connectedDevices.has(deviceAddress)) {
-      logInfo(`[BLE] Device ${deviceAddress} already connected`);
+      logInfo(`[BLE] Device ${mac} already connected`);
       return this.connectedDevices.get(deviceAddress)!;
     }
 
     try {
-      const devices = await this.espConnection.getBLEDevices([deviceAddress.toString(16)]);
+      const devices = await this.espConnection.getBLEDevices([mac]);
       if (devices.length === 0) {
-        logError(`[BLE] Device ${deviceAddress} not found`);
+        logError(`[BLE] Device ${mac} not found`);
         return null;
       }
 
@@ -96,29 +98,31 @@ export class BLEController extends EventEmitter implements IController<CommandIn
 
       return device;
     } catch (error) {
-      logError(`[BLE] Failed to connect to device ${deviceAddress}:`, error);
+      logError(`[BLE] Failed to connect to device ${mac}:`, error);
       return null;
     }
   }
 
-  private setupKeepAlive(deviceAddress: number) {
-    if (this.keepAliveIntervals.has(deviceAddress)) {
-      clearInterval(this.keepAliveIntervals.get(deviceAddress)!);
-    }
+  private convertAddressToMac(address: number): string {
+    return address.toString(16).padStart(12, '0').match(/.{2}/g)?.join(':').toLowerCase() || '';
+  }
 
+  private setupKeepAlive(deviceAddress: number) {
+    const mac = this.convertAddressToMac(deviceAddress);
     this.keepAliveIntervals.set(
       deviceAddress,
       setInterval(() => {
         this.checkConnection(deviceAddress).catch(error => {
-          logError(`[BLE] Keep-alive check failed for device ${deviceAddress}:`, error);
+          logError(`[BLE] Keep-alive check failed for device ${mac}:`, error);
         });
       }, this.KEEP_ALIVE_INTERVAL)
     );
   }
 
   private async checkConnection(deviceAddress: number) {
+    const mac = this.convertAddressToMac(deviceAddress);
     if (!this.connectedDevices.has(deviceAddress)) {
-      logWarn(`[BLE] Device ${deviceAddress} not in connected devices map`);
+      logWarn(`[BLE] Device ${mac} not in connected devices map`);
       return;
     }
 
@@ -126,29 +130,40 @@ export class BLEController extends EventEmitter implements IController<CommandIn
     try {
       await device.getDeviceInfo();
     } catch (error) {
-      logWarn(`[BLE] Lost connection to device ${deviceAddress}, attempting to reconnect...`);
+      logWarn(`[BLE] Lost connection to device ${mac}, attempting to reconnect...`);
       await this.handleDisconnect(deviceAddress);
     }
   }
 
   private async handleDisconnect(deviceAddress: number) {
-    const attempts = this.reconnectAttempts.get(deviceAddress) || 0;
-    if (attempts >= this.MAX_RECONNECT_ATTEMPTS) {
-      logError(`[BLE] Max reconnection attempts (${this.MAX_RECONNECT_ATTEMPTS}) reached for device ${deviceAddress}`);
-      this.emit('maxReconnectAttemptsReached', deviceAddress);
+    const mac = this.convertAddressToMac(deviceAddress);
+    const device = this.connectedDevices.get(deviceAddress);
+    if (!device) {
+      logWarn(`[BLE] Device ${mac} not found in connected devices map during disconnect`);
       return;
     }
 
-    this.reconnectAttempts.set(deviceAddress, attempts + 1);
+    try {
+      await device.disconnect();
+    } catch (error) {
+      logError(`[BLE] Error disconnecting device ${mac}:`, error);
+    }
+
+    this.connectedDevices.delete(deviceAddress);
+    await this.reconnect(deviceAddress);
+  }
+
+  private async reconnect(deviceAddress: number) {
+    const mac = this.convertAddressToMac(deviceAddress);
     try {
       const device = await this.connect(deviceAddress);
-      if (device) {
-        logInfo(`[BLE] Successfully reconnected to device ${deviceAddress}`);
-        this.resetReconnectAttempts(deviceAddress);
+      if (!device) {
+        logError(`[BLE] Failed to reconnect to device ${mac}`);
+        return;
       }
+      logInfo(`[BLE] Successfully reconnected to device ${mac}`);
     } catch (error) {
-      logError(`[BLE] Failed to reconnect to device ${deviceAddress}:`, error);
-      this.emit('reconnectFailed', { deviceAddress, error });
+      logError(`[BLE] Error during reconnect to device ${mac}:`, error);
     }
   }
 

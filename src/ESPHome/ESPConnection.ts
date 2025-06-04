@@ -23,23 +23,12 @@ export class ESPConnection implements IESPConnection {
     });
   }
 
-  async reconnect(): Promise<void> {
-    this.disconnect();
-    logInfo('[ESPHome] Reconnecting...');
-    this.connections = await Promise.all(
-      this.connections.map((connection) =>
-        connect(new Connection({ 
-          host: connection.host, 
-          port: connection.port
-        }))
-      )
-    );
+  private convertAddressToMac(address: number): string {
+    return address.toString(16).padStart(12, '0').match(/.{2}/g)?.join(':').toLowerCase() || '';
   }
 
-  disconnect(): void {
-    this.cleanupScan().catch(error => {
-      logError('[ESPHome] Error during disconnect cleanup:', error);
-    });
+  private convertMacToAddress(mac: string): number {
+    return parseInt(mac.replace(/:/g, ''), 16);
   }
 
   async getBLEDevices(deviceAddresses: string[]): Promise<IBLEDevice[]> {
@@ -53,7 +42,7 @@ export class ESPConnection implements IESPConnection {
 
     await this.discoverBLEDevices(
       (device: IBLEDevice) => {
-        if (deviceAddresses.includes(device.mac)) {
+        if (deviceAddresses.includes(device.mac.toLowerCase())) {
           devices.push(device);
           if (devices.length === deviceAddresses.length) {
             complete.resolve();
@@ -96,19 +85,6 @@ export class ESPConnection implements IESPConnection {
     }
   }
 
-  private convertAddressToMac(address: number): string {
-    if (!address) {
-      logInfo(`[ESPHome DEBUG] convertAddressToMac: address is falsy: ${address}`);
-      return '';
-    }
-    
-    // Convert numeric address to MAC address format
-    const hex = address.toString(16).padStart(12, '0');
-    const mac = hex.match(/.{2}/g)?.join(':') || '';
-    logInfo(`[ESPHome DEBUG] convertAddressToMac: ${address} -> ${hex} -> ${mac}`);
-    return mac;
-  }
-
   async startBleScan(
     durationMs: number,
     onDeviceDiscoveredDuringScan: (device: BLEDeviceAdvertisement) => void
@@ -128,7 +104,6 @@ export class ESPConnection implements IESPConnection {
     await this.cleanupScan();
 
     logInfo(`[ESPHome] Starting BLE scan for ${durationMs}ms via primary proxy...`);
-    logInfo('[ESPHome] Looking specifically for devices named "RC2"...');
     const discoveredDevicesDuringScan = new Map<string, BLEDeviceAdvertisement>();
 
     return new Promise((resolve, reject) => {
@@ -157,36 +132,41 @@ export class ESPConnection implements IESPConnection {
     });
   }
 
-  async stopBleScan(): Promise<void> {
-    logInfo('[ESPHome] Scan stopped prematurely via stopBleScan call.');
-    await this.cleanupScan();
-  }
-
-  private async cleanupScan() {
-    logInfo('[ESPHome] Attempting to stop BLE scan via primary proxy...');
+  private async cleanupScan(): Promise<void> {
+    if (this.advertisementPacketListener && this.connections[0]) {
+      this.connections[0].off('message.BluetoothLEAdvertisementResponse', this.advertisementPacketListener);
+      this.advertisementPacketListener = null;
+    }
     
     if (this.scanTimeoutId) {
       clearTimeout(this.scanTimeoutId);
       this.scanTimeoutId = null;
     }
+    
+    this.isProxyScanning = false;
+  }
 
-    if (this.advertisementPacketListener && this.connections[0]) {
-      this.connections[0].off('message.BluetoothLEAdvertisementResponse', this.advertisementPacketListener);
-      this.advertisementPacketListener = null;
-    }
+  async stopBleScan(): Promise<void> {
+    await this.cleanupScan();
+  }
 
-    this.isProxyScanning = false; 
-
-    // Clean up any active devices
-    for (const device of this.activeDevices) {
+  async reconnect(): Promise<void> {
+    for (const connection of this.connections) {
       try {
-        await device.disconnect();
+        await connection.connect();
       } catch (error) {
-        logError('[ESPHome] Error disconnecting device during cleanup:', error);
+        logError('[ESPHome] Failed to reconnect:', error);
       }
     }
-    this.activeDevices.clear();
+  }
 
-    logInfo('[ESPHome] BLE scan stopped.');
+  disconnect(): void {
+    for (const connection of this.connections) {
+      try {
+        connection.disconnect();
+      } catch (error) {
+        logError('[ESPHome] Error during disconnect:', error);
+      }
+    }
   }
 }
