@@ -4,16 +4,7 @@ import * as Commands from './commands';
 import { OctoStorage, OctoStorageData } from './storage';
 import { BLEController } from '../BLE/BLEController';
 import { buildMQTTDeviceData, Device } from '../Common/buildMQTTDeviceData';
-
-// Define interface for MQTT device data
-interface MQTTDevicePlaceholder {
-  identifiers: string[];
-  name: string;
-  model?: string;
-  manufacturer?: string;
-  sw_version?: string;
-  availability_topic?: string;
-}
+import { MQTTDevicePlaceholder } from '../HomeAssistant/MQTTDevicePlaceholder';
 
 // Define a placeholder for MQTTItemConfig
 export interface MQTTItemConfigPlaceholder extends Record<string, any> {
@@ -151,80 +142,50 @@ const stopMovement = (
 };
 
 const startTimedMovement = (
-  actuatorState: ActuatorState,
+  currentState: ActuatorState,
   mqtt: IMQTTConnection,
   storage: OctoStorage,
-  actuator: 'head' | 'feet',
-  targetPos: number,
+  part: 'head' | 'feet',
+  targetPosition: number,
   bleController: OctoControllerMinimal,
   deviceIdentifier: string
 ) => {
-  if (actuatorState.isMoving) {
-    logWarn(`[MQTTEntities] ${actuator} is already moving. Ignoring command.`);
+  const currentPosition = storage.get(`${part}_current_position`);
+  const upDuration = storage.get(`${part}_up_duration`);
+  
+  if (currentPosition === undefined || upDuration === undefined) {
+    logError(`[MQTTEntities] Missing storage data for ${part}`);
     return;
   }
 
-  const currentPos = storage.get(actuator === 'head' ? 'head_current_position' : 'feet_current_position');
-  const durationFull = storage.get(actuator === 'head' ? 'head_up_duration' : 'feet_up_duration');
+  // Calculate movement duration based on position difference
+  const positionDiff = Math.abs(targetPosition - currentPosition);
+  const movementDuration = Math.round((positionDiff / 100) * upDuration);
 
-  if (durationFull <=0) {
-      logError(`[MQTTEntities] ${actuator} calibration duration is not valid (${durationFull}ms). Please calibrate first.`);
-      return;
-  }
+  // Determine movement direction
+  const isMovingUp = targetPosition > currentPosition;
+  const command = isMovingUp 
+    ? (part === 'head' ? Commands.HEAD_UP : Commands.FEET_UP)
+    : (part === 'head' ? Commands.HEAD_DOWN : Commands.FEET_DOWN);
 
-  if (Math.abs(currentPos - targetPos) < 1) { 
-    updateAndPublishPosition(mqtt, storage, actuator, currentPos, deviceIdentifier);
-    return;
-  }
+  // Start movement
+  logInfo(`[MQTTEntities] Moving ${part} ${isMovingUp ? 'up' : 'down'} to ${targetPosition}%`);
+  sendBleCommand(bleController, command).catch(err => {
+    logError(`[MQTTEntities] Error starting ${part} movement:`, err);
+  });
 
-  actuatorState.isMoving = true;
-  actuatorState.startTime = Date.now();
-  actuatorState.startPosition = currentPos;
-  actuatorState.targetPosition = targetPos;
-
-  const positionDifference = Math.abs(targetPos - currentPos);
-  const moveDur = (positionDifference / 100) * durationFull;
-
-  if (moveDur <= 0) { // Should not happen if durationFull is >0 and there's a position difference
-      logWarn(`[MQTTEntities] Calculated move duration for ${actuator} is zero or negative. Aborting movement.`);
-      actuatorState.isMoving = false;
-      updateAndPublishPosition(mqtt, storage, actuator, currentPos, deviceIdentifier); // Report current position
-      return;
-  }
-
-  const command = targetPos > currentPos
-    ? (actuator === 'head' ? Commands.HEAD_UP : Commands.FEET_UP)
-    : (actuator === 'head' ? Commands.HEAD_DOWN : Commands.FEET_DOWN);
-
-  logInfo(`[MQTTEntities] Starting ${actuator} movement from ${currentPos}% to ${targetPos}%. Estimated duration: ${moveDur.toFixed(0)}ms`);
-  sendBleCommand(bleController, command);
-
-  if (actuatorState.positionUpdateIntervalId) clearInterval(actuatorState.positionUpdateIntervalId);
-  actuatorState.positionUpdateIntervalId = setInterval(() => {
-    if (!actuatorState.isMoving) {
-      if (actuatorState.positionUpdateIntervalId) clearInterval(actuatorState.positionUpdateIntervalId);
-      return;
+  // Stop after calculated duration
+  setTimeout(async () => {
+    try {
+      await sendBleCommand(bleController, Commands.STOP_MOVEMENT);
+      storage.set(`${part}_current_position`, targetPosition);
+      mqtt.publish(`octo/${deviceIdentifier}/${part}_cover/position`, targetPosition.toString());
+      mqtt.publish(`octo/${deviceIdentifier}/${part}_cover/state`, targetPosition === 0 ? 'closed' : 'open');
+      logInfo(`[MQTTEntities] ${part} movement complete. Position: ${targetPosition}%`);
+    } catch (err) {
+      logError(`[MQTTEntities] Error stopping ${part} movement:`, err);
     }
-    const elapsed = Date.now() - actuatorState.startTime;
-    let progress = elapsed / moveDur; 
-    progress = Math.min(1, progress); 
-
-    let newPosition = actuatorState.startPosition + (targetPos - actuatorState.startPosition) * progress;
-    newPosition = Math.max(0, Math.min(100, newPosition));
-    updateAndPublishPosition(mqtt, storage, actuator, newPosition, deviceIdentifier);
-
-    if (progress >= 1) {
-      stopMovement(actuatorState, mqtt, storage, actuator, bleController, deviceIdentifier);
-    }
-  }, POSITION_UPDATE_INTERVAL);
-
-  if (actuatorState.moveTimeoutId) clearTimeout(actuatorState.moveTimeoutId);
-  actuatorState.moveTimeoutId = setTimeout(() => {
-    if (actuatorState.isMoving) {
-      logWarn(`[MQTTEntities] ${actuator} movement timed out.`);
-      stopMovement(actuatorState, mqtt, storage, actuator, bleController, deviceIdentifier);
-    }
-  }, moveDur + 1000); 
+  }, movementDuration);
 };
 
 interface StorageData {

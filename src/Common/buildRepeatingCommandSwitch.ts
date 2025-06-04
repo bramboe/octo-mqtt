@@ -1,29 +1,56 @@
-import { Switch } from '../HomeAssistant/Switch';
 import { IMQTTConnection } from '../MQTT/IMQTTConnection';
-import { StringsKey, getString } from '../Utils/getString';
 import { logError } from '../Utils/logger';
-import { buildEntityConfig } from './buildEntityConfig';
+import { IDeviceData } from '../HomeAssistant/IDeviceData';
+import { Switch } from '../HomeAssistant/Switch';
 import { IController } from './IController';
+import { getString } from '../Utils/getString';
+import { buildEntityConfig } from './buildEntityConfig';
+import { Dictionary } from '../Utils/Dictionary';
 
-export const buildRepeatingCommandSwitch = <TCommand>(
-  context: string,
+export const buildRepeatingCommandSwitch = <T>(
   mqtt: IMQTTConnection,
-  { cache, deviceData, writeCommand, cancelCommands }: IController<TCommand>,
-  name: StringsKey,
-  command: TCommand,
-  category?: string,
-  count?: number,
-  waitTime?: number
-) => {
-  if (cache[name]) return;
+  deviceData: IDeviceData,
+  controller: IController<T>,
+  cache: Dictionary<Switch>,
+  name: string,
+  onCommand: T,
+  offCommand: T,
+  context: string,
+  interval: number = 1000,
+  category?: string
+): Switch | undefined => {
+  if (cache[name]) return cache[name];
 
-  const entity = (cache[name] = new Switch(mqtt, deviceData, buildEntityConfig(name, category), async (state) => {
-    if (!state) return cancelCommands();
+  let intervalId: NodeJS.Timeout | null = null;
+
+  const entity = (cache[name] = new Switch(mqtt, deviceData, {
+    description: name,
+    category,
+    icon: 'mdi:toggle-switch'
+  }, async (state) => {
     try {
-      await writeCommand(command, count, waitTime);
-      entity.setState(false);
+      if (state) {
+        await controller.writeCommand(onCommand);
+        intervalId = setInterval(async () => {
+          try {
+            await controller.writeCommand(onCommand);
+          } catch (e) {
+            logError(`[${context}] Failed to write '${name}' in interval`, e);
+          }
+        }, interval);
+      } else {
+        if (intervalId) {
+          clearInterval(intervalId);
+          intervalId = null;
+        }
+        await controller.writeCommand(offCommand);
+      }
+      return true;
     } catch (e) {
-      logError(`[${context}] Failed to write '${getString(name)}'`, e);
+      logError(`[${context}] Failed to write '${name}'`, e);
+      return false;
     }
-  }).setOnline());
+  }));
+
+  return entity;
 };

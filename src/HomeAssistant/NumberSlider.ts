@@ -1,5 +1,5 @@
-import { IMQTTConnection } from '@mqtt/IMQTTConnection';
-import { logError } from '@utils/logger';
+import { IMQTTConnection } from '../MQTT/IMQTTConnection';
+import { logError } from '../Utils/logger';
 import { IDeviceData } from './IDeviceData';
 import { EntityConfig } from './base/Entity';
 import { StatefulEntity } from './base/StatefulEntity';
@@ -20,7 +20,7 @@ export class NumberSlider extends StatefulEntity<number> {
     mqtt: IMQTTConnection,
     deviceData: IDeviceData,
     { min = 0, max = 100, icon, ...config }: EntityConfig & NumberSliderConfig,
-    onChange: (state: number) => Promise<void | number>
+    onChange: (value: number) => Promise<void | number>
   ) {
     super(mqtt, deviceData, config, 'number');
     this.min = min;
@@ -29,12 +29,12 @@ export class NumberSlider extends StatefulEntity<number> {
     this.commandTopic = `${this.baseTopic}/command`;
 
     mqtt.subscribe(this.commandTopic);
-    mqtt.on(this.commandTopic, async (message) => {
-      const value = parseInt(message);
-      if (Number.isNaN(value)) return;
+    mqtt.on(this.commandTopic, async (message: string) => {
+      const value = parseFloat(message);
+      if (isNaN(value)) return;
       try {
         const result = await onChange(value);
-        this.setState(result !== undefined ? result as number : value);
+        this.setState(result !== undefined ? result : value);
       } catch (err) {
         logError(err);
       }

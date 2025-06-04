@@ -5,19 +5,18 @@ import { Command } from '../BLE/BLEController';
 import { IController } from '../Common/IController';
 import { Cancelable } from '../Common/Cancelable';
 import { ICache } from '../Common/ICache';
-import { logInfo, logError } from '../Utils/logger';
+import { logInfo, logError, logWarn } from '../Utils/logger';
 import { Button } from '../HomeAssistant/Button';
 import { BLEController } from '../BLE/BLEController';
-import { buildMQTTDeviceData } from '../Common/buildMQTTDeviceData';
+import { buildMQTTDeviceData, Device } from '../Common/buildMQTTDeviceData';
 import { buildComplexCommand } from './commands';
+import { OctoStorage, OctoStorageData } from './storage';
+import { MQTTDevicePlaceholder } from '../HomeAssistant/MQTTDevicePlaceholder';
 
 interface MotorState {
-  head: boolean;
-  legs: boolean;
-  headPosition: number;
-  legsPosition: number;
-  headUpDuration: number;
-  feetUpDuration: number;
+  head?: Button;
+  legs?: Button;
+  readingButton?: Button;
 }
 
 interface Directional {
@@ -34,9 +33,28 @@ interface Cache {
   readingButton?: Button;
 }
 
+// Define a placeholder for MQTTItemConfig
+export interface MQTTItemConfigPlaceholder extends Record<string, any> {
+  name: string;
+  command_topic?: string;
+  state_topic?: string;
+  position_topic?: string;
+  set_position_topic?: string;
+  availability?: { topic: string }[];
+  payload_available?: string;
+  payload_not_available?: string;
+}
+
+interface StorageData {
+  headPosition: number;
+  legsPosition: number;
+  headUpDuration: number;
+  feetUpDuration: number;
+}
+
 const motorPairs: Record<keyof Pick<MotorState, 'head' | 'legs'>, keyof Pick<MotorState, 'head' | 'legs'>> = {
   head: 'legs',
-  legs: 'head',
+  legs: 'head'
 };
 
 const DEFAULT_UP_DURATION_MS = 30000;

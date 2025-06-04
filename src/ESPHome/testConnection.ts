@@ -1,5 +1,5 @@
 import { Connection } from '@2colors/esphome-native-api';
-import { logError, logInfo } from '@utils/logger';
+import { logError, logInfo } from '../Utils/logger';
 
 /**
  * A simple utility to test if an ESPHome device is accessible

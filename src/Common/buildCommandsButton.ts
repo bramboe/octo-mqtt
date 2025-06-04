@@ -1,25 +1,35 @@
-import { Button } from '../HomeAssistant/Button';
 import { IMQTTConnection } from '../MQTT/IMQTTConnection';
-import { StringsKey, getString } from '../Utils/getString';
 import { logError } from '../Utils/logger';
+import { IDeviceData } from '../HomeAssistant/IDeviceData';
+import { Button } from '../HomeAssistant/Button';
 import { IController } from './IController';
+import { getString } from '../Utils/getString';
 import { buildEntityConfig } from './buildEntityConfig';
+import { Dictionary } from '../Utils/Dictionary';
 
-export const buildCommandsButton = <TCommand>(
-  context: string,
+export const buildCommandsButton = <T>(
   mqtt: IMQTTConnection,
-  { cache, deviceData, writeCommands }: IController<TCommand>,
-  name: StringsKey,
-  commands: TCommand[],
+  deviceData: IDeviceData,
+  controller: IController<T>,
+  cache: Dictionary<Button>,
+  name: string,
+  commands: T[],
+  context: string,
   category?: string
-) => {
-  if (cache[name]) return;
+): Button | undefined => {
+  if (cache[name]) return cache[name];
 
-  cache[name] = new Button(mqtt, deviceData, buildEntityConfig(name, category), async () => {
+  cache[name] = new Button(mqtt, deviceData, {
+    description: name,
+    category,
+    icon: 'mdi:button'
+  }, async () => {
     try {
-      await writeCommands(commands);
+      await controller.writeCommands(commands);
     } catch (e) {
-      logError(`[${context}] Failed to write '${getString(name)}'`, e);
+      logError(`[${context}] Failed to write '${name}'`, e);
     }
-  }).setOnline();
+  });
+
+  return cache[name];
 };

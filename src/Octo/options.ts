@@ -1,10 +1,6 @@
-import { getRootOptions } from '../Utils/options';
+import { getRootOptions, OctoDevice as UtilsOctoDevice } from '../Utils/options';
 
-export interface OctoDevice {
-  friendlyName: string;
-  name: string;
-  pin?: string;
-}
+export type OctoDevice = UtilsOctoDevice;
 
 interface OptionsJson {
   octoDevices: OctoDevice[];

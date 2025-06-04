@@ -4,6 +4,9 @@ FROM $BUILD_FROM
 # Set shell
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
+# Add a cache-busting argument that changes on each build
+ARG BUILD_TIME_CACHE_BUST
+
 # Install requirements for add-on
 RUN \
     apk add --no-cache \
@@ -17,19 +20,30 @@ RUN \
         udev \
         bluez
 
-# Copy root filesystem
-COPY rootfs /
-
-# Copy app
-COPY . /app
-
 WORKDIR /app
 
+# Copy package.json and yarn.lock first
+COPY package.json yarn.lock ./
+
 # Install dependencies
-RUN npm install
+# Using --production=false to ensure devDependencies are available for the build script
+RUN yarn install --frozen-lockfile --production=false
+
+# Copy the rest of the application code
+# This will copy files into the current WORKDIR (/app)
+COPY . .
+
+# Copy root filesystem
+# This copies to the root of the image.
+# Ensure this doesn't unintentionally overwrite anything in /app if rootfs has an /app dir.
+# Or, if rootfs contents are meant for /, this is fine.
+COPY rootfs /
+
+# Echo the cache buster to ensure it's used and changes the layer
+RUN echo "Build time cache buster: ${BUILD_TIME_CACHE_BUST}"
 
 # Build
-RUN npm run build
+RUN yarn build:ci
 
 # Set correct permissions
 RUN chown -R root:root /app

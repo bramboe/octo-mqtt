@@ -1,26 +1,32 @@
-import { readFileSync } from 'fs';
-import { join } from 'path';
 import { logInfo } from './logger';
+
+export interface RootOptions {
+  octoDevices: OctoDevice[];
+  bleProxies: BLEProxy[];
+}
 
 export interface OctoDevice {
   name: string;
-  model: string;
-  manufacturer: string;
+  friendlyName?: string;
+  pin?: string;
 }
 
-export interface OctoOptions {
-  octoDevices: OctoDevice[];
+export interface BLEProxy {
+  host: string;
+  port: number;
+  password?: string;
 }
 
-let rootOptions: OctoOptions = { octoDevices: [] };
+let rootOptions: RootOptions = {
+  octoDevices: [],
+  bleProxies: []
+};
 
-export const getRootOptions = (): OctoOptions => {
-  try {
-    const optionsPath = join(process.env.OPTIONS_PATH || '/data/options.json');
-    const optionsContent = readFileSync(optionsPath, 'utf8');
-    rootOptions = JSON.parse(optionsContent);
-  } catch (error) {
-    rootOptions = { octoDevices: [] };
-  }
+export const setRootOptions = (options: RootOptions) => {
+  logInfo('[Options] Setting root options:', options);
+  rootOptions = options;
+};
+
+export const getRootOptions = (): RootOptions => {
   return rootOptions;
 };

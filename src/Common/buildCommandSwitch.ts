@@ -1,28 +1,38 @@
-import { Switch } from '../HomeAssistant/Switch';
 import { IMQTTConnection } from '../MQTT/IMQTTConnection';
-import { StringsKey, getString } from '../Utils/getString';
 import { logError } from '../Utils/logger';
+import { IDeviceData } from '../HomeAssistant/IDeviceData';
+import { Switch } from '../HomeAssistant/Switch';
 import { IController } from './IController';
+import { getString } from '../Utils/getString';
 import { buildEntityConfig } from './buildEntityConfig';
+import { Dictionary } from '../Utils/Dictionary';
 
-export const buildCommandSwitch = <TCommand>(
-  context: string,
+export const buildCommandSwitch = <T>(
   mqtt: IMQTTConnection,
-  { cache, deviceData, writeCommand }: IController<TCommand>,
-  name: StringsKey,
-  onCommand: TCommand,
-  offCommand?: TCommand,
+  deviceData: IDeviceData,
+  controller: IController<T>,
+  cache: Dictionary<Switch>,
+  name: string,
+  onCommand: T,
+  offCommand: T,
+  context: string,
   category?: string
-) => {
-  if (cache[name]) return;
+): Switch | undefined => {
+  if (cache[name]) return cache[name];
 
-  cache[name] = new Switch(mqtt, deviceData, buildEntityConfig(name, category), async (state) => {
-    const commandToSend = state ? onCommand : offCommand;
-    if (!commandToSend) return;
+  cache[name] = new Switch(mqtt, deviceData, {
+    description: name,
+    category,
+    icon: 'mdi:toggle-switch'
+  }, async (state) => {
     try {
-      await writeCommand(commandToSend);
+      await controller.writeCommand(state ? onCommand : offCommand);
+      return true;
     } catch (e) {
-      logError(`[${context}] Failed to write '${getString(name)}'`, e);
+      logError(`[${context}] Failed to write '${name}'`, e);
+      return false;
     }
-  }).setOnline();
+  });
+
+  return cache[name];
 };

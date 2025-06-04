@@ -42,7 +42,7 @@ export class ESPConnection implements IESPConnection {
     });
   }
 
-  async getBLEDevices(deviceAddresses: number[]): Promise<IBLEDevice[]> {
+  async getBLEDevices(deviceAddresses: string[]): Promise<IBLEDevice[]> {
     if (this.connections.length === 0) {
       logWarn('[ESPHome] No active proxy connections to get BLE devices.');
       return [];
@@ -53,8 +53,7 @@ export class ESPConnection implements IESPConnection {
 
     await this.discoverBLEDevices(
       (device: IBLEDevice) => {
-        const deviceAddr = device.address;
-        if (deviceAddresses.includes(deviceAddr)) {
+        if (deviceAddresses.includes(device.mac)) {
           devices.push(device);
           if (devices.length === deviceAddresses.length) {
             complete.resolve();
@@ -71,13 +70,14 @@ export class ESPConnection implements IESPConnection {
     onNewDeviceFound: (bleDevice: IBLEDevice) => void,
     complete: Deferred<void>
   ) {
-    const seenAddresses: number[] = [];
+    const seenAddresses = new Set<string>();
     const listenerBuilder = (connection: Connection) => ({
       connection,
       listener: (advertisement: any) => {
         let { name, address } = advertisement;
-        if (seenAddresses.includes(address) || !name) return;
-        seenAddresses.push(address);
+        const mac = this.convertAddressToMac(address);
+        if (seenAddresses.has(mac) || !name) return;
+        seenAddresses.add(mac);
         onNewDeviceFound(new BLEDevice(name, advertisement, connection));
       },
     });
@@ -130,72 +130,31 @@ export class ESPConnection implements IESPConnection {
     logInfo(`[ESPHome] Starting BLE scan for ${durationMs}ms via primary proxy...`);
     logInfo('[ESPHome] Looking specifically for devices named "RC2"...');
     const discoveredDevicesDuringScan = new Map<string, BLEDeviceAdvertisement>();
-    
-    this.advertisementPacketListener = (data: any) => {
-      // Log raw advertisement data for debugging
-      logInfo('[ESPHome DEBUG] Raw advertisement data:', JSON.stringify(data));
-      
-      // Debug the address conversion process
-      const rawAddress = data.address;
-      const macFromData = data.mac;
-      const convertedMac = rawAddress ? this.convertAddressToMac(rawAddress) : '';
-      const finalAddress = macFromData || convertedMac;
-      
-      logInfo(`[ESPHome DEBUG] Address processing: raw=${rawAddress}, mac=${macFromData}, converted=${convertedMac}, final=${finalAddress}`);
-      
-      const isRC2Device = (
-        // Primary check: device name must explicitly contain "RC2"
-        (data.name && data.name.toUpperCase().includes('RC2')) ||
-        // Secondary check: specific MAC address patterns for known RC2 beds
-        (finalAddress && (
-          finalAddress.toLowerCase().startsWith('c3:e7:63') ||
-          finalAddress.toLowerCase().startsWith('f6:21:dd')
-        ))
-      );
 
-      // Log all devices for debugging, but only process RC2 devices
-      logInfo(`[ESPHome DEBUG] Processing device: ${data.name || 'Unknown'} (${finalAddress}) - IsRC2: ${isRC2Device}`);
-
-      const discoveredDevice: BLEDeviceAdvertisement = {
-        name: data.name || (isRC2Device ? 'RC2' : 'Unknown Device'),
-        address: rawAddress,
-        rssi: data.rssi,
-        service_uuids: data.serviceUuids || data.service_uuids || [],
+    return new Promise((resolve, reject) => {
+      this.isProxyScanning = true;
+      this.advertisementPacketListener = (data: any) => {
+        const device = data as BLEDeviceAdvertisement;
+        const deviceMac = this.convertAddressToMac(device.address);
+        
+        if (!discoveredDevicesDuringScan.has(deviceMac)) {
+          discoveredDevicesDuringScan.set(deviceMac, device);
+          onDeviceDiscoveredDuringScan(device);
+        }
       };
 
-      if (isRC2Device) {
-        if (!discoveredDevicesDuringScan.has(discoveredDevice.address.toString())) {
-          logInfo('[ESPHome SCAN] Found RC2 device!');
-          logInfo(`[ESPHome SCAN] Name: ${discoveredDevice.name}`);
-          logInfo(`[ESPHome SCAN] MAC Address: ${discoveredDevice.address}`);
-          logInfo(`[ESPHome SCAN] RSSI: ${discoveredDevice.rssi}`);
-          logInfo(`[ESPHome SCAN] Service UUIDs: ${discoveredDevice.service_uuids.join(', ') || 'None'}`);
-          discoveredDevicesDuringScan.set(discoveredDevice.address.toString(), discoveredDevice);
-        }
-        onDeviceDiscoveredDuringScan(discoveredDevice);
-      }
-    };
-
-    try {
       primaryConnection.on('message.BluetoothLEAdvertisementResponse', this.advertisementPacketListener);
-      await primaryConnection.subscribeBluetoothAdvertisementService();
-      this.isProxyScanning = true;
-      logInfo('[ESPHome] Scan started successfully. Waiting for RC2 devices...');
+      primaryConnection.subscribeBluetoothAdvertisementService();
 
-      return new Promise((resolve, _reject) => {
-        this.scanTimeoutId = setTimeout(async () => {
-          const devices = Array.from(discoveredDevicesDuringScan.values());
-          logInfo(`[ESPHome] Scan completed. Found ${devices.length} RC2 device(s).`);
-          await this.stopBleScan();
-          resolve(devices);
-        }, durationMs);
-      });
-
-    } catch (error) {
-      logError('[ESPHome] Error during BLE scan:', error);
-      await this.cleanupScan();
-      throw error;
-    }
+      this.scanTimeoutId = setTimeout(async () => {
+        try {
+          await this.cleanupScan();
+          resolve(Array.from(discoveredDevicesDuringScan.values()));
+        } catch (error) {
+          reject(error);
+        }
+      }, durationMs);
+    });
   }
 
   async stopBleScan(): Promise<void> {

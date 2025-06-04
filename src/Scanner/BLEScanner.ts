@@ -2,7 +2,12 @@ import { IESPConnection } from '../ESPHome/IESPConnection';
 import { BLEDeviceAdvertisement } from '../BLE/BLEController';
 import { logInfo } from '../Utils/logger';
 import { getRootOptions } from '../Utils/options';
-import { OctoDevice } from '../Octo/options';
+
+// Define the OctoDevice interface here to match the expected shape
+interface OctoDevice {
+  name: string;
+  pin?: string;
+}
 
 export class BLEScanner {
   private scanStartTime: number | null = null;
@@ -12,11 +17,11 @@ export class BLEScanner {
   constructor(private readonly espConnection: IESPConnection) {}
 
   private normalizeAddress(address: number): string {
-    return address.toString(16).padStart(12, '0').match(/.{2}/g)?.join(':').toLowerCase() || '';
+    return address.toString(16).padStart(12, '0').match(/.{2}/g)?.join(':') || '';
   }
 
   private compareAddresses(addr1: string, addr2: string): boolean {
-    return addr1.toLowerCase().replace(/[^0-9a-f]/g, '') === addr2.toLowerCase().replace(/[^0-9a-f]/g, '');
+    return addr1.replace(/[^0-9a-f]/gi, '').toLowerCase() === addr2.replace(/[^0-9a-f]/gi, '').toLowerCase();
   }
 
   public getScanStatus(): { 
