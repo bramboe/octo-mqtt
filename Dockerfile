@@ -18,7 +18,10 @@ RUN \
         g++ \
         linux-headers \
         udev \
-        bluez && \
+        bluez \
+        execline \
+        s6 \
+        s6-portable-utils && \
     npm install -g yarn
 
 WORKDIR /app
@@ -56,7 +59,11 @@ RUN \
 # Create necessary s6 directories
 RUN mkdir -p /var/run/s6 && \
     mkdir -p /var/run/s6/services && \
-    mkdir -p /var/run/s6/container_environment
+    mkdir -p /var/run/s6/container_environment && \
+    mkdir -p /command && \
+    ln -s /bin/execlineb /command/execlineb && \
+    ln -s /bin/with-contenv /command/with-contenv && \
+    ln -s /bin/s6-test /command/s6-test
 
 # Echo the cache buster to ensure it's used and changes the layer
 RUN echo "Build time cache buster: ${BUILD_TIME_CACHE_BUST}"
@@ -74,7 +81,9 @@ LABEL \
 ENV S6_KEEP_ENV=1 \
     S6_BEHAVIOUR_IF_STAGE2_FAILS=2 \
     S6_CMD_WAIT_FOR_SERVICES_MAXTIME=0 \
-    S6_SERVICES_GRACETIME=0
+    S6_SERVICES_GRACETIME=0 \
+    S6_VERBOSITY=1 \
+    S6_LOGGING=1
 
 # Use s6-overlay entrypoint
 ENTRYPOINT ["/init"]
