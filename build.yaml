@@ -1,9 +1,9 @@
 build_from:
-  aarch64: "ghcr.io/hassio-addons/base-nodejs:18"
-  amd64: "ghcr.io/hassio-addons/base-nodejs:18"
-  armhf: "ghcr.io/hassio-addons/base-nodejs:18"
-  armv7: "ghcr.io/hassio-addons/base-nodejs:18"
-  i386: "ghcr.io/hassio-addons/base-nodejs:18"
+  aarch64: "homeassistant/aarch64-base-nodejs:18"
+  amd64: "homeassistant/amd64-base-nodejs:18"
+  armhf: "homeassistant/armhf-base-nodejs:18"
+  armv7: "homeassistant/armv7-base-nodejs:18"
+  i386: "homeassistant/i386-base-nodejs:18"
 labels:
   org.opencontainers.image.title: "Home Assistant Add-on: Octo MQTT"
   org.opencontainers.image.description: "A Home Assistant add-on to enable controlling Octo actuators star version 2."
