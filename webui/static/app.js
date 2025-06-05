@@ -7,7 +7,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize WebSocket connection
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const basePath = window.location.pathname.replace(/\/$/, '');
-    const wsUrl = `${protocol}//${window.location.host}${basePath}/api/ws`;
+    const wsPath = basePath.includes('/api/') ? '/ws' : '/api/ws';
+    const wsUrl = `${protocol}//${window.location.host}${basePath}${wsPath}`;
     console.log('Connecting to WebSocket at:', wsUrl);
     const ws = new WebSocket(wsUrl);
 
