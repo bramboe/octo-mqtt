@@ -1,16 +1,34 @@
-#!/usr/bin/with-contenv bashio
+#!/command/with-contenv
 # ==============================================================================
 # Initialize the add-on
+# s6-overlay docs: https://github.com/just-containers/s6-overlay
 # ==============================================================================
 
 # Ensure proper directory structure
-mkdir -p /data/octo-mqtt
+if ! test -d /data/octo-mqtt
+then
+    mkdir -p /data/octo-mqtt
+fi
 
 # Copy default configuration if it doesn't exist
-if [ ! -f /data/options.json ]; then
-    cp /app/config.json /data/options.json
+if ! test -f /data/options.json
+then
+    cp -f /app/config.json /data/options.json
 fi
 
 # Set proper permissions
 chown -R root:root /data/octo-mqtt
-chmod -R 755 /data/octo-mqtt 
+chmod -R 755 /data/octo-mqtt
+
+# Ensure configuration is valid
+if ! test -f /data/options.json
+then
+    echo "Error: Configuration file /data/options.json is missing!"
+    exit 1
+fi
+
+# Create symlink to ensure consistent configuration path
+if ! test -L /app/config.json
+then
+    ln -sf /data/options.json /app/config.json
+fi 
