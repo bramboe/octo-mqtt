@@ -5,15 +5,15 @@
   "mqtt_password": "<auto_detect>",
   "bleProxies": [
     {
-      "host": "192.168.1.102",
+      "host": "192.168.2.102",
       "port": 6053
     }
   ],
   "octoDevices": [
     {
-      "name": "RC2",
-      "friendlyName": "Bedroom Bed",
-      "pin": "0000"
+      "name": "f6:21:dd:dd:6f:19",
+      "friendlyName": "RC2 Bed (DD6F19)",
+      "pin": "1234"
     }
   ]
 }
