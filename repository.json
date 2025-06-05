@@ -1,6 +1,6 @@
 {
   "name": "Bram's Home Assistant Add-ons",
-  "url": "https://raw.githubusercontent.com/bramboe/octo-mqtt/main",
+  "url": "git://github.com/bramboe/octo-mqtt.git",
   "maintainer": "Bram Boersma <bram.boersma@gmail.com>",
   "description": "Custom Home Assistant add-ons including Octo MQTT for RC2 bed control via BLE and ESPHome proxies"
 } 
