@@ -56,14 +56,15 @@ RUN \
     chown -R root:root /etc/fix-attrs.d || true && \
     chown -R root:root /app
 
-# Create necessary s6 directories
-RUN mkdir -p /var/run/s6 && \
-    mkdir -p /var/run/s6/services && \
-    mkdir -p /var/run/s6/container_environment && \
-    mkdir -p /command && \
-    ln -s /bin/execlineb /command/execlineb && \
-    ln -s /bin/with-contenv /command/with-contenv && \
-    ln -s /bin/s6-test /command/s6-test
+# Create necessary s6 directories and symlinks
+RUN \
+    mkdir -p /var/run/s6 /var/run/s6/services /var/run/s6/container_environment /command && \
+    # Remove existing symlinks if they exist
+    rm -f /command/execlineb /command/with-contenv /command/s6-test && \
+    # Create new symlinks
+    ln -s /usr/bin/execlineb /command/execlineb && \
+    ln -s /usr/bin/with-contenv /command/with-contenv && \
+    ln -s /usr/bin/s6-test /command/s6-test
 
 # Echo the cache buster to ensure it's used and changes the layer
 RUN echo "Build time cache buster: ${BUILD_TIME_CACHE_BUST}"
