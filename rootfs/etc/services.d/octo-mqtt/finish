@@ -4,12 +4,11 @@
 # s6-overlay docs: https://github.com/just-containers/s6-overlay
 # ==============================================================================
 
-# First argument is the exit code
+# If this is a non-zero exit code and not 256 (normal exit), bring down the container
 if { s6-test ${1} -ne 0 }
 if { s6-test ${1} -ne 256 }
+foreground { s6-svscanctl -t /var/run/s6/services }
 
-# Only tell s6 to bring down the system if it isn't already doing so
+# If this is a normal exit (256), do nothing
 if { s6-test ${1} -eq 256 }
-
-# Stop the supervision tree
-s6-svscanctl -t /var/run/s6/services 
+exit 0 
