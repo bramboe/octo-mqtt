@@ -3,7 +3,7 @@
   "version": "1.2.4",
   "slug": "octo-mqtt",
   "description": "A Home Assistant add-on to enable controlling Octo actuators star version 2.",
-  "url": "git://github.com/bramboe/octo-mqtt.git",
+  "url": "https://github.com/bramboe/octo-mqtt/releases/tag/v1.2.4",
   "arch": [
     "aarch64",
     "amd64",
