@@ -1,18 +1,19 @@
 {
-  "octoDevices": [
+  "mqtt_host": "<auto_detect>",
+  "mqtt_port": "<auto_detect>",
+  "mqtt_user": "<auto_detect>",
+  "mqtt_password": "<auto_detect>",
+  "bleProxies": [
     {
-      "name": "f6:21:dd:dd:6f:19",
-      "friendlyName": "RC2 Bed (DD6F19)",
-      "pin": "1234"
+      "host": "192.168.1.102",
+      "port": 6053
     }
   ],
-  "mqttHost": "localhost",
-  "mqttPort": 1883,
-  "mqttUser": "",
-  "mqttPassword": "",
-  "mqttClientId": "octo_mqtt",
-  "mqttTopic": "octo",
-  "proxyHost": "localhost",
-  "proxyPort": 6053,
-  "proxyPassword": ""
+  "octoDevices": [
+    {
+      "name": "RC2",
+      "friendlyName": "Bedroom Bed",
+      "pin": "0000"
+    }
+  ]
 }
