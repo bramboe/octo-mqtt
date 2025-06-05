@@ -11,7 +11,9 @@ ARG BUILD_TIME_CACHE_BUST
 RUN \
     apk add --no-cache \
         bluez \
-        udev && \
+        udev \
+        nodejs~=18 \
+        npm~=10 && \
     npm install -g yarn
 
 WORKDIR /app
