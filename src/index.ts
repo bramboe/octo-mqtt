@@ -167,14 +167,15 @@ export class OctoMQTT {
       }
 
       // Set up MQTT entities
+      const deviceAddressHex = deviceAddress.toString(16).toUpperCase();
       const deviceData = buildMQTTDeviceData({
         friendlyName: deviceName,
         name: 'RC2',
-        address: deviceAddress
+        address: deviceAddressHex
       }, 'Ergomotion');
 
       this.currentDeviceData = {
-        identifiers: [deviceAddress.toString(16)],
+        identifiers: [deviceAddressHex],
         name: deviceName,
         model: 'RC2',
         manufacturer: 'Ergomotion',
