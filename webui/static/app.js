@@ -6,7 +6,9 @@ let selectedDeviceId = null;
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize WebSocket connection
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/ws`;
+    const basePath = window.location.pathname.replace(/\/$/, '');
+    const wsUrl = `${protocol}//${window.location.host}${basePath}/ws`;
+    console.log('Connecting to WebSocket at:', wsUrl);
     const ws = new WebSocket(wsUrl);
 
     ws.onopen = () => {

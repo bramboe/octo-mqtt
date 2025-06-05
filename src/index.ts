@@ -27,24 +27,33 @@ const server = http.createServer(app);
 // Set up WebSocket server for real-time communication
 const wss = new WebSocket.Server({
   server,
-  path: '/ws'
+  path: '/ws',
+  verifyClient: (info: { req: http.IncomingMessage }) => {
+    // Allow connections from the ingress path
+    const requestPath = info.req.url || '';
+    return requestPath.endsWith('/ws');
+  }
 });
 
 // WebSocket connection handling
-wss.on('connection', function(ws: WebSocket.WebSocket) {
-  logInfo('WebSocket client connected');
+wss.on('connection', function(ws: WebSocket.WebSocket, req: http.IncomingMessage) {
+  logInfo('[WebSocket] Client connected from:', req.url);
   
   ws.on('message', (message) => {
     try {
       const data = JSON.parse(message.toString());
       handleWebSocketMessage(ws, data);
     } catch (error) {
-      logError('Error handling WebSocket message:', error);
+      logError('[WebSocket] Error handling message:', error);
     }
   });
   
   ws.on('close', () => {
-    logInfo('WebSocket client disconnected');
+    logInfo('[WebSocket] Client disconnected');
+  });
+
+  ws.on('error', (error) => {
+    logError('[WebSocket] Client error:', error);
   });
 });
 
