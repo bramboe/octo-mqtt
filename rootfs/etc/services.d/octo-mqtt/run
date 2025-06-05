@@ -1,19 +1,19 @@
-#!/usr/bin/with-contenv bashio
+#!/command/with-contenv
 # ==============================================================================
 # Start the octo-mqtt service
 # s6-overlay docs: https://github.com/just-containers/s6-overlay
 # ==============================================================================
 
-# Set up error handling
-set -e
-
 # Change to the app directory
-cd /app || bashio::exit.nok "Could not change to app directory"
+cd /app
 
 # Export required environment variables
 export NODE_ENV=production
 export S6_KEEP_ENV=1
 export S6_LOGGING=1
 
-# Start the application with proper error handling
-exec s6-setuidgid root node dist/index.js 
+# Start the application
+fdmove -c 2 1
+exec -c
+s6-setuidgid root
+node dist/index.js 
