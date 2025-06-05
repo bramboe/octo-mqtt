@@ -58,7 +58,7 @@ RUN chown -R root:root /app
 
 # Labels
 LABEL \
-    io.hass.name="Octo_MQTT" \
+    io.hass.name="Octo MQTT" \
     io.hass.description="A Home Assistant add-on to enable controlling Octo actuators star version 2." \
     io.hass.type="addon" \
     io.hass.arch="aarch64|amd64|armhf|armv7|i386" \
