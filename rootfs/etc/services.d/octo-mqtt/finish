@@ -1,18 +1,18 @@
-#!/command/execlineb -P
+#!/usr/bin/execlineb -P
 # ==============================================================================
 # Take down the S6 supervision tree when octo-mqtt fails
 # s6-overlay docs: https://github.com/just-containers/s6-overlay
 # ==============================================================================
 
 # Import environment variables
-with-contenv
+/usr/bin/with-contenv
 
 # Get the exit code
-importas -u exit_code 1
+/usr/bin/importas -u exit_code 1
 
 # If this is a non-zero exit code and not 256 (normal exit), bring down the container
-ifelse { expr ${exit_code} != 0 }
-{ ifelse { expr ${exit_code} != 256 }
-  { foreground { s6-svscanctl -t /var/run/s6/services } }
-  exit 0 }
-exit 0 
+/usr/bin/ifelse { /usr/bin/expr ${exit_code} != 0 }
+{ /usr/bin/ifelse { /usr/bin/expr ${exit_code} != 256 }
+  { /usr/bin/foreground { /usr/bin/s6-svscanctl -t /var/run/s6/services } }
+  /usr/bin/exit 0 }
+/usr/bin/exit 0 
