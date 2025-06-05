@@ -40,18 +40,25 @@ COPY . .
 # Or, if rootfs contents are meant for /, this is fine.
 COPY rootfs /
 
+# Set correct permissions for scripts
+RUN chmod a+x /etc/services.d/octo-mqtt/* && \
+    chown -R root:root /etc/services.d
+
 # Echo the cache buster to ensure it's used and changes the layer
 RUN echo "Build time cache buster: ${BUILD_TIME_CACHE_BUST}"
 
 # Build
 RUN yarn build:ci
 
+# Clean up development dependencies
+RUN yarn install --frozen-lockfile --production=true
+
 # Set correct permissions
 RUN chown -R root:root /app
 
 # Labels
 LABEL \
-    io.hass.name="Octo MQTT" \
+    io.hass.name="Octo_MQTT" \
     io.hass.description="A Home Assistant add-on to enable controlling Octo actuators star version 2." \
     io.hass.type="addon" \
     io.hass.arch="aarch64|amd64|armhf|armv7|i386" \

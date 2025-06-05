@@ -1,5 +1,5 @@
 {
-  "name": "octo-mqtt",
+  "name": "octo_mqtt",
   "version": "1.2.4",
   "description": "Octo MQTT integration for Octo actuators star version 2",
   "main": "dist/index.js",

@@ -1,0 +1,7 @@
+#!/usr/bin/with-contenv bashio
+
+# Change to the app directory
+cd /app
+
+# Start the application
+exec node dist/index.js 
