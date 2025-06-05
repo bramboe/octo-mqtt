@@ -1,11 +1,10 @@
-import express from 'express';
-import type { Request, Response } from 'express';
+import express, { Request, Response } from 'express';
 import * as fs from 'fs';
 import * as http from 'http';
-import * as WebSocket from 'ws';
+import WebSocket from 'ws';
 import * as path from 'path';
 import { logInfo, logError, logWarn } from '@utils/logger';
-import { getRootOptions } from '@utils/options';
+import { getRootOptions, setRootOptions } from '@utils/options';
 import { BLEController, CommandInput } from './BLE/BLEController';
 import { connectToESPHome } from './ESPHome/connectToESPHome';
 import { IMQTTConnection } from '@mqtt/IMQTTConnection';
@@ -16,6 +15,8 @@ import { buildMQTTDeviceData, Device } from './Common/buildMQTTDeviceData';
 import { IDeviceData } from '@homeassistant/IDeviceData';
 import { Command } from './Octo/commands';
 import { MQTTDevicePlaceholder } from '@homeassistant/MQTTDevicePlaceholder';
+import { octo } from './Octo/octo';
+import { OctoDevice } from './Utils/options';
 
 let bleController: BLEController | null = null;
 
@@ -161,49 +162,36 @@ app.post('/api/scan/stop', async (req: Request, res: Response) => {
   }
 });
 
-app.post('/api/device/add', async (req: Request, res: Response) => {
+app.post('/api/devices', async (req: Request, res: Response) => {
   try {
-    const { address, pin } = req.body;
+    const { name, pin } = req.body;
     
-    if (!bleController) {
-      res.status(500).json({ error: 'BLE controller not initialized' });
+    // Validate input
+    if (!name) {
+      res.status(400).json({ error: 'Device name is required' });
       return;
     }
-    
-    // Connect to device
-    const device = await bleController.connect(address);
-    if (!device) {
-      res.status(500).json({ error: 'Failed to connect to device' });
-      return;
-    }
-    
-    // Set PIN if provided
-    if (pin) {
-      await bleController.setPin(pin);
-    }
-    
+
+    // Create new device configuration
+    const newDevice: OctoDevice = {
+      name,
+      pin,
+      friendlyName: name // Use name as friendlyName if not provided
+    };
+
     // Update configuration
     const config = getRootOptions();
-    const devices = config.octoDevices || [];
-    devices.push({ name: address, pin });
-    config.octoDevices = devices;
+    config.octoDevices = [...(config.octoDevices || []), newDevice];
     
     // Save configuration
     await fs.promises.writeFile('/data/options.json', JSON.stringify(config, null, 2));
     
-    res.json({ message: 'Device added successfully' });
-    
-    // Broadcast device added status
-    wss.clients.forEach((client) => {
-      if (client.readyState === WebSocket.OPEN) {
-        client.send(JSON.stringify({
-          type: 'device_added',
-          device: { address, pin }
-        }));
-      }
+    res.json({ 
+      message: 'Device added successfully',
+      device: newDevice
     });
   } catch (error) {
-    logError('[BLE] Error adding device:', error);
+    logError('[Config] Error adding device:', error);
     res.status(500).json({ error: 'Failed to add device' });
   }
 });
