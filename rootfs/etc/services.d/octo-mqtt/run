@@ -1,7 +1,17 @@
 #!/usr/bin/with-contenv bashio
+# ==============================================================================
+# Start the octo-mqtt service
+# s6-overlay docs: https://github.com/just-containers/s6-overlay
+# ==============================================================================
 
 # Change to the app directory
-cd /app
+cd /app || bashio::exit.nok "Could not change to app directory"
 
-# Start the application
-exec node dist/index.js 
+# Export required environment variables
+export NODE_ENV=production
+
+# Start the application with proper error handling
+if ! node dist/index.js; then
+    bashio::log.error "Failed to start octo-mqtt"
+    exit 1
+fi 

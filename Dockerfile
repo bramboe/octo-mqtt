@@ -34,27 +34,23 @@ RUN yarn install --frozen-lockfile --production=false
 # This will copy files into the current WORKDIR (/app)
 COPY . .
 
-# Copy root filesystem
-# This copies to the root of the image.
-# Ensure this doesn't unintentionally overwrite anything in /app if rootfs has an /app dir.
-# Or, if rootfs contents are meant for /, this is fine.
-COPY rootfs /
-
-# Set correct permissions for scripts
-RUN chmod a+x /etc/services.d/octo-mqtt/* && \
-    chown -R root:root /etc/services.d
-
-# Echo the cache buster to ensure it's used and changes the layer
-RUN echo "Build time cache buster: ${BUILD_TIME_CACHE_BUST}"
-
 # Build
 RUN yarn build:ci
 
 # Clean up development dependencies
 RUN yarn install --frozen-lockfile --production=true
 
-# Set correct permissions
-RUN chown -R root:root /app
+# Copy root filesystem
+COPY rootfs /
+
+# Set correct permissions for scripts and s6-overlay
+RUN \
+    chmod a+x /etc/services.d/octo-mqtt/* && \
+    chown -R root:root /etc/services.d && \
+    chown -R root:root /app
+
+# Echo the cache buster to ensure it's used and changes the layer
+RUN echo "Build time cache buster: ${BUILD_TIME_CACHE_BUST}"
 
 # Labels
 LABEL \
@@ -64,3 +60,6 @@ LABEL \
     io.hass.arch="aarch64|amd64|armhf|armv7|i386" \
     io.hass.version="1.2.4" \
     maintainer="Bram Boersma <bram.boersma@gmail.com>"
+
+# Use s6-overlay entrypoint
+ENTRYPOINT ["/init"]
