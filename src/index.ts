@@ -27,11 +27,11 @@ const server = http.createServer(app);
 // Set up WebSocket server for real-time communication
 const wss = new WebSocket.Server({
   server,
-  path: '/ws',
+  path: '/api/ws',
   verifyClient: (info: { req: http.IncomingMessage }) => {
     // Allow connections from the ingress path
     const requestPath = info.req.url || '';
-    return requestPath.endsWith('/ws');
+    return requestPath.endsWith('/api/ws');
   }
 });
 
