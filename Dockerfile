@@ -12,9 +12,9 @@ RUN \
     apk add --no-cache \
         bluez \
         udev \
-        nodejs~=18 \
-        npm~=10 && \
-    npm install -g yarn
+        nodejs \
+        npm && \
+    npm install -g yarn@1.22.19
 
 WORKDIR /app
 
