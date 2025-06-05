@@ -1,0 +1,16 @@
+#!/usr/bin/with-contenv bashio
+# ==============================================================================
+# Initialize the add-on
+# ==============================================================================
+
+# Ensure proper directory structure
+mkdir -p /data/octo-mqtt
+
+# Copy default configuration if it doesn't exist
+if [ ! -f /data/options.json ]; then
+    cp /app/config.json /data/options.json
+fi
+
+# Set proper permissions
+chown -R root:root /data/octo-mqtt
+chmod -R 755 /data/octo-mqtt 

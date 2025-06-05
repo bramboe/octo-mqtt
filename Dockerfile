@@ -46,8 +46,17 @@ COPY rootfs /
 # Set correct permissions for scripts and s6-overlay
 RUN \
     chmod a+x /etc/services.d/octo-mqtt/* && \
+    chmod a+x /etc/cont-init.d/* || true && \
+    chmod a+x /etc/fix-attrs.d/* || true && \
     chown -R root:root /etc/services.d && \
+    chown -R root:root /etc/cont-init.d || true && \
+    chown -R root:root /etc/fix-attrs.d || true && \
     chown -R root:root /app
+
+# Create necessary s6 directories
+RUN mkdir -p /var/run/s6 && \
+    mkdir -p /var/run/s6/services && \
+    mkdir -p /var/run/s6/container_environment
 
 # Echo the cache buster to ensure it's used and changes the layer
 RUN echo "Build time cache buster: ${BUILD_TIME_CACHE_BUST}"
@@ -60,6 +69,12 @@ LABEL \
     io.hass.arch="aarch64|amd64|armhf|armv7|i386" \
     io.hass.version="1.2.4" \
     maintainer="Bram Boersma <bram.boersma@gmail.com>"
+
+# Set environment variables for s6-overlay
+ENV S6_KEEP_ENV=1 \
+    S6_BEHAVIOUR_IF_STAGE2_FAILS=2 \
+    S6_CMD_WAIT_FOR_SERVICES_MAXTIME=0 \
+    S6_SERVICES_GRACETIME=0
 
 # Use s6-overlay entrypoint
 ENTRYPOINT ["/init"]
