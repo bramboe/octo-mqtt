@@ -47,6 +47,8 @@ export class BLEController extends EventEmitter implements IController<CommandIn
   private readonly KEEP_ALIVE_INTERVAL = 30000; // 30 seconds
   private readonly SERVICE_UUID = 'ffe0';
   private readonly CHARACTERISTIC_UUID = 'ffe1';
+  private isScanning = false;
+  private scanTimeoutId: NodeJS.Timeout | null = null;
 
   constructor(private espConnection: IESPConnection) {
     super();
@@ -271,5 +273,55 @@ export class BLEController extends EventEmitter implements IController<CommandIn
     this.writeCommand([0x20, 0x73, ...pinBytes]).catch(error => {
       logError('[BLE] Failed to set PIN:', error);
     });
+  }
+
+  public async scan(): Promise<void> {
+    if (this.isScanning) {
+      logWarn('[BLE] Scan already in progress');
+      return;
+    }
+
+    try {
+      this.isScanning = true;
+      this.emit('scan', { status: 'started', scanning: true });
+
+      const onDeviceDiscovered = (device: BLEDeviceAdvertisement) => {
+        this.emit('device_discovered', device);
+      };
+
+      await this.espConnection.startBleScan(30000, onDeviceDiscovered);
+      
+      // Set a timeout to stop scanning after 30 seconds
+      this.scanTimeoutId = setTimeout(() => {
+        this.stopScan().catch(error => {
+          logError('[BLE] Error stopping scan:', error);
+        });
+      }, 30000);
+
+    } catch (error) {
+      this.isScanning = false;
+      logError('[BLE] Error starting scan:', error);
+      throw error;
+    }
+  }
+
+  public async stopScan(): Promise<void> {
+    if (!this.isScanning) {
+      return;
+    }
+
+    try {
+      await this.espConnection.stopBleScan();
+    } catch (error) {
+      logError('[BLE] Error stopping scan:', error);
+      throw error;
+    } finally {
+      this.isScanning = false;
+      if (this.scanTimeoutId) {
+        clearTimeout(this.scanTimeoutId);
+        this.scanTimeoutId = null;
+      }
+      this.emit('scan', { status: 'stopped', scanning: false });
+    }
   }
 }

@@ -4,7 +4,7 @@ import * as fs from 'fs';
 import * as http from 'http';
 import * as WebSocket from 'ws';
 import * as path from 'path';
-import { logInfo, logError } from '@utils/logger';
+import { logInfo, logError, logWarn } from '@utils/logger';
 import { getRootOptions } from '@utils/options';
 import { BLEController, CommandInput } from './BLE/BLEController';
 import { connectToESPHome } from './ESPHome/connectToESPHome';
@@ -24,10 +24,49 @@ const port = process.env.PORT || 8099;
 const server = http.createServer(app);
 
 // Set up WebSocket server for real-time communication
-new WebSocket.Server({
+const wss = new WebSocket.Server({
   server,
-  path: '/api/ws'
+  path: '/ws'
 });
+
+// WebSocket connection handling
+wss.on('connection', function(ws: WebSocket.WebSocket) {
+  logInfo('WebSocket client connected');
+  
+  ws.on('message', (message) => {
+    try {
+      const data = JSON.parse(message.toString());
+      handleWebSocketMessage(ws, data);
+    } catch (error) {
+      logError('Error handling WebSocket message:', error);
+    }
+  });
+  
+  ws.on('close', () => {
+    logInfo('WebSocket client disconnected');
+  });
+});
+
+function handleWebSocketMessage(ws: WebSocket.WebSocket, data: any) {
+  // Handle different message types
+  switch (data.type) {
+    case 'getStatus':
+      sendStatus(ws);
+      break;
+    default:
+      logWarn('Unknown WebSocket message type:', data.type);
+  }
+}
+
+function sendStatus(ws: WebSocket.WebSocket) {
+  ws.send(JSON.stringify({
+    type: 'status',
+    data: {
+      bleControllerInitialized: bleController !== null,
+      timestamp: new Date().toISOString()
+    }
+  }));
+}
 
 // Serve static files
 const webuiPath = path.join(process.cwd(), 'webui');
@@ -71,39 +110,193 @@ async function initializeBLE() {
 // Initialize BLE when the application starts
 initializeBLE();
 
-// Add device endpoint
-app.post('/device/add', async (req: Request, res: Response) => {
+// API Routes
+app.post('/api/scan/start', async (req: Request, res: Response) => {
   try {
-    const { name, pin } = req.body;
+    if (!bleController) {
+      res.status(500).json({ error: 'BLE controller not initialized' });
+      return;
+    }
+    
+    await bleController.scan();
+    res.json({ message: 'Scan started' });
+    
+    // Broadcast scan status to all WebSocket clients
+    wss.clients.forEach((client) => {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(JSON.stringify({
+          type: 'scan_status',
+          scanning: true
+        }));
+      }
+    });
+  } catch (error) {
+    logError('[BLE] Error starting scan:', error);
+    res.status(500).json({ error: 'Failed to start scan' });
+  }
+});
+
+app.post('/api/scan/stop', async (req: Request, res: Response) => {
+  try {
+    if (!bleController) {
+      res.status(500).json({ error: 'BLE controller not initialized' });
+      return;
+    }
+    
+    await bleController.stopScan();
+    res.json({ message: 'Scan stopped' });
+    
+    // Broadcast scan status to all WebSocket clients
+    wss.clients.forEach((client) => {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(JSON.stringify({
+          type: 'scan_status',
+          scanning: false
+        }));
+      }
+    });
+  } catch (error) {
+    logError('[BLE] Error stopping scan:', error);
+    res.status(500).json({ error: 'Failed to stop scan' });
+  }
+});
+
+app.post('/api/device/add', async (req: Request, res: Response) => {
+  try {
+    const { address, pin } = req.body;
     
     if (!bleController) {
       res.status(500).json({ error: 'BLE controller not initialized' });
       return;
     }
     
-    const deviceAddress = macToNumber(name);
-    const device = await bleController.connect(deviceAddress);
-    if (device) {
-      if (pin) {
-        await bleController.setPin(pin);
-      }
-
-      // Update configuration
-      const config = getRootOptions();
-      const devices = config.octoDevices || [];
-      devices.push({ name, pin });
-      config.octoDevices = devices;
-      
-      // Save configuration
-      await fs.promises.writeFile('/data/options.json', JSON.stringify(config, null, 2));
-      
-      res.json({ message: 'Device added successfully' });
-    } else {
+    // Connect to device
+    const device = await bleController.connect(address);
+    if (!device) {
       res.status(500).json({ error: 'Failed to connect to device' });
+      return;
     }
+    
+    // Set PIN if provided
+    if (pin) {
+      await bleController.setPin(pin);
+    }
+    
+    // Update configuration
+    const config = getRootOptions();
+    const devices = config.octoDevices || [];
+    devices.push({ name: address, pin });
+    config.octoDevices = devices;
+    
+    // Save configuration
+    await fs.promises.writeFile('/data/options.json', JSON.stringify(config, null, 2));
+    
+    res.json({ message: 'Device added successfully' });
+    
+    // Broadcast device added status
+    wss.clients.forEach((client) => {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(JSON.stringify({
+          type: 'device_added',
+          device: { address, pin }
+        }));
+      }
+    });
   } catch (error) {
     logError('[BLE] Error adding device:', error);
     res.status(500).json({ error: 'Failed to add device' });
+  }
+});
+
+app.delete('/api/device/remove/:address', async (req: Request, res: Response) => {
+  try {
+    const { address } = req.params;
+    
+    // Update configuration
+    const config = getRootOptions();
+    const devices = config.octoDevices || [];
+    config.octoDevices = devices.filter(d => d.name !== address);
+    
+    // Save configuration
+    await fs.promises.writeFile('/data/options.json', JSON.stringify(config, null, 2));
+    
+    res.json({ message: 'Device removed successfully' });
+    
+    // Broadcast device removed status
+    wss.clients.forEach((client) => {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(JSON.stringify({
+          type: 'device_removed',
+          address
+        }));
+      }
+    });
+  } catch (error) {
+    logError('[BLE] Error removing device:', error);
+    res.status(500).json({ error: 'Failed to remove device' });
+  }
+});
+
+app.get('/api/devices/configured', async (req: Request, res: Response) => {
+  try {
+    const config = getRootOptions();
+    const devices = config.octoDevices || [];
+    res.json({ devices });
+  } catch (error) {
+    logError('[BLE] Error getting configured devices:', error);
+    res.status(500).json({ error: 'Failed to get configured devices' });
+  }
+});
+
+app.get('/api/config/ble-proxies', async (req: Request, res: Response) => {
+  try {
+    const config = getRootOptions();
+    const proxies = config.bleProxies || [];
+    
+    res.json({
+      proxies,
+      count: proxies.length,
+      hasValidProxies: proxies.length > 0 && proxies.every(p => p.host && p.port)
+    });
+  } catch (error) {
+    logError('[Config] Error getting BLE proxies:', error);
+    res.status(500).json({ error: 'Failed to get BLE proxies' });
+  }
+});
+
+app.post('/api/config/ble-proxies', async (req: Request, res: Response) => {
+  try {
+    const { proxies } = req.body;
+    
+    if (!Array.isArray(proxies)) {
+      res.status(400).json({ error: 'Invalid proxies data' });
+      return;
+    }
+    
+    // Validate proxy data
+    const validProxies = proxies.filter(p => p.host && p.port);
+    if (validProxies.length === 0) {
+      res.status(400).json({ 
+        error: 'No valid proxies provided',
+        details: 'Each proxy must have a host and port'
+      });
+      return;
+    }
+    
+    // Update configuration
+    const config = getRootOptions();
+    config.bleProxies = validProxies;
+    
+    // Save configuration
+    await fs.promises.writeFile('/data/options.json', JSON.stringify(config, null, 2));
+    
+    res.json({ 
+      message: 'BLE proxies updated successfully',
+      proxies: validProxies
+    });
+  } catch (error) {
+    logError('[Config] Error updating BLE proxies:', error);
+    res.status(500).json({ error: 'Failed to update BLE proxies' });
   }
 });
 
