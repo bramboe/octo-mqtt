@@ -1,13 +1,14 @@
-#!/usr/bin/execlineb -S0
+#!/usr/bin/execlineb -S1
 # ==============================================================================
 # Take down the S6 supervision tree when octo-mqtt fails
 # s6-overlay docs: https://github.com/just-containers/s6-overlay
 # ==============================================================================
 
-# If there are no arguments, we've terminated correctly
-if { s6-test $# -eq 0 }
+# First argument is the exit code
+if { s6-test ${1} -ne 0 }
+if { s6-test ${1} -ne 256 }
 
-# If this is a non-zero exit code, something went wrong
+# Only tell s6 to bring down the system if it isn't already doing so
 if { s6-test ${1} -eq 256 }
 
 # Stop the supervision tree
