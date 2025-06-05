@@ -20,14 +20,13 @@
   "panel_icon": "mdi:bed",
   "panel_title": "Octo Bed Control",
   "options": {
-    "mqtt_host": "localhost",
+    "mqtt_host": "core-mosquitto",
     "mqtt_port": "1883",
     "mqtt_user": "",
     "mqtt_password": "",
     "bleProxies": [
       {
-        "host": "localhost",
-        "port": 6053
+        "host": "core-esphome"
       }
     ],
     "octoDevices": []
@@ -40,7 +39,7 @@
     "bleProxies": [
       {
         "host": "str",
-        "port": "int"
+        "port": "int?"
       }
     ],
     "octoDevices": [

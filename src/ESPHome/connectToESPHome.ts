@@ -6,6 +6,7 @@ import { connect } from './connect';
 import { BLEProxy, getProxies } from './options';
 
 const RETRY_DELAY = 5000; // 5 seconds
+const DEFAULT_PORT = 6053;
 
 export const connectToESPHome = async (): Promise<IESPConnection> => {
   logInfo('[ESPHome] Connecting...');
@@ -21,7 +22,8 @@ export const connectToESPHome = async (): Promise<IESPConnection> => {
   
   logInfo(`[ESPHome] Found ${proxies.length} BLE proxy configuration(s):`);
   proxies.forEach((proxy, index) => {
-    logInfo(`[ESPHome] Proxy #${index + 1}: host=${proxy.host}, port=${proxy.port}, password=${proxy.password ? 'set' : 'not set'}`);
+    const port = proxy.port || DEFAULT_PORT;
+    logInfo(`[ESPHome] Proxy #${index + 1}: host=${proxy.host}, port=${port}, password=${proxy.password ? 'set' : 'not set'}`);
   });
   
   try {
@@ -29,7 +31,7 @@ export const connectToESPHome = async (): Promise<IESPConnection> => {
       proxies.map(async (proxy) => {
         const connection = new Connection({
           host: proxy.host,
-          port: proxy.port,
+          port: proxy.port || DEFAULT_PORT,
           password: proxy.password,
           clientInfo: 'octo-mqtt',
           encryptionKey: proxy.password,
