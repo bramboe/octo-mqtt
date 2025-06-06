@@ -3,7 +3,7 @@ FROM $BUILD_FROM
 
 # Add S6 Overlay
 ARG S6_OVERLAY_VERSION=3.1.5.0
-ARG ARCH=x86_64
+ARG ARCH
 ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-noarch.tar.xz /tmp
 ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-${ARCH}.tar.xz /tmp
 ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-symlinks-noarch.tar.xz /tmp
@@ -80,7 +80,7 @@ LABEL \
     io.hass.description="A Home Assistant add-on to enable controlling Octo actuators star version 2." \
     io.hass.type="addon" \
     io.hass.arch="aarch64|amd64|armhf|armv7|i386" \
-    io.hass.version="1.2.4" \
+    io.hass.version="1.2.5" \
     maintainer="Bram Boersma <bram.boersma@gmail.com>"
 
 # Set S6 Overlay entrypoint

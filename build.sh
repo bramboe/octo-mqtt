@@ -1,31 +1,28 @@
 #!/bin/bash
 
 # Map Home Assistant architecture to s6-overlay architecture
-case "$(uname -m)" in
-    x86_64)
-        S6_ARCH="x86_64"
-        ;;
-    aarch64)
+case "${BUILD_ARCH}" in
+    "aarch64")
         S6_ARCH="aarch64"
         ;;
-    armv7l)
+    "armhf" | "armv7")
         S6_ARCH="arm"
         ;;
-    armv6l)
-        S6_ARCH="arm"
+    "amd64")
+        S6_ARCH="x86_64"
         ;;
-    i386|i686)
+    "i386")
         S6_ARCH="i686"
         ;;
     *)
-        echo "Unsupported architecture: $(uname -m)"
+        echo "Error: Unsupported architecture: ${BUILD_ARCH}"
         exit 1
         ;;
 esac
 
 # Build the Docker image with the correct architecture
 docker build \
-    --build-arg BUILD_FROM="$BUILD_FROM" \
-    --build-arg ARCH="$S6_ARCH" \
+    --build-arg BUILD_FROM="homeassistant/${BUILD_ARCH}-base:latest" \
+    --build-arg ARCH="${S6_ARCH}" \
     --build-arg BUILD_TIME_CACHE_BUST="$(date +%s)" \
     -t "local/octo-mqtt" . 
