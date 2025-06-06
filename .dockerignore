@@ -4,7 +4,6 @@
 node_modules
 data
 *.log
-dist
 README.md
 CHANGELOG.md
 .husky
