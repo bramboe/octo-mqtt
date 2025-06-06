@@ -13,7 +13,9 @@ RUN \
         bluez \
         udev \
         nodejs \
-        npm && \
+        npm \
+        s6 \
+        s6-overlay && \
     npm install -g yarn@1.22.19
 
 WORKDIR /app
@@ -26,7 +28,6 @@ COPY package.json yarn.lock ./
 RUN yarn install --frozen-lockfile --production=false
 
 # Copy the rest of the application code
-# This will copy files into the current WORKDIR (/app)
 COPY . .
 
 # Build
@@ -38,13 +39,15 @@ RUN yarn install --frozen-lockfile --production=true
 # Copy root filesystem
 COPY rootfs /
 
-# Set correct permissions for scripts
+# Set correct permissions for scripts and s6 directories
 RUN \
-    chmod a+x /etc/services.d/octo-mqtt/* && \
-    chmod a+x /etc/cont-init.d/* || true && \
+    chmod -R a+x /etc/services.d/octo-mqtt && \
+    chmod -R a+x /etc/cont-init.d && \
     chown -R root:root /etc/services.d && \
-    chown -R root:root /etc/cont-init.d || true && \
-    chown -R root:root /app
+    chown -R root:root /etc/cont-init.d && \
+    chown -R root:root /app && \
+    mkdir -p /var/run/s6 && \
+    chmod -R 755 /var/run/s6
 
 # Echo the cache buster to ensure it's used and changes the layer
 RUN echo "Build time cache buster: ${BUILD_TIME_CACHE_BUST}"
@@ -57,3 +60,6 @@ LABEL \
     io.hass.arch="aarch64|amd64|armhf|armv7|i386" \
     io.hass.version="1.2.4" \
     maintainer="Bram Boersma <bram.boersma@gmail.com>"
+
+# Set the entrypoint to s6-overlay
+ENTRYPOINT ["/init"]
