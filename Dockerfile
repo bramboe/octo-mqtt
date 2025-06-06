@@ -6,9 +6,13 @@ ARG S6_OVERLAY_VERSION=3.1.5.0
 ARG ARCH=x86_64
 ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-noarch.tar.xz /tmp
 ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-${ARCH}.tar.xz /tmp
+ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-symlinks-noarch.tar.xz /tmp
+ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-symlinks-arch.tar.xz /tmp
 RUN tar -C / -Jxpf /tmp/s6-overlay-noarch.tar.xz \
     && tar -C / -Jxpf /tmp/s6-overlay-${ARCH}.tar.xz \
-    && rm /tmp/s6-overlay-noarch.tar.xz /tmp/s6-overlay-${ARCH}.tar.xz
+    && tar -C / -Jxpf /tmp/s6-overlay-symlinks-noarch.tar.xz \
+    && tar -C / -Jxpf /tmp/s6-overlay-symlinks-arch.tar.xz \
+    && rm /tmp/s6-overlay-*.tar.xz
 
 # Set shell
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
@@ -23,7 +27,8 @@ RUN \
         udev \
         nodejs \
         npm \
-        xz && \
+        xz \
+        s6-portable-utils && \
     npm install -g yarn@1.22.19
 
 WORKDIR /app
@@ -55,7 +60,15 @@ RUN \
     chown -R root:root /etc/cont-init.d && \
     chown -R root:root /app && \
     mkdir -p /var/run/s6 && \
-    chmod -R 755 /var/run/s6
+    chmod -R 755 /var/run/s6 && \
+    mkdir -p /command && \
+    chmod -R 755 /command
+
+# Set S6 environment variables
+ENV S6_KEEP_ENV=1 \
+    S6_BEHAVIOUR_IF_STAGE2_FAILS=2 \
+    S6_CMD_WAIT_FOR_SERVICES_MAXTIME=0 \
+    S6_SERVICES_GRACETIME=10000
 
 # Echo the cache buster to ensure it's used and changes the layer
 RUN echo "Build time cache buster: ${BUILD_TIME_CACHE_BUST}"

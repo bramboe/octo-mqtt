@@ -1,18 +1,19 @@
-#!/usr/bin/execlineb -P
+#!/usr/bin/with-contenv bash
 # ==============================================================================
 # Handle octo-mqtt service termination
 # s6-overlay docs: https://github.com/just-containers/s6-overlay
 # ==============================================================================
 
-# Import environment variables
-/usr/bin/with-contenv
+# Import exit code
+exit_code=$1
 
-# Get the exit code
-/usr/bin/importas -u exit_code 1
+# Log the exit
+echo "Service exited with code ${exit_code}"
 
 # Only bring down the container on critical failures (exit code > 128)
-/usr/bin/ifelse { /usr/bin/expr ${exit_code} -gt 128 }
-{ /usr/bin/ifelse { /usr/bin/expr ${exit_code} != 256 }
-  { /usr/bin/foreground { /usr/bin/s6-svscanctl -t /var/run/s6/services } }
-  /usr/bin/exit 0 }
-/usr/bin/exit 0 
+if [ "${exit_code}" -gt 128 ] && [ "${exit_code}" -ne 256 ]; then
+    echo "Critical failure detected, stopping container..."
+    s6-svscanctl -t /var/run/s6/services
+fi
+
+exit 0 
