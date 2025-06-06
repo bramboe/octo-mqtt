@@ -1,6 +1,15 @@
 ARG BUILD_FROM
 FROM $BUILD_FROM
 
+# Add S6 Overlay
+ARG S6_OVERLAY_VERSION=3.1.5.0
+ARG ARCH=x86_64
+ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-noarch.tar.xz /tmp
+ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-${ARCH}.tar.xz /tmp
+RUN tar -C / -Jxpf /tmp/s6-overlay-noarch.tar.xz \
+    && tar -C / -Jxpf /tmp/s6-overlay-${ARCH}.tar.xz \
+    && rm /tmp/s6-overlay-noarch.tar.xz /tmp/s6-overlay-${ARCH}.tar.xz
+
 # Set shell
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
@@ -14,8 +23,7 @@ RUN \
         udev \
         nodejs \
         npm \
-        s6 \
-        s6-overlay && \
+        xz && \
     npm install -g yarn@1.22.19
 
 WORKDIR /app
@@ -61,5 +69,5 @@ LABEL \
     io.hass.version="1.2.4" \
     maintainer="Bram Boersma <bram.boersma@gmail.com>"
 
-# Set the entrypoint to s6-overlay
+# Set S6 Overlay entrypoint
 ENTRYPOINT ["/init"]
