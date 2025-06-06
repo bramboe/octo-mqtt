@@ -22,13 +22,14 @@ ARG BUILD_TIME_CACHE_BUST
 
 # Install requirements for add-on
 RUN \
+    apk update && \
     apk add --no-cache \
-        bluez~=5.66 \
-        udev~=3.2 \
-        nodejs~=18.18 \
-        npm~=9.8 \
-        xz~=5.4 \
-        s6-portable-utils~=2.2 && \
+        bluez \
+        udev \
+        nodejs \
+        npm \
+        xz \
+        s6-portable-utils && \
     npm install -g yarn@1.22.19
 
 WORKDIR /app
