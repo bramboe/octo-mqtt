@@ -2,7 +2,7 @@ import { IBLEDevice } from './types/IBLEDevice';
 import { BLEDeviceAdvertisement } from '../BLE/BLEController'; // Import for type usage
 
 export interface IESPConnection {
-  getBLEDevices(deviceAddresses: string[]): Promise<IBLEDevice[]>;
+  getBLEDevices(deviceAddresses: number[]): Promise<IBLEDevice[]>;
   reconnect(): Promise<void>;
   disconnect(): void;
   startBleScan(

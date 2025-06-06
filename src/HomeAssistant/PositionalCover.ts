@@ -1,62 +1,67 @@
-import { IMQTTConnection } from '../MQTT/IMQTTConnection';
+import { IMQTTConnection } from '@mqtt/IMQTTConnection';
+import { Cover } from './Cover';
 import { IDeviceData } from './IDeviceData';
 import { EntityConfig } from './base/Entity';
-import { StatefulEntity } from './base/StatefulEntity';
-import { ComponentType } from './base/ComponentTypeWithState';
 
-export class PositionalCover extends StatefulEntity<number> {
-  private commandTopic: string;
+export class PositionalCover extends Cover {
   private setPositionTopic: string;
-  private currentPosition: number = 0;
+  private position: number = 0;
 
   constructor(
     mqtt: IMQTTConnection,
     deviceData: IDeviceData,
-    entityConfig: EntityConfig,
-    onCommand: (command: 'OPEN' | 'CLOSE' | 'STOP') => Promise<void>,
-    onSetPosition: (position: number) => Promise<void>
+    config: EntityConfig,
+    onSetPosition: (position: number) => void,
+    private options: { positionOpen?: number; positionClosed?: number; onStop?: () => void } = {}
   ) {
-    super(mqtt, deviceData, entityConfig, 'cover' as ComponentType);
-    this.commandTopic = `${this.baseTopic}/command`;
-    this.setPositionTopic = `${this.baseTopic}/set_position`;
-
-    mqtt.subscribe(this.commandTopic);
-    mqtt.on(this.commandTopic, (message) => {
-      if (message !== 'OPEN' && message !== 'CLOSE' && message !== 'STOP') return;
-      onCommand(message);
-    });
-
-    mqtt.subscribe(this.setPositionTopic);
-    mqtt.on(this.setPositionTopic, (message: string) => {
-      const position = parseInt(message);
-      if (!isNaN(position)) {
-        this.currentPosition = position;
-        onSetPosition(position);
+    super(mqtt, deviceData, config, (message) => {
+      switch (message) {
+        case 'OPEN':
+          return onSetPosition(options.positionOpen || 100);
+        case 'CLOSE':
+          return onSetPosition(options.positionClosed || 0);
+        case 'STOP':
+          if (options.onStop) return options.onStop();
+          return onSetPosition(this.position || 0);
       }
     });
-  }
-
-  setPosition(position: number) {
-    this.currentPosition = position;
-    this.setState(position);
-  }
-
-  getPosition(): number {
-    return this.currentPosition;
+    
+    this.setPositionTopic = `${this.baseTopic}/set_position`;
+    mqtt.subscribe(this.setPositionTopic);
+    mqtt.on(this.setPositionTopic, (message) => onSetPosition(parseInt(message)));
   }
 
   discoveryState() {
     return {
       ...super.discoveryState(),
-      command_topic: this.commandTopic,
       set_position_topic: this.setPositionTopic,
-      position_topic: this.stateTopic,
-      payload_open: 'OPEN',
-      payload_close: 'CLOSE',
-      payload_stop: 'STOP',
-      position_open: 100,
-      position_closed: 0,
-      optimistic: false,
+      position_open: this.options.positionOpen || 100,
+      position_closed: this.options.positionClosed || 0,
     };
+  }
+
+  setPosition(position: number | null) {
+    if (position === null) {
+      return this.setOffline();
+    }
+    this.position = position;
+    this.sendPosition();
+    this.setOnline();
+    return this;
+  }
+
+  getPosition() {
+    return this.position;
+  }
+
+  protected mapPosition(position: number | undefined): any {
+    return position === undefined ? null : position.toString();
+  }
+
+  private sendPosition() {
+    setTimeout(() => {
+      this.mapPosition(this.position);
+      this.publishPosition(this.position);
+    }, 250);
   }
 }

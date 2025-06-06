@@ -1,11 +1,10 @@
 import { EventEmitter } from 'events';
-import { logInfo, logError, logWarn } from '@utils/logger';
+import { logInfo, logError, logWarn } from '../Utils/logger';
 import { IBLEDevice } from '../ESPHome/types/IBLEDevice';
 import { IESPConnection } from '../ESPHome/IESPConnection';
 import { IController } from '../Common/IController';
-import { Dictionary } from '@utils/Dictionary';
-import { IDeviceData } from '@homeassistant/IDeviceData';
-import { MQTTDevicePlaceholder } from '@homeassistant/MQTTDevicePlaceholder';
+import { Dictionary } from '../Utils/Dictionary';
+import { IDeviceData } from '../HomeAssistant/IDeviceData';
 
 export interface BLEDeviceAdvertisement {
   name: string;
@@ -21,14 +20,12 @@ export interface Command {
   waitTime?: number;
 }
 
-export type CommandInput = Command | number[];
-
 export interface LightCache {
   state: boolean;
   brightness: number;
 }
 
-export class BLEController extends EventEmitter implements IController<CommandInput> {
+export class BLEController extends EventEmitter implements IController<Command | number[]> {
   public cache: Dictionary<Object> = {};
   public deviceData: IDeviceData = {
     deviceTopic: '',
@@ -47,183 +44,153 @@ export class BLEController extends EventEmitter implements IController<CommandIn
   private readonly KEEP_ALIVE_INTERVAL = 30000; // 30 seconds
   private readonly SERVICE_UUID = 'ffe0';
   private readonly CHARACTERISTIC_UUID = 'ffe1';
-  private isScanning = false;
-  private scanTimeoutId: NodeJS.Timeout | null = null;
 
   constructor(private espConnection: IESPConnection) {
     super();
   }
 
-  private updateDeviceData(deviceAddress: number, device: IBLEDevice) {
-    const mac = this.convertAddressToMac(deviceAddress);
-    const mqttDevice: MQTTDevicePlaceholder = {
-      identifiers: [mac],
-      name: device.name,
-      manufacturer: 'Ergomotion',
-      model: 'RC2'
-    };
-
-    this.deviceData = {
-      deviceTopic: `ergomotion/${mac}`,
-      device: {
-        ids: mqttDevice.identifiers,
-        name: mqttDevice.name,
-        mf: mqttDevice.manufacturer || '',
-        mdl: mqttDevice.model || '',
-        sw_version: mqttDevice.sw_version
-      }
-    };
-  }
-
-  public async connect(deviceAddress: number): Promise<IBLEDevice | null> {
-    const mac = this.convertAddressToMac(deviceAddress);
-    logInfo(`[BLE] Connecting to device ${mac} (address: ${deviceAddress})`);
-    
-    if (this.connectedDevices.has(deviceAddress)) {
-      logInfo(`[BLE] Device ${mac} already connected`);
-      return this.connectedDevices.get(deviceAddress)!;
-    }
-
+  async connectToDevice(deviceAddress: number, _pin: string): Promise<boolean> {
     try {
-      const devices = await this.espConnection.getBLEDevices([mac]);
+      logInfo(`[BLE] Attempting to connect to device: ${deviceAddress.toString(16)}`);
+      
+      // Get the device from ESPHome
+      const devices = await this.espConnection.getBLEDevices([deviceAddress]);
       if (devices.length === 0) {
-        logError(`[BLE] Device ${mac} not found`);
-        return null;
+        logError(`[BLE] Device not found: ${deviceAddress.toString(16)}`);
+        return false;
       }
 
       const device = devices[0];
+      
+      // Connect to the device
       await device.connect();
-      this.connectedDevices.set(deviceAddress, device);
-      this.setupKeepAlive(deviceAddress);
-      this.resetReconnectAttempts(deviceAddress);
-      this.updateDeviceData(deviceAddress, device);
-
-      return device;
-    } catch (error) {
-      logError(`[BLE] Failed to connect to device ${mac}:`, error);
-      return null;
-    }
-  }
-
-  private convertAddressToMac(address: number): string {
-    return address.toString(16).padStart(12, '0').match(/.{2}/g)?.join(':').toLowerCase() || '';
-  }
-
-  private setupKeepAlive(deviceAddress: number) {
-    const mac = this.convertAddressToMac(deviceAddress);
-    this.keepAliveIntervals.set(
-      deviceAddress,
-      setInterval(() => {
-        this.checkConnection(deviceAddress).catch(error => {
-          logError(`[BLE] Keep-alive check failed for device ${mac}:`, error);
-        });
-      }, this.KEEP_ALIVE_INTERVAL)
-    );
-  }
-
-  private async checkConnection(deviceAddress: number) {
-    const mac = this.convertAddressToMac(deviceAddress);
-    if (!this.connectedDevices.has(deviceAddress)) {
-      logWarn(`[BLE] Device ${mac} not in connected devices map`);
-      return;
-    }
-
-    const device = this.connectedDevices.get(deviceAddress)!;
-    try {
-      await device.getDeviceInfo();
-    } catch (error) {
-      logWarn(`[BLE] Lost connection to device ${mac}, attempting to reconnect...`);
-      await this.handleDisconnect(deviceAddress);
-    }
-  }
-
-  private async handleDisconnect(deviceAddress: number) {
-    const mac = this.convertAddressToMac(deviceAddress);
-    const device = this.connectedDevices.get(deviceAddress);
-    if (!device) {
-      logWarn(`[BLE] Device ${mac} not found in connected devices map during disconnect`);
-      return;
-    }
-
-    try {
-      await device.disconnect();
-    } catch (error) {
-      logError(`[BLE] Error disconnecting device ${mac}:`, error);
-    }
-
-    this.connectedDevices.delete(deviceAddress);
-    await this.reconnect(deviceAddress);
-  }
-
-  private async reconnect(deviceAddress: number) {
-    const mac = this.convertAddressToMac(deviceAddress);
-    try {
-      const device = await this.connect(deviceAddress);
-      if (!device) {
-        logError(`[BLE] Failed to reconnect to device ${mac}`);
-        return;
+      
+      // Get the characteristic for communication
+      const characteristic = await device.getCharacteristic(this.SERVICE_UUID, this.CHARACTERISTIC_UUID);
+      if (!characteristic) {
+        logError(`[BLE] Required characteristic not found for device: ${deviceAddress.toString(16)}`);
+        await device.disconnect();
+        return false;
       }
-      logInfo(`[BLE] Successfully reconnected to device ${mac}`);
+
+      // Store the connected device
+      this.connectedDevices.set(deviceAddress, device);
+      
+      // Start keep-alive mechanism
+      this.startKeepAlive(deviceAddress, device);
+      
+      // Reset reconnect attempts on successful connection
+      this.reconnectAttempts.set(deviceAddress, 0);
+      
+      logInfo(`[BLE] Successfully connected to device: ${deviceAddress.toString(16)}`);
+      this.emit('deviceConnected', deviceAddress);
+      
+      return true;
     } catch (error) {
-      logError(`[BLE] Error during reconnect to device ${mac}:`, error);
+      logError(`[BLE] Error connecting to device ${deviceAddress.toString(16)}:`, error);
+      return false;
     }
   }
 
-  private resetReconnectAttempts(deviceAddress: number) {
-    this.reconnectAttempts.set(deviceAddress, 0);
+  private startKeepAlive(deviceAddress: number, device: IBLEDevice) {
+    // Clear any existing interval
+    this.stopKeepAlive(deviceAddress);
+    
+    // Create new keep-alive interval
+    const interval = setInterval(async () => {
+      try {
+        // Send keep-alive command based on the YAML configuration
+        await device.writeCharacteristic(
+          0x0B, // Handle for the characteristic
+          new Uint8Array([0x40, 0x20, 0x43, 0x00, 0x04, 0x00, 0x01, 0x09, 0x08, 0x07, 0x40])
+        );
+        logInfo(`[BLE] Keep-alive sent to device: ${deviceAddress.toString(16)}`);
+      } catch (error) {
+        logError(`[BLE] Keep-alive failed for device ${deviceAddress.toString(16)}:`, error);
+        await this.handleConnectionError(deviceAddress);
+      }
+    }, this.KEEP_ALIVE_INTERVAL);
+
+    this.keepAliveIntervals.set(deviceAddress, interval);
   }
 
-  public async disconnect(deviceAddress: number): Promise<void> {
-    logInfo(`[BLE] Disconnecting from device ${deviceAddress}`);
-    
-    if (this.keepAliveIntervals.has(deviceAddress)) {
-      clearInterval(this.keepAliveIntervals.get(deviceAddress)!);
+  private stopKeepAlive(deviceAddress: number) {
+    const interval = this.keepAliveIntervals.get(deviceAddress);
+    if (interval) {
+      clearInterval(interval);
       this.keepAliveIntervals.delete(deviceAddress);
     }
-
-    if (this.connectedDevices.has(deviceAddress)) {
-      const device = this.connectedDevices.get(deviceAddress)!;
-      await device.disconnect();
-      this.connectedDevices.delete(deviceAddress);
-    }
   }
 
-  public async disconnectAll(): Promise<void> {
-    logInfo('[BLE] Disconnecting from all devices');
-    await Promise.all(
-      Array.from(this.connectedDevices.keys()).map(deviceAddress =>
-        this.disconnect(deviceAddress)
-      )
-    );
-  }
+  private async handleConnectionError(deviceAddress: number) {
+    const attempts = (this.reconnectAttempts.get(deviceAddress) || 0) + 1;
+    this.reconnectAttempts.set(deviceAddress, attempts);
 
-  public async writeCommand(command: CommandInput, count: number = 1, waitTime: number = 0): Promise<void> {
-    const commandData = Array.isArray(command) ? command : command.command;
-    const effectiveWaitTime = Array.isArray(command) ? waitTime : (command.waitTime || waitTime);
-    const retries = Array.isArray(command) ? 1 : (command.retries || 1);
-
-    for (let i = 0; i < count; i++) {
-      for (let retry = 0; retry < retries; retry++) {
+    if (attempts <= this.MAX_RECONNECT_ATTEMPTS) {
+      logWarn(`[BLE] Attempting to reconnect to device ${deviceAddress.toString(16)} (attempt ${attempts}/${this.MAX_RECONNECT_ATTEMPTS})`);
+      await this.disconnectDevice(deviceAddress);
+      const device = this.connectedDevices.get(deviceAddress);
+      if (device) {
         try {
-          await this.sendCommand(commandData);
-          break; // Success, exit retry loop
+          await device.connect();
+          this.startKeepAlive(deviceAddress, device);
+          this.reconnectAttempts.set(deviceAddress, 0);
+          logInfo(`[BLE] Successfully reconnected to device: ${deviceAddress.toString(16)}`);
         } catch (error) {
-          if (retry === retries - 1) {
-            logError('[BLE] Error writing command after all retries:', error);
-            throw error;
-          }
-          logWarn(`[BLE] Retry ${retry + 1}/${retries} for command:`, error);
-          await new Promise(resolve => setTimeout(resolve, 100)); // Wait before retry
+          logError(`[BLE] Reconnection attempt failed for device ${deviceAddress.toString(16)}:`, error);
         }
       }
+    } else {
+      logError(`[BLE] Max reconnection attempts reached for device: ${deviceAddress.toString(16)}`);
+      await this.disconnectDevice(deviceAddress);
+      this.emit('deviceDisconnected', deviceAddress);
+    }
+  }
 
-      if (effectiveWaitTime > 0 && i < count - 1) {
-        await new Promise(resolve => setTimeout(resolve, effectiveWaitTime));
+  async disconnectDevice(deviceAddress: number) {
+    try {
+      const device = this.connectedDevices.get(deviceAddress);
+      if (device) {
+        await device.disconnect();
+        this.connectedDevices.delete(deviceAddress);
+      }
+      this.stopKeepAlive(deviceAddress);
+      this.reconnectAttempts.delete(deviceAddress);
+      logInfo(`[BLE] Disconnected from device: ${deviceAddress.toString(16)}`);
+    } catch (error) {
+      logError(`[BLE] Error disconnecting from device ${deviceAddress.toString(16)}:`, error);
+    }
+  }
+
+  async disconnectAll() {
+    const addresses = Array.from(this.connectedDevices.keys());
+    await Promise.all(addresses.map(addr => this.disconnectDevice(addr)));
+  }
+
+  async writeCommand(command: Command | number[], count: number = 1, waitTime: number = 0): Promise<void> {
+    const commandData = Array.isArray(command) ? command : command.data || command.command;
+    const retries = !Array.isArray(command) && command.retries ? command.retries : 1;
+    const commandWaitTime = !Array.isArray(command) && command.waitTime ? command.waitTime : waitTime;
+
+    for (let i = 0; i < count; i++) {
+      for (let j = 0; j < retries; j++) {
+        try {
+          for (const device of this.connectedDevices.values()) {
+            await device.writeCharacteristic(0x0B, new Uint8Array(commandData));
+          }
+          if (commandWaitTime > 0 && i < count - 1) {
+            await new Promise(resolve => setTimeout(resolve, commandWaitTime));
+          }
+          break;
+        } catch (error) {
+          logError(`[BLE] Error writing command (attempt ${j + 1}/${retries}):`, error);
+          if (j === retries - 1) throw error;
+        }
       }
     }
   }
 
-  public async writeCommands(commands: CommandInput[], count: number = 1, waitTime: number = 0): Promise<void> {
+  async writeCommands(commands: (Command | number[])[], count: number = 1, waitTime: number = 0): Promise<void> {
     for (let i = 0; i < count; i++) {
       for (const command of commands) {
         await this.writeCommand(command);
@@ -234,94 +201,17 @@ export class BLEController extends EventEmitter implements IController<CommandIn
     }
   }
 
-  public async cancelCommands(): Promise<void> {
-    // Implementation for canceling commands if needed
+  async cancelCommands(): Promise<void> {
+    // Implementation depends on your specific needs
     logWarn('[BLE] Command cancellation not implemented');
   }
 
-  private async sendCommand(command: number[]): Promise<void> {
-    if (this.connectedDevices.size === 0) {
-      throw new Error('No connected devices');
-    }
-
-    const device = this.connectedDevices.values().next().value;
-    if (!device) {
-      throw new Error('No connected device found');
-    }
-
-    try {
-      const characteristic = await device.getCharacteristic(
-        this.SERVICE_UUID,
-        this.CHARACTERISTIC_UUID
-      );
-      if (!characteristic) {
-        throw new Error('Required characteristic not found');
-      }
-
-      await device.writeCharacteristic(
-        characteristic.handle,
-        Uint8Array.from(command)
-      );
-    } catch (error) {
-      logError('[BLE] Failed to send command:', error);
-      throw error;
-    }
-  }
-
-  public setPin(pin: string): void {
-    const pinBytes = pin.split('').map(c => parseInt(c));
-    this.writeCommand([0x20, 0x73, ...pinBytes]).catch(error => {
-      logError('[BLE] Failed to set PIN:', error);
+  async setPin(pin: string): Promise<void> {
+    const pinBytes = pin.split('').map(Number);
+    await this.writeCommand({
+      command: [0x40, 0x20, 0x43, 0x00, 0x04],
+      data: pinBytes,
+      retries: 3
     });
   }
-
-  public async scan(): Promise<void> {
-    if (this.isScanning) {
-      logWarn('[BLE] Scan already in progress');
-      return;
-    }
-
-    try {
-      this.isScanning = true;
-      this.emit('scan', { status: 'started', scanning: true });
-
-      const onDeviceDiscovered = (device: BLEDeviceAdvertisement) => {
-        this.emit('device_discovered', device);
-      };
-
-      await this.espConnection.startBleScan(30000, onDeviceDiscovered);
-      
-      // Set a timeout to stop scanning after 30 seconds
-      this.scanTimeoutId = setTimeout(() => {
-        this.stopScan().catch(error => {
-          logError('[BLE] Error stopping scan:', error);
-        });
-      }, 30000);
-
-    } catch (error) {
-      this.isScanning = false;
-      logError('[BLE] Error starting scan:', error);
-      throw error;
-    }
-  }
-
-  public async stopScan(): Promise<void> {
-    if (!this.isScanning) {
-      return;
-    }
-
-    try {
-      await this.espConnection.stopBleScan();
-    } catch (error) {
-      logError('[BLE] Error stopping scan:', error);
-      throw error;
-    } finally {
-      this.isScanning = false;
-      if (this.scanTimeoutId) {
-        clearTimeout(this.scanTimeoutId);
-        this.scanTimeoutId = null;
-      }
-      this.emit('scan', { status: 'stopped', scanning: false });
-    }
-  }
-}
+} 

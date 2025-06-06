@@ -1,36 +1,21 @@
 ARG BUILD_FROM
 FROM $BUILD_FROM
 
-# Add S6 Overlay
-ARG S6_OVERLAY_VERSION=3.1.5.0
-ARG ARCH
-ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-noarch.tar.xz /tmp
-ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-${ARCH}.tar.xz /tmp
-ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-symlinks-noarch.tar.xz /tmp
-ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-symlinks-arch.tar.xz /tmp
-RUN tar -C / -Jxpf /tmp/s6-overlay-noarch.tar.xz \
-    && tar -C / -Jxpf /tmp/s6-overlay-${ARCH}.tar.xz \
-    && tar -C / -Jxpf /tmp/s6-overlay-symlinks-noarch.tar.xz \
-    && tar -C / -Jxpf /tmp/s6-overlay-symlinks-arch.tar.xz \
-    && rm /tmp/s6-overlay-*.tar.xz
-
 # Set shell
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-# Add a cache-busting argument that changes on each build
-ARG BUILD_TIME_CACHE_BUST
-
 # Install requirements for add-on
 RUN \
-    apk update && \
     apk add --no-cache \
-        bluez \
-        udev \
         nodejs \
         npm \
-        xz \
-        s6-portable-utils && \
-    npm install -g yarn@1.22.19
+        git \
+        python3 \
+        make \
+        g++ \
+        linux-headers \
+        udev \
+        bluez
 
 WORKDIR /app
 
@@ -42,46 +27,25 @@ COPY package.json yarn.lock ./
 RUN yarn install --frozen-lockfile --production=false
 
 # Copy the rest of the application code
+# This will copy files into the current WORKDIR (/app)
 COPY . .
+
+# Copy root filesystem
+# This copies to the root of the image.
+# Ensure this doesn't unintentionally overwrite anything in /app if rootfs has an /app dir.
+# Or, if rootfs contents are meant for /, this is fine.
+COPY rootfs /
 
 # Build
 RUN yarn build:ci
 
-# Clean up development dependencies
-RUN yarn install --frozen-lockfile --production=true
-
-# Copy root filesystem
-COPY rootfs /
-
-# Set correct permissions for scripts and s6 directories
-RUN \
-    chmod -R a+x /etc/services.d/octo-mqtt && \
-    chmod -R a+x /etc/cont-init.d && \
-    chown -R root:root /etc/services.d && \
-    chown -R root:root /etc/cont-init.d && \
-    chown -R root:root /app && \
-    mkdir -p /var/run/s6 && \
-    chmod -R 755 /var/run/s6 && \
-    mkdir -p /command && \
-    chmod -R 755 /command
-
-# Set S6 environment variables
-ENV S6_KEEP_ENV=1 \
-    S6_BEHAVIOUR_IF_STAGE2_FAILS=2 \
-    S6_CMD_WAIT_FOR_SERVICES_MAXTIME=0 \
-    S6_SERVICES_GRACETIME=10000
-
-# Echo the cache buster to ensure it's used and changes the layer
-RUN echo "Build time cache buster: ${BUILD_TIME_CACHE_BUST}"
+# Set correct permissions
+RUN chown -R root:root /app
 
 # Labels
 LABEL \
     io.hass.name="Octo MQTT" \
     io.hass.description="A Home Assistant add-on to enable controlling Octo actuators star version 2." \
     io.hass.type="addon" \
-    io.hass.arch="aarch64|amd64|armhf|armv7|i386" \
-    io.hass.version="1.2.5" \
+    io.hass.version="1.2.3" \
     maintainer="Bram Boersma <bram.boersma@gmail.com>"
-
-# Set S6 Overlay entrypoint
-ENTRYPOINT ["/init"]

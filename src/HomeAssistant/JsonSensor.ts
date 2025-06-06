@@ -1,34 +1,34 @@
 import { IMQTTConnection } from '../MQTT/IMQTTConnection';
 import { IDeviceData } from './IDeviceData';
+import { Sensor } from './Sensor';
 import { EntityConfig } from './base/Entity';
-import { StatefulEntity } from './base/StatefulEntity';
 
-export class JsonSensor<T extends Record<string, any>> extends StatefulEntity<string> {
-  private currentState?: T;
+export type JsonSensorConfig = {
+  valueField?: string;
+};
 
+export class JsonSensor<T> extends Sensor<T> {
+  private valueField: string;
   constructor(
     mqtt: IMQTTConnection,
     deviceData: IDeviceData,
-    entityConfig: EntityConfig
+    { valueField = 'value', ...config }: JsonSensorConfig & EntityConfig
   ) {
-    super(mqtt, deviceData, entityConfig, 'sensor');
+    super(mqtt, deviceData, config);
+    this.valueField = valueField;
   }
 
-  setJsonState(state: T) {
-    this.currentState = state;
-    super.setState(JSON.stringify(state));
-    return this;
-  }
-
-  getJsonState(): T | undefined {
-    return this.currentState;
+  mapState(state: T | undefined): any {
+    return state === undefined ? {} : state;
   }
 
   discoveryState() {
+    const value_template = [`default('')`];
+    if (this.valueField) value_template.unshift(`value_json.${this.valueField}`);
     return {
       ...super.discoveryState(),
+      value_template: `{{ ${value_template.join(' | ')} }}`,
       json_attributes_topic: this.stateTopic,
-      value_template: '{{ value_json }}',
     };
   }
 }

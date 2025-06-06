@@ -1,31 +1,17 @@
 import { IMQTTConnection } from '../MQTT/IMQTTConnection';
-import { IESPConnection } from '../ESPHome/IESPConnection';
-import { logInfo, logError, logWarn } from '../Utils/logger';
-import { buildMQTTDeviceData } from '../Common/buildMQTTDeviceData';
-import { setupDeviceInfoSensor } from '../BLE/setupDeviceInfoSensor';
-import { setupMotorEntities } from './setupMotorEntities';
-import { setupMassageEntities } from './setupMassageEntities';
-import { setupPresetEntities } from './setupPresetEntities';
-import { setupLightEntities } from './setupLightEntities';
-import { setupUnderBedLightEntities } from './setupUnderBedLightEntities';
-import { setupZeroGravityEntities } from './setupZeroGravityEntities';
-import { setupAntiSnoreEntities } from './setupAntiSnoreEntities';
-import { setupMemoryPositionEntities } from './setupMemoryPositionEntities';
-import { setupFlatEntities } from './setupFlatEntities';
-import { setupStorage } from './setupStorage';
-import { BLEController } from '../BLE/BLEController';
-import { getRootOptions } from '../Utils/options';
 import { buildDictionary } from '../Utils/buildDictionary';
-import { getDevices } from './options';
-import { OctoDevice } from '../Utils/options';
-import { IDeviceData } from '../HomeAssistant/IDeviceData';
 import { Deferred } from '../Utils/deferred';
+import { logInfo, logError, logWarn } from '../Utils/logger';
+import { BLEController } from '../BLE/BLEController';
+import { buildMQTTDeviceData } from '../Common/buildMQTTDeviceData';
+import { IESPConnection } from '../ESPHome/IESPConnection';
 import { extractFeatureValuePairFromData } from './extractFeaturesFromData';
 import { extractPacketFromMessage } from './extractPacketFromMessage';
+import { OctoDevice, getDevices } from './options';
 import { setupLightSwitch } from './setupLightSwitch';
-import { setupDeviceInfoSensor as oldSetupDeviceInfoSensor } from '../BLE/setupDeviceInfoSensor';
+import { setupMotorEntities } from './setupMotorEntities';
+import { setupDeviceInfoSensor } from '../BLE/setupDeviceInfoSensor';
 import { BLEDeviceInfo } from '../ESPHome/types/BLEDeviceInfo';
-import { MQTTDevicePlaceholder } from '@homeassistant/MQTTDevicePlaceholder';
 
 // Add a timeout for feature requests - time to wait for features before moving on
 const FEATURE_REQUEST_TIMEOUT_MS = 15000; // 15 seconds
@@ -40,198 +26,186 @@ export const octo = async (mqtt: IMQTTConnection, esphome: IESPConnection) => {
   const devicesMap = buildDictionary<OctoDevice, OctoDevice>(devices, (device) => ({ key: device.name.toLowerCase(), value: device }));
   const deviceNames = Object.keys(devicesMap);
   if (deviceNames.length !== devices.length) return logError('[Octo] Duplicate name detected in configuration');
-  const bleDevices = await esphome.getBLEDevices(deviceNames);
+  const bleDevices = await esphome.getBLEDevices(deviceNames.map(name => parseInt(name, 16)));
   for (const bleDevice of bleDevices) {
-    const { name, mac, address } = bleDevice;
+    const { name, mac, address, connect, disconnect, getCharacteristic, getDeviceInfo } = bleDevice;
     const device = devicesMap[mac] || devicesMap[name.toLowerCase()];
     if (!device) continue;
     
     const { pin, friendlyName } = device;
-    const deviceData = buildMQTTDeviceData({
-      friendlyName: friendlyName || name,
-      name: device.name,
-      address: mac
-    }, 'Ergomotion');
+    const deviceData = buildMQTTDeviceData({ friendlyName, name: device.name, address }, 'Octo');
+    await connect();
+
+    const characteristic = await getCharacteristic(
+      '0000ffe0-0000-1000-8000-00805f9b34fb',
+      '0000ffe1-0000-1000-8000-00805f9b34fb'
+    );
+    if (!characteristic) {
+      logWarn(`[Octo] Could not find required characteristic for device ${name}`);
+      await disconnect();
+      continue;
+    }
+
+    logInfo(`[Octo] Found characteristic with handle: ${characteristic.handle}`);
 
     // Create the BLE controller
     const controller = new BLEController(esphome);
     controller.deviceData = deviceData;
 
-    // Connect to the device using numeric address from bleDevice
-    const connectedDevice = await controller.connect(address);
-    if (!connectedDevice) {
-      logError(`[Octo] Failed to connect to device ${mac}`);
-      continue;
-    }
+    // Set up feature detection
+    const featureState = { hasLight: false, lightState: false, hasPin: false, pinLock: false };
+    let currentAttempt = 0;
+    let featuresReceived = false;
 
-    // Set up storage
-    const storage = setupStorage(mqtt, controller);
-
-    // Set up all entities
-    await setupDeviceInfoSensor(mqtt, deviceData);
-    await setupMotorEntities(mqtt, controller);
-    await setupMassageEntities(mqtt, controller);
-    await setupPresetEntities(mqtt, controller);
-    await setupLightEntities(mqtt, controller);
-    await setupUnderBedLightEntities(mqtt, controller);
-    await setupZeroGravityEntities(mqtt, controller);
-    await setupAntiSnoreEntities(mqtt, controller);
-    await setupMemoryPositionEntities(mqtt, controller, storage);
-    await setupFlatEntities(mqtt, controller);
-
-    // Register to Home Assistant
-    mqtt.publish(`homeassistant/device/${deviceData.deviceTopic}/config`, deviceData.device);
-    logInfo('[Octo] Device setup complete for:', friendlyName || name);
-  }
-};
-
-export const setupOctoDevice = async (
-  mqtt: IMQTTConnection,
-  controller: BLEController
-) => {
-  logInfo(`[Octo] Setting up device ${controller.deviceData.device.name}`);
-
-  try {
-    // Set up device info sensor
-    await setupDeviceInfoSensor(mqtt, controller.deviceData);
-
-    // Set up motor entities
-    await setupMotorEntities(mqtt, controller);
-
-    logInfo(`[Octo] Device ${controller.deviceData.device.name} setup complete`);
-  } catch (error) {
-    logError(`[Octo] Error setting up device ${controller.deviceData.device.name}:`, error);
-    throw error;
-  }
-};
-
-export const setupOcto = async (
-  mqtt: IMQTTConnection,
-  espConnection: IESPConnection
-): Promise<void> => {
-  logInfo('[Octo] Setting up Octo...');
-
-  const options = getRootOptions();
-  const firstDevice = options.octoDevices[0];
-  if (!firstDevice) {
-    throw new Error('No devices configured');
-  }
-
-  // Use a placeholder MAC address since we don't have a real device yet
-  const placeholderMac = '00:00:00:00:00:00';
-  const deviceData = buildMQTTDeviceData({
-    friendlyName: firstDevice.friendlyName || firstDevice.name,
-    name: firstDevice.name,
-    address: placeholderMac
-  }, 'Ergomotion');
-
-  const controller = new BLEController(espConnection);
-  controller.deviceData = deviceData;
-  const storage = setupStorage(mqtt, controller);
-
-  try {
-    await setupDeviceInfoSensor(mqtt, deviceData);
-    await setupMotorEntities(mqtt, controller);
-    await setupMassageEntities(mqtt, controller);
-    await setupPresetEntities(mqtt, controller);
-    await setupLightEntities(mqtt, controller);
-    await setupUnderBedLightEntities(mqtt, controller);
-    await setupZeroGravityEntities(mqtt, controller);
-    await setupAntiSnoreEntities(mqtt, controller);
-    await setupMemoryPositionEntities(mqtt, controller, storage);
-    await setupFlatEntities(mqtt, controller);
-    logInfo('[Octo] Setup complete!');
-  } catch (error) {
-    logError('[Octo] Error during setup:', error);
-    throw error;
-  }
-};
-
-export class OctoMQTT {
-  private bleController: BLEController;
-  private deviceData?: IDeviceData;
-
-  constructor(
-    private mqtt: IMQTTConnection,
-    private esphome: IESPConnection
-  ) {
-    this.bleController = new BLEController(esphome);
-  }
-
-  public async start(): Promise<void> {
-    try {
-      logInfo('[OctoMQTT] Starting...');
-
-      // Get configured devices
-      const config = getRootOptions();
-      const deviceNames = config.octoDevices?.map(device => device.name.toLowerCase()) || [];
-
-      // Connect to devices
-      const bleDevices = await this.esphome.getBLEDevices(deviceNames);
-      if (bleDevices.length === 0) {
-        throw new Error('No devices found');
-      }
-
-      // Set up MQTT entities for each device
-      for (const device of bleDevices) {
-        const deviceInfo = await device.getDeviceInfo() || {};
-        const mac = device.mac;
-        const friendlyName = config.octoDevices?.find(d => d.name === device.name)?.friendlyName || device.name;
-        const manufacturer = deviceInfo.manufacturerName || 'Ergomotion';
-
-        // Build device data
-        const deviceData = buildMQTTDeviceData({
-          friendlyName,
-          name: deviceInfo.modelNumber || 'RC2',
-          address: mac
-        }, manufacturer);
-
-        // Create BLE controller
-        const controller = new BLEController(this.esphome);
-        controller.deviceData = deviceData;
-
-        // Connect to the device using numeric address from bleDevice
-        const connectedDevice = await controller.connect(device.address);
-        if (!connectedDevice) {
-          logError(`[Octo] Failed to connect to device ${mac}`);
-          continue;
+    // Function to request features and wait with retry logic
+    const requestFeatures = async () => {
+      currentAttempt++;
+      
+      logInfo(`[Octo] Requesting features for device ${name} (attempt ${currentAttempt}/${MAX_FEATURE_REQUEST_ATTEMPTS})`);
+      
+      const allFeaturesReturned = new Deferred<void>();
+      
+      // Add timeout for feature request
+      const featureRequestTimeout = setTimeout(() => {
+        if (!featuresReceived) {
+          logWarn(`[Octo] Timeout waiting for features from device ${name}, attempt ${currentAttempt}/${MAX_FEATURE_REQUEST_ATTEMPTS}`);
+          allFeaturesReturned.resolve();
         }
+      }, FEATURE_REQUEST_TIMEOUT_MS);
 
-        // Create storage
-        const storage = setupStorage(this.mqtt, controller);
+      const loadFeatures = (message: Uint8Array) => {
+        logInfo(`[Octo] Received data from device: ${Array.from(message).map((b) => b.toString(16)).join(' ')}`);
+        
+        const packet = extractPacketFromMessage(message);
+        if (!packet) {
+          logWarn(`[Octo] Failed to extract packet from message`);
+          return;
+        }
+        
+        const { command, data } = packet;
+        logInfo(`[Octo] Extracted packet - command: ${command.map((b) => b.toString(16)).join(' ')}, data length: ${data.length}`);
+        
+        if (command[0] == 0x21 && command[1] == 0x71) {
+          // features
+          logInfo(`[Octo] Received feature data: ${JSON.stringify(Array.from(data))}`);
+          const featureValue = extractFeatureValuePairFromData(data);
+          if (featureValue == null) {
+            logWarn(`[Octo] Failed to extract feature value from data`);
+            return;
+          }
 
-        // Set up all entities
-        await setupDeviceInfoSensor(this.mqtt, deviceData);
-        await setupMotorEntities(this.mqtt, controller);
-        await setupMassageEntities(this.mqtt, controller);
-        await setupPresetEntities(this.mqtt, controller);
-        await setupLightEntities(this.mqtt, controller);
-        await setupUnderBedLightEntities(this.mqtt, controller);
-        await setupZeroGravityEntities(this.mqtt, controller);
-        await setupAntiSnoreEntities(this.mqtt, controller);
-        await setupMemoryPositionEntities(this.mqtt, controller, storage);
-        await setupFlatEntities(this.mqtt, controller);
+          featuresReceived = true;
+          const { feature, value } = featureValue;
+          logInfo(`[Octo] Parsed feature: ${feature.toString(16)}, value: ${JSON.stringify(Array.from(value))}`);
+          
+          switch (feature) {
+            case 0x3:
+              featureState.hasPin = value[0] == 0x1;
+              featureState.pinLock = value[1] !== 0x1;
+              logInfo(`[Octo] Has PIN: ${featureState.hasPin}, PIN locked: ${featureState.pinLock}`);
+              return;
+            case 0x102:
+              featureState.hasLight = true;
+              featureState.lightState = value[0] == 0x1;
+              logInfo(`[Octo] Has light: ${featureState.hasLight}, light state: ${featureState.lightState}`);
+              return;
+            case 0xffffff:
+              logInfo(`[Octo] End of features marker received`);
+              clearTimeout(featureRequestTimeout);
+              return allFeaturesReturned.resolve();
+          }
+        } else {
+          logInfo(`[Octo] Received non-feature packet with command: ${command.map((b) => b.toString(16)).join(' ')}`);
+        }
+      };
+      
+      controller.on('feedback', loadFeatures);
 
-        // Register to Home Assistant
-        this.mqtt.publish(`homeassistant/device/${deviceData.deviceTopic}/config`, deviceData.device);
-        logInfo('[Octo] Device setup complete for:', friendlyName);
+      try {
+        // Send the feature request command
+        await controller.writeCommand({ command: [0x20, 0x71], data: [] });
+        await allFeaturesReturned;
+      } catch (error) {
+        logError(`[Octo] Error requesting features: ${error}`);
+      } finally {
+        clearTimeout(featureRequestTimeout);
+        controller.off('feedback', loadFeatures);
       }
 
-      logInfo('[OctoMQTT] Started successfully');
-    } catch (error) {
-      logError('[OctoMQTT] Failed to start:', error);
-      throw error;
-    }
-  }
+      // If we didn't receive any features and haven't reached max attempts, try again
+      if (!featuresReceived && currentAttempt < MAX_FEATURE_REQUEST_ATTEMPTS) {
+        logInfo(`[Octo] Retrying feature request for device ${name}`);
+        return requestFeatures();
+      }
+      
+      // If we tried max attempts and still didn't get features, continue with defaults
+      if (!featuresReceived) {
+        logWarn(`[Octo] Failed to get features after ${MAX_FEATURE_REQUEST_ATTEMPTS} attempts, continuing with defaults`);
+      }
+    };
 
-  public async stop(): Promise<void> {
-    try {
-      logInfo('[OctoMQTT] Stopping...');
-      await this.bleController.disconnectAll();
-      logInfo('[OctoMQTT] Stopped successfully');
-    } catch (error) {
-      logError('[OctoMQTT] Failed to stop:', error);
-      throw error;
+    // Request features
+    await requestFeatures();
+
+    // Handle PIN if needed
+    if (featureState.hasPin && featureState.pinLock) {
+      if (pin?.length !== 4) {
+        logError('[Octo] 4 Digit Numeric Pin Required But Not Provided');
+        await disconnect();
+        continue;
+      }
+      logInfo('[Octo] Sending PIN to unlock device');
+      try {
+        // Send initial PIN command
+        await controller.writeCommand({ 
+          command: [0x20, 0x43], 
+          data: pin.split('').map((c) => parseInt(c))
+        });
+        logInfo('[Octo] PIN sent successfully, device unlocked');
+      } catch (error) {
+        logError(`[Octo] Error sending PIN: ${error}`);
+        await disconnect();
+        continue;
+      }
     }
+
+    logInfo('[Octo] Setting up entities for device:', name);
+    const deviceInfo = await getDeviceInfo() as BLEDeviceInfo;
+    if (deviceInfo) {
+      logInfo(`[Octo] Retrieved device info:`, deviceInfo);
+      // Update controller's device data with firmware version
+      controller.deviceData = {
+        ...controller.deviceData,
+        firmwareVersion: deviceInfo.firmwareRevision || 'Unknown'
+      };
+      
+      setupDeviceInfoSensor(
+        mqtt,
+        controller,
+        mac,
+        friendlyName,
+        deviceInfo.modelNumber || 'RC2',  // Default to RC2 if no model number
+        deviceInfo.manufacturerName || 'Ergomotion'  // Default to Ergomotion if no manufacturer
+      );
+      
+      // Log success for debugging
+      logInfo(`[Octo] Device info sensor setup complete for ${friendlyName}`);
+    } else {
+      logWarn(`[Octo] Could not retrieve device info for ${friendlyName}, using defaults`);
+      // Set up with default values
+      setupDeviceInfoSensor(
+        mqtt,
+        controller,
+        mac,
+        friendlyName,
+        'RC2',
+        'Ergomotion'
+      );
+    }
+
+    if (featureState.hasLight) {
+      setupLightSwitch(mqtt, controller, featureState.lightState);
+    }
+    setupMotorEntities(mqtt, controller);
   }
-}
+};

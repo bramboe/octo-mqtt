@@ -1,84 +1,73 @@
+import fs from 'fs';
+import path from 'path';
 import { logInfo } from './logger';
-import * as fs from 'fs';
-import * as path from 'path';
 
-export interface RootOptions {
-  octoDevices: OctoDevice[];
-  bleProxies: BLEProxy[];
+interface RootOptions {
   mqtt_host: string;
   mqtt_port: string;
   mqtt_user: string;
   mqtt_password: string;
+  bleProxies: Array<{
+    host: string;
+    port: number;
+  }>;
+  octoDevices: any[]; // TODO: Define proper type for octoDevices
 }
 
-export interface OctoDevice {
-  name: string;
-  pin?: string;
-  friendlyName: string;
-}
+let rootOptions: RootOptions | null = null;
 
-export interface BLEProxy {
-  host: string;
-  port?: number;
-  password?: string;
-}
+export function getRootOptions(): RootOptions {
+  if (rootOptions) return rootOptions;
 
-const DEFAULT_BLE_PORT = 6053;
-
-let rootOptions: RootOptions = {
-  octoDevices: [],
-  bleProxies: [],
-  mqtt_host: 'localhost',
-  mqtt_port: '1883',
-  mqtt_user: '',
-  mqtt_password: ''
-};
-
-export const setRootOptions = (options: RootOptions) => {
-  logInfo('[Options] Setting root options:', options);
-  rootOptions = options;
-};
-
-export const getRootOptions = (): RootOptions => {
+  logInfo('[Options] Attempting to read options');
+  
+  // First try development config
+  const devPath = path.join(process.cwd(), 'dev.config.json');
   try {
-    // Try to read from Home Assistant's options.json
-    const haOptionsPath = '/data/options.json';
-    if (fs.existsSync(haOptionsPath)) {
-      const haOptions = JSON.parse(fs.readFileSync(haOptionsPath, 'utf8'));
-      
-      // Convert Home Assistant options format to our format if needed
-      const bleProxies = (haOptions.bleProxies || []).map((proxy: BLEProxy) => ({
-        ...proxy,
-        port: proxy.port || DEFAULT_BLE_PORT
-      }));
-      const octoDevices = haOptions.octoDevices || [];
-
-      return {
-        octoDevices,
-        bleProxies,
-        mqtt_host: haOptions.mqtt_host || 'localhost',
-        mqtt_port: haOptions.mqtt_port || '1883',
-        mqtt_user: haOptions.mqtt_user || '',
-        mqtt_password: haOptions.mqtt_password || ''
-      };
-    }
-
-    // For development, try to read from dev.config.json
-    const devConfigPath = path.join(process.cwd(), 'dev.config.json');
-    if (fs.existsSync(devConfigPath)) {
-      const devOptions = JSON.parse(fs.readFileSync(devConfigPath, 'utf8'));
-      // Apply default port to dev config as well
-      devOptions.bleProxies = (devOptions.bleProxies || []).map((proxy: BLEProxy) => ({
-        ...proxy,
-        port: proxy.port || DEFAULT_BLE_PORT
-      }));
-      return devOptions;
-    }
-
-    // Return default options if no configuration file is found
+    const content = fs.readFileSync(devPath, 'utf8');
+    rootOptions = JSON.parse(content) as RootOptions;
+    logInfo('[Options] Successfully read development config from:', devPath);
     return rootOptions;
   } catch (error) {
-    logInfo('[Options] Error reading options:', error);
-    return rootOptions;
+    logInfo('[Options] No development config found, checking Home Assistant paths');
   }
-};
+
+  // Try to read from data directory
+  const localPath = path.join(process.cwd(), 'data', 'options.json');
+  try {
+    const content = fs.readFileSync(localPath, 'utf8');
+    rootOptions = JSON.parse(content) as RootOptions;
+    logInfo('[Options] Successfully read options from local path:', localPath);
+    return rootOptions;
+  } catch (error) {
+    logInfo('[Options] Could not read from local path, trying /data/options.json');
+  }
+
+  // Try to read from /data/options.json (Home Assistant environment)
+  try {
+    const content = fs.readFileSync('/data/options.json', 'utf8');
+    rootOptions = JSON.parse(content) as RootOptions;
+    logInfo('[Options] Successfully read options from /data/options.json');
+    return rootOptions;
+  } catch (error) {
+    logInfo('[Options] Could not read from /data/options.json, using default development options');
+  }
+
+  // If no options file could be read, return development defaults
+  rootOptions = {
+    mqtt_host: "localhost",
+    mqtt_port: "1883",
+    mqtt_user: "",
+    mqtt_password: "",
+    bleProxies: [
+      {
+        host: "localhost",
+        port: 6053
+      }
+    ],
+    octoDevices: []
+  };
+
+  logInfo('[Options] Using default development options');
+  return rootOptions;
+}
