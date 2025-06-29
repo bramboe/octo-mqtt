@@ -36,7 +36,13 @@
         "port": 6053
       }
     ],
-    "octoDevices": []
+    "octoDevices": [
+      {
+        "name": "f6:21:dd:dd:6f:19",
+        "friendlyName": "RC2 Bed",
+        "pin": "0000"
+      }
+    ]
   },
   "schema": {
     "mqtt_host": "str",

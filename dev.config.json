@@ -12,8 +12,8 @@
   ],
   "octoDevices": [
     {
-      "name": "RC2",
-      "friendlyName": "Bedroom Bed",
+      "name": "f6:21:dd:dd:6f:19",
+      "friendlyName": "RC2 Bed",
       "pin": "0000"
     }
   ]
