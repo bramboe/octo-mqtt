@@ -69,4 +69,4 @@ echo "- BLE Proxy count: $(bashio::config 'bleProxies | length')"
 echo "- Octo device count: $(bashio::config 'octoDevices | length')"
 
 # Run without debugger for better stability
-node index.js
+node dist/index.js
