@@ -29,7 +29,8 @@ FROM node:18-alpine
 ENV LANG C.UTF-8
 ENV PORT=8099
 
-RUN apk add --no-cache bash curl jq && \
+# Install s6-overlay for service management
+RUN apk add --no-cache bash curl jq s6-overlay && \
     curl -J -L -o /tmp/bashio.tar.gz "https://github.com/hassio-addons/bashio/archive/v0.13.1.tar.gz" && \
     mkdir /tmp/bashio && \
     tar zxvf /tmp/bashio.tar.gz --strip 1 -C /tmp/bashio && \
@@ -47,8 +48,10 @@ COPY --from=builder /octo-mqtt/node_modules /octo-mqtt/node_modules
 COPY --from=builder /octo-mqtt/dist/ /octo-mqtt/dist/
 COPY webui /octo-mqtt/webui/
 
-ENTRYPOINT [ "/octo-mqtt/run.sh" ]
-#ENTRYPOINT [ "node", "index.js" ]
+# Copy s6 service files
+COPY rootfs /
+
+ENTRYPOINT [ "/init" ]
 LABEL \
     io.hass.name="Octo MQTT" \
     io.hass.description="A Home Assistant add-on to enable controlling Octo actuators star version 2." \

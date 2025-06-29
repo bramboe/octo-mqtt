@@ -8,7 +8,7 @@
 trap 'exit 0' SIGTERM
 
 # Change to the app directory
-cd /app || exit 1
+cd /octo-mqtt || exit 1
 
 # Set environment variables
 export NODE_ENV=production
