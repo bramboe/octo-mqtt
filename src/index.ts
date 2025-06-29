@@ -79,23 +79,35 @@ async function initializeAddon() {
     logInfo('[Octo MQTT] ESPHome connected successfully');
     
     // Initialize storage
-    storage = setupStorage(bleController!);
+    storage = setupStorage(bleController || undefined);
     
     // Initialize BLE controller if ESPHome connection is available
     // Try to start a BLE scan to test if connections are working
     try {
-      await esphomeConnection.startBleScan(1000, () => {});
-      await esphomeConnection.stopBleScan();
-      bleController = new BLEController(esphomeConnection);
-      logInfo('[Octo MQTT] BLE controller initialized');
-      
-      // Set up memory position entities if we have devices configured
-      if (config.octoDevices && config.octoDevices.length > 0) {
-        await setupMemoryPositionEntities(bleController, storage, mqttConnection);
-        logInfo('[Octo MQTT] Memory position entities setup complete');
+      if (esphomeConnection) {
+        // Test the ESPHome connection by attempting a short scan
+        try {
+          await esphomeConnection.startBleScan(1000, () => {});
+          await esphomeConnection.stopBleScan();
+          bleController = new BLEController(esphomeConnection);
+          logInfo('[Octo MQTT] BLE controller initialized successfully');
+          
+          // Set up memory position entities if we have devices configured
+          if (config.octoDevices && config.octoDevices.length > 0) {
+            await setupMemoryPositionEntities(bleController, storage, mqttConnection);
+            logInfo('[Octo MQTT] Memory position entities setup complete');
+          }
+        } catch (bleError) {
+          logWarn('[Octo MQTT] BLE scan test failed, BLE functionality will be disabled:', bleError);
+          // Don't create BLE controller if scan fails
+          bleController = null;
+        }
+      } else {
+        logWarn('[Octo MQTT] No ESPHome connection available, BLE functionality disabled');
       }
     } catch (error) {
       logWarn('[Octo MQTT] No ESPHome connections available, BLE functionality disabled:', error);
+      bleController = null;
     }
     
     // Initialize Octo devices

@@ -43,25 +43,35 @@ export class ESPConnection implements IESPConnection {
   }
 
   async getBLEDevices(deviceAddresses: number[]): Promise<IBLEDevice[]> {
+    if (this.connections.length === 0) {
+      logWarn('[ESPHome] No active proxy connections available for device discovery');
+      return [];
+    }
+    
     logInfo(`[ESPHome] Searching for device(s): ${deviceAddresses.join(', ')}`);
     const bleDevices: IBLEDevice[] = [];
     const complete = new Deferred<void>();
     
-    await this.discoverBLEDevices(
-      (bleDevice) => {
-        const { address } = bleDevice;
-        const index = deviceAddresses.indexOf(address);
-        if (index === -1) return;
+    try {
+      await this.discoverBLEDevices(
+        (bleDevice) => {
+          const { address } = bleDevice;
+          const index = deviceAddresses.indexOf(address);
+          if (index === -1) return;
 
-        deviceAddresses.splice(index, 1);
-        logInfo(`[ESPHome] Found device with address: ${address}`);
-        bleDevices.push(bleDevice);
-        this.activeDevices.add(bleDevice);
-        if (deviceAddresses.length) return;
-        complete.resolve();
-      },
-      complete
-    );
+          deviceAddresses.splice(index, 1);
+          logInfo(`[ESPHome] Found device with address: ${address}`);
+          bleDevices.push(bleDevice);
+          this.activeDevices.add(bleDevice);
+          if (deviceAddresses.length) return;
+          complete.resolve();
+        },
+        complete
+      );
+    } catch (error) {
+      logError('[ESPHome] Error during device discovery:', error);
+      // Don't throw, just return empty array
+    }
     
     if (deviceAddresses.length) {
       logWarn(`[ESPHome] Could not find device(s) with addresses: ${deviceAddresses.join(', ')}`);
@@ -79,6 +89,13 @@ export class ESPConnection implements IESPConnection {
       connection,
       listener: (advertisement: any) => {
         let { name, address } = advertisement;
+        
+        // Validate address: must be a number and not NaN or 0
+        if (typeof address !== 'number' || isNaN(address) || address === 0) {
+          logWarn('[ESPHome] Skipping device with invalid address in discovery:', address);
+          return;
+        }
+        
         if (seenAddresses.includes(address) || !name) return;
         seenAddresses.push(address);
         onNewDeviceFound(new BLEDevice(name, advertisement, connection));
@@ -87,15 +104,24 @@ export class ESPConnection implements IESPConnection {
     
     const listeners = this.connections.map(listenerBuilder);
     
+    // Add a timeout to prevent hanging indefinitely
+    const timeout = setTimeout(() => {
+      logWarn('[ESPHome] Device discovery timeout reached');
+      complete.resolve();
+    }, 10000); // 10 second timeout
+    
     for (const { connection, listener } of listeners) {
       connection.on('message.BluetoothLEAdvertisementResponse', listener);
       connection.subscribeBluetoothAdvertisementService();
     }
     
-    await complete;
-    
-    for (const { connection, listener } of listeners) {
-      connection.off('message.BluetoothLEAdvertisementResponse', listener);
+    try {
+      await complete;
+    } finally {
+      clearTimeout(timeout);
+      for (const { connection, listener } of listeners) {
+        connection.off('message.BluetoothLEAdvertisementResponse', listener);
+      }
     }
   }
 

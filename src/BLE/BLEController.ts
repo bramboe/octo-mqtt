@@ -51,6 +51,12 @@ export class BLEController extends EventEmitter implements IController<Command |
 
   async connectToDevice(deviceAddress: number, _pin: string): Promise<boolean> {
     try {
+      // Validate device address
+      if (typeof deviceAddress !== 'number' || isNaN(deviceAddress) || deviceAddress === 0) {
+        logError(`[BLE] Invalid device address: ${deviceAddress}`);
+        return false;
+      }
+      
       logInfo(`[BLE] Attempting to connect to device: ${deviceAddress.toString(16)}`);
       
       // Get the device from ESPHome
