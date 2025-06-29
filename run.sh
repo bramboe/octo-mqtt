@@ -8,6 +8,15 @@ export MQTTPASSWORD=$(bashio::config "mqtt_password")
 # Enable full error stack traces for debugging
 export NODE_OPTIONS="--trace-warnings --trace-uncaught"
 
+# Debug: Print all environment variables
+echo "=== Environment Variables ==="
+echo "MQTTHOST: ${MQTTHOST}"
+echo "MQTTPORT: ${MQTTPORT}"
+echo "MQTTUSER: ${MQTTUSER}"
+echo "MQTTPASSWORD: ${MQTTPASSWORD:0:3}***"
+echo "NODE_OPTIONS: ${NODE_OPTIONS}"
+echo "=============================="
+
 if [ $MQTTHOST = '<auto_detect>' ]; then
     if bashio::services.available 'mqtt'; then
         MQTTHOST=$(bashio::services mqtt "host")
@@ -70,6 +79,12 @@ echo "- Octo device count: $(bashio::config 'octoDevices | length')"
 
 echo "Contents of /octo-mqtt/dist before starting Node.js:" 
 ls -l /octo-mqtt/dist
+
+# Export the final values for Node.js
+export MQTTHOST
+export MQTTPORT
+export MQTTUSER
+export MQTTPASSWORD
 
 # Run without debugger for better stability
 node dist/index.js

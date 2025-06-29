@@ -29,8 +29,8 @@ FROM node:18-alpine
 ENV LANG C.UTF-8
 ENV PORT=8099
 
-# Install s6-overlay for service management
-RUN apk add --no-cache bash curl jq s6-overlay && \
+# Install s6-overlay and required utilities
+RUN apk add --no-cache bash curl jq s6-overlay coreutils && \
     curl -J -L -o /tmp/bashio.tar.gz "https://github.com/hassio-addons/bashio/archive/v0.13.1.tar.gz" && \
     mkdir /tmp/bashio && \
     tar zxvf /tmp/bashio.tar.gz --strip 1 -C /tmp/bashio && \

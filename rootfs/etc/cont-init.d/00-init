@@ -1,31 +1,41 @@
-#!/usr/bin/execlineb -P
+#!/usr/bin/with-contenv bash
 # ==============================================================================
 # Initialize the add-on
 # s6-overlay docs: https://github.com/just-containers/s6-overlay
 # ==============================================================================
 
-# Import environment variables
-/usr/bin/with-contenv
-
 # Create data directory if it doesn't exist
-/usr/bin/if { /usr/bin/test ! -d /data/octo-mqtt }
-/usr/bin/mkdir -p /data/octo-mqtt
-
-# Copy default configuration if it doesn't exist
-/usr/bin/if { /usr/bin/test ! -f /data/options.json }
-/usr/bin/cp -f /app/config.json /data/options.json
+if [ ! -d /data ]; then
+    mkdir -p /data
+fi
 
 # Set proper permissions
-/usr/bin/chown -R root:root /data/octo-mqtt
-/usr/bin/chmod -R 755 /data/octo-mqtt
+chown -R root:root /data
+chmod -R 755 /data
 
-# Ensure configuration is valid
-/usr/bin/if { /usr/bin/test ! -f /data/options.json }
-/usr/bin/foreground {
-    /usr/bin/echo "Error: Configuration file /data/options.json is missing!"
-    /usr/bin/exit 1
+# Ensure configuration directory exists
+if [ ! -d /data/octo-mqtt ]; then
+    mkdir -p /data/octo-mqtt
+fi
+
+# Copy default configuration if it doesn't exist
+if [ ! -f /data/options.json ]; then
+    echo "Creating default configuration..."
+    cat > /data/options.json << 'EOF'
+{
+  "mqtt_host": "<auto_detect>",
+  "mqtt_port": "<auto_detect>",
+  "mqtt_user": "<auto_detect>",
+  "mqtt_password": "<auto_detect>",
+  "bleProxies": [
+    {
+      "host": "192.168.2.102",
+      "port": 6053
+    }
+  ],
+  "octoDevices": []
 }
+EOF
+fi
 
-# Create symlink to ensure consistent configuration path
-/usr/bin/if { /usr/bin/test ! -L /app/config.json }
-/usr/bin/ln -sf /data/options.json /app/config.json 
+echo "Add-on initialization complete" 
