@@ -68,5 +68,8 @@ echo "- MQTT Port: ${MQTTPORT}"
 echo "- BLE Proxy count: $(bashio::config 'bleProxies | length')"
 echo "- Octo device count: $(bashio::config 'octoDevices | length')"
 
+echo "Contents of /octo-mqtt/dist before starting Node.js:" 
+ls -l /octo-mqtt/dist
+
 # Run without debugger for better stability
 node dist/index.js
