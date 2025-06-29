@@ -1,8 +1,8 @@
 import { IMQTTConnection } from '../MQTT/IMQTTConnection';
 import { BLEController } from './BLEController';
-import { logInfo, logWarn } from '../Utils/logger';
-import { OctoDevice } from '../Octo/OctoDevice';
+import { logInfo } from '../Utils/logger';
 
+// Simple stub implementation
 export const setupDeviceInfoSensor = async (
   mqtt: IMQTTConnection,
   controller: BLEController,
@@ -59,12 +59,3 @@ export const setupDeviceInfoSensor = async (
 
   logInfo(`[DeviceInfo] Successfully set up device info sensor for ${name}`);
 };
-
-export function setupDeviceInfoSensor(
-  mqtt: IMQTTConnection,
-  device: OctoDevice,
-  availabilityTopic: string
-): void {
-  const { name, identifier, productName, swVersion, manufacturer, model, connections } = device;
-  // ... existing code ...
-} 

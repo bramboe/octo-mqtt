@@ -3,4 +3,4 @@ export const byte = (value: number) => {
     value += 0xff;
   }
   return value & 0xff;
-};
+}; 

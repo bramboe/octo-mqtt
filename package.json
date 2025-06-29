@@ -2,13 +2,23 @@
   "name": "octo-mqtt",
   "version": "1.2.3",
   "description": "Octo MQTT integration for Octo actuators star version 2",
+  "author": "Bram Boersma",
+  "repository": "https://github.com/bramboe/octo-mqtt.git",
+  "license": "MIT",
   "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "scripts": {
     "clean": "rm -rf dist build",
     "build": "tsc -p tsconfig.build.json && tsc-alias -p tsconfig.build.json",
     "build:ci": "yarn clean && yarn build",
     "start": "ts-node -r tsconfig-paths/register src/index.ts",
-    "dev": "nodemon"
+    "dev": "nodemon",
+    "lint": "eslint src --ext .ts",
+    "prettier": "prettier --write \"src/**/**.{ts,js,json}\"",
+    "test": "jest --watch",
+    "test:ci": "jest",
+    "docker:dev": "docker build -t smqtt . && docker run -v $(pwd)/../data:/data smqtt",
+    "cachebust": "echo Build-$(date +%s)"
   },
   "dependencies": {
     "@2colors/esphome-native-api": "^1.1.0",
@@ -18,13 +28,23 @@
     "ws": "^8.18.2"
   },
   "devDependencies": {
+    "@eslint/js": "^8.57.0",
     "@types/express": "^5.0.2",
     "@types/node": "^18.15.11",
     "@types/ws": "^8.18.1",
+    "@typescript-eslint/eslint-plugin": "^8.35.1-alpha.6",
+    "@typescript-eslint/parser": "^8.35.1-alpha.6",
+    "eslint": "^8.57.0",
     "nodemon": "^2.0.22",
     "ts-node": "^10.9.1",
     "tsc-alias": "^1.8.16",
     "tsconfig-paths": "^4.2.0",
     "typescript": "^5.0.4"
-  }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist/**/*"
+  ]
 }

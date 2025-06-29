@@ -10,4 +10,4 @@ export interface IESPConnection {
     onDeviceDiscoveredDuringScan: (device: BLEDeviceAdvertisement) => void
   ): Promise<BLEDeviceAdvertisement[]>;
   stopBleScan(): Promise<void>;
-}
+} 

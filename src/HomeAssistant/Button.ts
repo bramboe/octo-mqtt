@@ -31,4 +31,4 @@ export class Button extends Entity {
       command_topic: this.commandTopic,
     };
   }
-}
+} 

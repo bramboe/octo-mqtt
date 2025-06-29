@@ -1,9 +1,14 @@
-import { IMQTTConnection } from '@mqtt/IMQTTConnection';
 import { BLEController } from '../BLE/BLEController';
-import { logInfo } from '@utils/logger';
-import { OctoStorage } from './storage';
 
-export function setupStorage(mqtt: IMQTTConnection, controller: BLEController): OctoStorage {
-  logInfo('[Octo] Setting up storage');
-  return new OctoStorage();
+export interface OctoStorage {
+  get(key: string): number;
+  set(key: string, value: number): void;
+}
+
+export function setupStorage(_controller: BLEController): OctoStorage {
+  // TODO: Implement storage setup
+  return {
+    get: () => 0,
+    set: () => {}
+  };
 } 

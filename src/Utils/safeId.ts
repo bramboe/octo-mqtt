@@ -3,4 +3,4 @@ export const safeId = (value: string) => {
     .toLowerCase()
     .replace(/[^a-z0-9]/g, '_')
     .replace(/__+/, '_');
-};
+}; 

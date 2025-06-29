@@ -58,4 +58,4 @@ export const extractPacketFromMessage = (message: Uint8Array) => {
     logWarn(`[Octo] Error extracting packet: ${error}`);
     return null;
   }
-};
+}; 

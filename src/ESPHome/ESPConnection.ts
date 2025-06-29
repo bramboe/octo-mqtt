@@ -161,7 +161,7 @@ export class ESPConnection implements IESPConnection {
 
       const discoveredDevice: BLEDeviceAdvertisement = {
         name: data.name || (isRC2Device ? 'RC2' : 'Unknown Device'),
-        address: rawAddress,
+        address: rawAddress, 
         rssi: data.rssi,
         service_uuids: data.serviceUuids || data.service_uuids || [],
       };

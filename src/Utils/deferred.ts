@@ -38,4 +38,4 @@ export class Deferred<T = void> {
   finally(onfinally?: (() => void) | null): Promise<T> {
     return this._promise.finally(onfinally);
   }
-}
+} 

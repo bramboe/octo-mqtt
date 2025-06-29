@@ -16,4 +16,4 @@ export const getProxies = () => {
     return proxies as BLEProxy[];
   }
   return [];
-};
+}; 

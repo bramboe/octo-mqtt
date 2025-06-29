@@ -99,4 +99,4 @@ const strings = {
   MotorPillow: 'Pillow',
 };
 
-export default strings;
+export default strings; 

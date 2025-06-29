@@ -1,8 +1,5 @@
-import { IMQTTConnection } from '@mqtt/IMQTTConnection';
 import { BLEController } from '../BLE/BLEController';
-import { logInfo } from '@utils/logger';
 
-export async function setupFlatEntities(mqtt: IMQTTConnection, controller: BLEController): Promise<void> {
-  logInfo('[Octo] Setting up flat entities');
+export async function setupFlatEntities(_controller: BLEController): Promise<void> {
   // TODO: Implement flat entities setup
 } 

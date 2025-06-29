@@ -5,4 +5,4 @@ export type BLEDeviceInfo = {
   hardwareRevision?: string;
   softwareRevision?: string;
   manufacturerName?: string;
-};
+}; 

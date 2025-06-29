@@ -1,4 +1,4 @@
-import { IMQTTConnection } from '@mqtt/IMQTTConnection';
+import { IMQTTConnection } from '../MQTT/IMQTTConnection';
 import { Cover } from './Cover';
 import { IDeviceData } from './IDeviceData';
 import { EntityConfig } from './base/Entity';
@@ -28,7 +28,7 @@ export class PositionalCover extends Cover {
     
     this.setPositionTopic = `${this.baseTopic}/set_position`;
     mqtt.subscribe(this.setPositionTopic);
-    mqtt.on(this.setPositionTopic, (message) => onSetPosition(parseInt(message)));
+    mqtt.on(this.setPositionTopic, (message: string) => onSetPosition(parseInt(message)));
   }
 
   discoveryState() {

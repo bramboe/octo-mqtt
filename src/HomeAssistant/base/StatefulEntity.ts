@@ -51,4 +51,4 @@ export class StatefulEntity<T> extends Entity implements IStateful<T> {
       this.mqtt.publish(this.stateTopic, message);
     }, 250);
   }
-}
+} 

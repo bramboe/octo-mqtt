@@ -7,8 +7,9 @@ export type JsonSensorConfig = {
   valueField?: string;
 };
 
-export class JsonSensor<T> extends Sensor<T> {
+export class JsonSensor extends Sensor {
   private valueField: string;
+
   constructor(
     mqtt: IMQTTConnection,
     deviceData: IDeviceData,
@@ -18,7 +19,7 @@ export class JsonSensor<T> extends Sensor<T> {
     this.valueField = valueField;
   }
 
-  mapState(state: T | undefined): any {
+  protected mapState(state: any): any {
     return state === undefined ? {} : state;
   }
 

@@ -18,4 +18,4 @@ export const getDevices = () => {
     return devices;
   }
   return [];
-};
+}; 

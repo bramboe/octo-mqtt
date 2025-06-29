@@ -12,4 +12,4 @@ export interface IBLEDevice {
   getServices(): Promise<any[]>;
   getDeviceInfo(): Promise<any | undefined>;
   readCharacteristic(handle: number): Promise<Uint8Array>;
-}
+} 

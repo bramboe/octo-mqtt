@@ -39,7 +39,7 @@ export const setupLightSwitch = (
         mqtt,
         controller.deviceData,
         buildEntityConfig('UnderBedLights', { icon: 'mdi:lightbulb' }),
-        async (state) => {
+        async (state: boolean) => {
           logInfo(`[Octo] Light switch ${state ? 'ON' : 'OFF'} command received`);
           try {
             // Use the exact command format from ESPHome
@@ -64,7 +64,7 @@ export const setupLightSwitch = (
       logInfo(`[Octo] Light switch created with initial state: ${initialState}`);
     }
 
-    controller.on('feedback', (message) => {
+    controller.on('feedback', (message: Uint8Array) => {
     const packet = extractPacketFromMessage(message);
     if (!packet) return;
     const { command, data } = packet;
@@ -81,4 +81,4 @@ export const setupLightSwitch = (
   } catch (error) {
     logError(`[Octo] Error setting up light switch: ${error}`);
   }
-};
+}; 

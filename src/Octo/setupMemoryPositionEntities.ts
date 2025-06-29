@@ -1,8 +1,8 @@
-import { IMQTTConnection } from '@mqtt/IMQTTConnection';
 import { BLEController } from '../BLE/BLEController';
-import { logInfo, logError } from '@utils/logger';
 import { Commands } from '../Common/Commands';
 import { buildMQTTDeviceData } from '../Common/buildMQTTDeviceData';
+import { IMQTTConnection } from '../MQTT/IMQTTConnection';
+import { logInfo, logError } from '../Utils/logger';
 import { OctoStorage } from './storage';
 
 interface MemoryPosition {
@@ -23,9 +23,9 @@ const MEMORY_POSITIONS: MemoryPositions = {
 };
 
 export async function setupMemoryPositionEntities(
-  mqtt: IMQTTConnection, 
   controller: BLEController,
-  storage: OctoStorage
+  storage: OctoStorage,
+  mqtt: IMQTTConnection
 ): Promise<void> {
   logInfo('[Octo] Setting up memory position entities');
 

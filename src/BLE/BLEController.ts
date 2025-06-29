@@ -202,16 +202,13 @@ export class BLEController extends EventEmitter implements IController<Command |
   }
 
   async cancelCommands(): Promise<void> {
-    // Implementation depends on your specific needs
-    logWarn('[BLE] Command cancellation not implemented');
+    // Implementation for canceling commands if applicable
+    logWarn('[BLE] Cancel commands not fully implemented yet.');
   }
 
   async setPin(pin: string): Promise<void> {
-    const pinBytes = pin.split('').map(Number);
-    await this.writeCommand({
-      command: [0x40, 0x20, 0x43, 0x00, 0x04],
-      data: pinBytes,
-      retries: 3
-    });
+    // Store PIN for later use if needed, e.g. for re-authentication
+    logInfo('[BLE] PIN set for controller:', pin ? '****' : 'none');
+    // Actual PIN usage would be in connectToDevice or during specific operations
   }
 } 

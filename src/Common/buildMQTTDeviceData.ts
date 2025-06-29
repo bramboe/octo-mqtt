@@ -13,4 +13,4 @@ export const buildMQTTDeviceData = ({ friendlyName, name, address }: Device, man
       mdl: name,
     },
   };
-};
+}; 

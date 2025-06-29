@@ -9,4 +9,4 @@ export const buildDictionary = <TItem, TValue>(
     acc[key] = value;
     return acc;
   }, {} as Dictionary<TValue>);
-};
+}; 

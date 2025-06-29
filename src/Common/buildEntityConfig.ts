@@ -9,4 +9,4 @@ export const buildEntityConfig = (
     description: getString(key),
     ...(additionalConfig || {}),
   };
-};
+}; 

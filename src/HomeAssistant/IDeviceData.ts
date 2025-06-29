@@ -8,4 +8,4 @@ export interface IDeviceData {
     sw_version?: string;
   };
   firmwareVersion?: string;
-}
+} 

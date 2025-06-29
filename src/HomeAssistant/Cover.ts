@@ -70,4 +70,4 @@ export class Cover extends Entity {
       position_template: "{{ value }}",
     };
   }
-}
+} 

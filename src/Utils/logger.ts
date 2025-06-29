@@ -18,4 +18,4 @@ export const logError = (message: any, ...optionalParams: any[]) => {
 // Cache-busting function
 export const __forceCacheBust__ = () => {
   return "bust-" + Math.random().toString(36).substring(7);
-};
+}; 

@@ -48,16 +48,4 @@ export const getKeepAliveCommand = (pin: string): number[] => {
 };
 
 // Feature Request Command
-export const REQUEST_FEATURES = [0x20, 0x71];
-
-export interface Command {
-  command: number[];
-  data?: number[];
-}
-
-export const buildComplexCommand = (command: Command): number[] => {
-  if (!command.data) {
-    return command.command;
-  }
-  return [...command.command, ...command.data];
-}; 
+export const REQUEST_FEATURES = [0x20, 0x71]; 

@@ -40,4 +40,4 @@ export class Switch extends StatefulEntity<boolean> {
       command_topic: this.commandTopic,
     };
   }
-}
+} 

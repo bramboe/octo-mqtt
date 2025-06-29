@@ -74,4 +74,4 @@ export class Entity implements IAvailable {
   private sendAvailability(availability: string) {
     setTimeout(() => this.mqtt.publish(this.availabilityTopic, availability), 500);
   }
-}
+} 
