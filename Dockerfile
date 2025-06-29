@@ -7,10 +7,10 @@ ARG CACHEBUST=default
 ENV CACHEBUST_ENV=${CACHEBUST}
 
 COPY package.json /octo-mqtt/
-COPY yarn.lock /octo-mqtt/
+COPY package-lock.json /octo-mqtt/
 WORKDIR /octo-mqtt
 
-RUN yarn install --verbose
+RUN npm ci --legacy-peer-deps
 
 # Force fresh copy of source code with timestamp-based cache busting
 COPY tsconfig.build.json /octo-mqtt/
@@ -21,7 +21,7 @@ COPY --chown=node:node src /octo-mqtt/src/
 RUN echo "Cache bust: ${CACHEBUST_ENV}" > /octo-mqtt/build_info.txt && \
     echo "Build timestamp: $(date)" >> /octo-mqtt/build_info.txt
 
-RUN yarn build:ci
+RUN npm run build:ci
 
 FROM node:18-alpine
 
@@ -44,7 +44,7 @@ COPY run.sh /octo-mqtt/
 RUN chmod a+x run.sh
 
 COPY --from=builder /octo-mqtt/node_modules /octo-mqtt/node_modules
-COPY --from=builder /octo-mqtt/dist/tsc/ /octo-mqtt/
+COPY --from=builder /octo-mqtt/dist/ /octo-mqtt/dist/
 COPY webui /octo-mqtt/webui/
 
 ENTRYPOINT [ "/octo-mqtt/run.sh" ]

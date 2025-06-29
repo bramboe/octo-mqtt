@@ -143,6 +143,17 @@ export class ESPConnection implements IESPConnection {
       const macFromData = data.mac;
       const convertedMac = rawAddress ? this.convertAddressToMac(rawAddress) : '';
       const finalAddress = macFromData || convertedMac;
+
+      // Validate address: must be a number and not NaN or 0
+      if (typeof rawAddress !== 'number' || isNaN(rawAddress) || rawAddress === 0) {
+        logWarn('[ESPHome] Skipping device with invalid address:', rawAddress);
+        return;
+      }
+      // Validate MAC: must match pattern XX:XX:XX:XX:XX:XX
+      if (!/^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$/.test(finalAddress)) {
+        logWarn('[ESPHome] Skipping device with invalid MAC address:', finalAddress);
+        return;
+      }
       
       logInfo(`[ESPHome DEBUG] Address processing: raw=${rawAddress}, mac=${macFromData}, converted=${convertedMac}, final=${finalAddress}`);
       
