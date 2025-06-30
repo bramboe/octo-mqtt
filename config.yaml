@@ -1,5 +1,5 @@
 name: "Octo MQTT"
-version: "1.2.5"
+version: "1.2.6"
 slug: "octo-mqtt"
 description: "A Home Assistant add-on to enable controlling Octo actuators star version 2."
 url: "https://github.com/bramboe/octo-mqtt.git"

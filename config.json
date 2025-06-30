@@ -1,6 +1,6 @@
 {
   "name": "Octo MQTT",
-  "version": "1.2.3",
+  "version": "1.2.6",
   "slug": "octo-mqtt",
   "description": "A Home Assistant add-on to enable controlling Octo actuators star version 2.",
   "url": "https://github.com/bramboe/octo-mqtt",
@@ -45,10 +45,10 @@
     ]
   },
   "schema": {
-    "mqtt_host": "str",
-    "mqtt_port": "str",
-    "mqtt_user": "str",
-    "mqtt_password": "password",
+    "mqtt_host": "str?",
+    "mqtt_port": "str?",
+    "mqtt_user": "str?",
+    "mqtt_password": "password?",
     "bleProxies": [
       {
         "host": "str",
@@ -60,7 +60,7 @@
     ],
     "octoDevices": [
       {
-        "name": "str",
+        "name": "match(^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$)",
         "friendlyName": "str",
         "pin": "str?"
       }
