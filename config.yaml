@@ -29,9 +29,18 @@ options:
   mqtt_username: ""
   mqtt_password: ""
   log_level: "info"
+  bleProxies:
+    - host: "192.168.2.102"
+      port: 6053
+  octoDevices:
+    - name: "f6:21:dd:dd:6f:19"
+      friendlyName: "RC2 Bed"
+      pin: "1987"
 schema:
   mqtt_host: str
   mqtt_port: port
   mqtt_username: str
   mqtt_password: password
-  log_level: list(trace|debug|info|notice|warning|error|fatal) 
+  log_level: list(trace|debug|info|notice|warning|error|fatal)
+  bleProxies: list(dict)
+  octoDevices: list(dict) 
