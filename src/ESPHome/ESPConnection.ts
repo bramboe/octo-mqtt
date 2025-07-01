@@ -292,68 +292,7 @@ export class ESPConnection extends EventEmitter implements IESPConnection {
     }
   }
 
-  /**
-   * Enhanced target device filtering based on MAC address and PIN
-   */
-  private isTargetDevice(
-    device: BLEDeviceAdvertisement, 
-    targetMac: string, 
-    targetPin: string
-  ): boolean {
-    const deviceMac = this.convertAddressToMac(device.address);
-    const devicePin = this.extractPinFromAdvertisement(device);
 
-    // Log filtering criteria
-    logInfo(`[ESPHome DEBUG] Device filtering:`);
-    logInfo(`[ESPHome DEBUG]   Device MAC: ${deviceMac}`);
-    logInfo(`[ESPHome DEBUG]   Device PIN: ${devicePin || 'Not found'}`);
-    logInfo(`[ESPHome DEBUG]   Target MAC: ${targetMac || 'Not set'}`);
-    logInfo(`[ESPHome DEBUG]   Target PIN: ${targetPin || 'Not set'}`);
-
-    // If no target criteria are set, accept all RC2 devices
-    if (!targetMac && !targetPin) {
-      const isRC2ByName = device.name && device.name.toUpperCase().includes('RC2');
-      const isRC2ByMac = Boolean(deviceMac && (
-        deviceMac.toLowerCase().startsWith('c3:e7:63') ||
-        deviceMac.toLowerCase().startsWith('f6:21:dd')
-      ));
-      
-      const accepted = isRC2ByName || isRC2ByMac;
-      logInfo(`[ESPHome DEBUG] No target criteria set. Accepting RC2 devices: ${accepted}`);
-      return accepted;
-    }
-
-    // Check MAC address match
-    let macMatch = false;
-    if (targetMac) {
-      // Exact MAC match
-      macMatch = deviceMac.toLowerCase() === targetMac.toLowerCase();
-      
-      // If no exact match, try partial match for MAC prefixes
-      if (!macMatch && targetMac.length < 17) {
-        macMatch = deviceMac.toLowerCase().startsWith(targetMac.toLowerCase());
-      }
-      
-      logInfo(`[ESPHome DEBUG] MAC match: ${macMatch}`);
-    } else {
-      macMatch = true; // No MAC requirement
-    }
-
-    // Check PIN match
-    let pinMatch = false;
-    if (targetPin) {
-      pinMatch = devicePin === targetPin;
-      logInfo(`[ESPHome DEBUG] PIN match: ${pinMatch}`);
-    } else {
-      pinMatch = true; // No PIN requirement
-    }
-
-    // Device must match all specified criteria
-    const isTarget = macMatch && pinMatch;
-    logInfo(`[ESPHome DEBUG] Device ${device.name} (${deviceMac}) is target device: ${isTarget}`);
-    
-    return isTarget;
-  }
 
   async startBleScan(
     durationMs: number,
