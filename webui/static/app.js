@@ -25,7 +25,18 @@ document.addEventListener('DOMContentLoaded', () => {
   function connectWebSocket() {
     console.log('Attempting to connect WebSocket...');
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}`;
+    
+    // For Home Assistant add-ons, we need to use the add-on's port (8099)
+    // not the Home Assistant frontend port (8123)
+    let wsUrl;
+    if (window.location.hostname === 'homeassistant.local' || window.location.hostname === 'localhost') {
+      // We're in Home Assistant, use the add-on's port
+      wsUrl = `${protocol}//${window.location.hostname}:8099`;
+    } else {
+      // We're accessing directly, use the current host
+      wsUrl = `${protocol}//${window.location.host}`;
+    }
+    
     console.log('WebSocket URL:', wsUrl);
     
     try {
@@ -831,7 +842,13 @@ document.addEventListener('DOMContentLoaded', () => {
     debugOutput.innerHTML = '<p>Testing WebSocket connection...</p>';
     
     // First test if the server is responding
-    fetch('/test')
+    // For Home Assistant add-ons, we need to use the add-on's port
+    let testUrl = '/test';
+    if (window.location.hostname === 'homeassistant.local' || window.location.hostname === 'localhost') {
+      testUrl = `http://${window.location.hostname}:8099/test`;
+    }
+    
+    fetch(testUrl)
       .then(response => response.json())
       .then(data => {
         console.log('Server test response:', data);
@@ -878,13 +895,16 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const host = window.location.host;
+    const hostname = window.location.hostname;
     
     const urlsToTest = [
-      `${protocol}//${host}/ws`,
+      `${protocol}//${hostname}:8099`,
+      `${protocol}//${hostname}:8099/ws`,
       `${protocol}//${host}`,
+      `${protocol}//${host}/ws`,
       `${protocol}//${host}/api/ws`,
-      `ws://${host}/ws`,
-      `wss://${host}/ws`
+      `ws://${hostname}:8099`,
+      `wss://${hostname}:8099`
     ];
     
     for (const url of urlsToTest) {
