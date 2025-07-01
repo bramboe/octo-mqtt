@@ -243,54 +243,7 @@ export class ESPConnection extends EventEmitter implements IESPConnection {
     return mac;
   }
 
-  /**
-   * Extract PIN from BLE advertisement data
-   * This method looks for PIN information in various advertisement formats
-   */
-  private extractPinFromAdvertisement(data: any): string {
-    try {
-      // Check if PIN is directly in the advertisement data
-      if (data.pin) {
-        logInfo(`[ESPHome DEBUG] PIN found in advertisement data: ${data.pin}`);
-        return data.pin.toString();
-      }
 
-      // Check if PIN is in manufacturer data
-      if (data.manufacturerData) {
-        const manufacturerData = Buffer.from(data.manufacturerData, 'hex');
-        // Look for PIN patterns in manufacturer data
-        // This is a simplified example - actual implementation depends on bed's data format
-        for (let i = 0; i < manufacturerData.length - 3; i++) {
-          const potentialPin = manufacturerData.slice(i, i + 4).toString('ascii');
-          if (/^\d{4}$/.test(potentialPin)) {
-            logInfo(`[ESPHome DEBUG] PIN found in manufacturer data: ${potentialPin}`);
-            return potentialPin;
-          }
-        }
-      }
-
-      // Check if PIN is in service data
-      if (data.serviceData) {
-        for (const [uuid, serviceData] of Object.entries(data.serviceData)) {
-          const dataBuffer = Buffer.from(serviceData as string, 'hex');
-          // Look for PIN patterns in service data
-          for (let i = 0; i < dataBuffer.length - 3; i++) {
-            const potentialPin = dataBuffer.slice(i, i + 4).toString('ascii');
-            if (/^\d{4}$/.test(potentialPin)) {
-              logInfo(`[ESPHome DEBUG] PIN found in service data (UUID: ${uuid}): ${potentialPin}`);
-              return potentialPin;
-            }
-          }
-        }
-      }
-
-      logInfo(`[ESPHome DEBUG] No PIN found in advertisement data`);
-      return '';
-    } catch (error) {
-      logError('[ESPHome DEBUG] Error extracting PIN from advertisement:', error);
-      return '';
-    }
-  }
 
 
 
