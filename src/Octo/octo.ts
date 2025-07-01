@@ -1,7 +1,7 @@
 import { IMQTTConnection } from '../MQTT/IMQTTConnection';
 import { IESPConnection } from '../ESPHome/IESPConnection';
 import { BLEController } from '../BLE/BLEController';
-import { OctoDevice, getDevices } from './options';
+import { getDevices } from './options';
 import { buildMQTTDeviceData } from '../Common/buildMQTTDeviceData';
 import { buildDictionary } from '../Utils/buildDictionary';
 import { logInfo, logError, logWarn } from '../Utils/logger';
@@ -12,6 +12,7 @@ import { setupLightSwitch } from './setupLightSwitch';
 import { setupMotorEntities } from './setupMotorEntities';
 import { setupDeviceInfoSensor } from '../BLE/setupDeviceInfoSensor';
 import { BLEDeviceInfo } from '../ESPHome/types/BLEDeviceInfo';
+import { OctoDevice } from './options';
 
 export type Command = {
   command: number[];
@@ -24,21 +25,49 @@ const FEATURE_REQUEST_TIMEOUT_MS = 15000; // 15 seconds
 // Add maximum retry attempts
 const MAX_FEATURE_REQUEST_ATTEMPTS = 3;
 
+// Function to convert MAC address to integer
+function macToInteger(mac: string): number {
+  // Remove colons and convert to integer
+  const cleanMac = mac.replace(/:/g, '');
+  return parseInt(cleanMac, 16);
+}
+
+// Function to validate MAC address format
+function isValidMacAddress(mac: string): boolean {
+  return /^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$/.test(mac);
+}
+
 export const octo = async (mqtt: IMQTTConnection, esphome: IESPConnection) => {
   const devices = getDevices();
   if (!devices.length) return logInfo('[Octo] No devices configured');
 
-  const devicesMap = buildDictionary<OctoDevice, OctoDevice>(devices, (device) => ({ key: device.name.toLowerCase(), value: device }));
+  const devicesMap = buildDictionary<OctoDevice, OctoDevice>(devices, (device: OctoDevice) => ({ key: device.mac.toLowerCase(), value: device }));
   const deviceNames = Object.keys(devicesMap);
-  if (deviceNames.length !== devices.length) return logError('[Octo] Duplicate name detected in configuration');
-  const bleDevices = await esphome.getBLEDevices(deviceNames.map(name => parseInt(name, 16)));
+  if (deviceNames.length !== devices.length) return logError('[Octo] Duplicate MAC address detected in configuration');
+  
+  // Convert MAC addresses to integers for device discovery
+  const deviceAddresses = deviceNames.map(mac => {
+    if (isValidMacAddress(mac)) {
+      return macToInteger(mac);
+    } else {
+      logError(`[Octo] Invalid MAC address format: ${mac}`);
+      return 0;
+    }
+  }).filter(addr => addr !== 0);
+  
+  if (deviceAddresses.length === 0) {
+    logError('[Octo] No valid MAC addresses found in configuration');
+    return;
+  }
+  
+  const bleDevices = await esphome.getBLEDevices(deviceAddresses);
   for (const bleDevice of bleDevices) {
     const { name, mac, address, connect, disconnect, getCharacteristic, getDeviceInfo } = bleDevice;
     const device = devicesMap[mac] || devicesMap[name.toLowerCase()];
     if (!device) continue;
     
     const { pin, friendlyName } = device;
-    const deviceData = buildMQTTDeviceData({ friendlyName, name: device.name, address }, 'Octo');
+    const deviceData = buildMQTTDeviceData({ friendlyName, name: device.mac, address }, 'Octo');
     await connect();
 
     const characteristic = await getCharacteristic(
@@ -164,7 +193,7 @@ export const octo = async (mqtt: IMQTTConnection, esphome: IESPConnection) => {
         // Send initial PIN command
         await controller.writeCommand({ 
           command: [0x20, 0x43], 
-          data: pin.split('').map((c) => parseInt(c))
+          data: pin.split('').map((c: string) => parseInt(c))
         });
         logInfo('[Octo] PIN sent successfully, device unlocked');
       } catch (error) {

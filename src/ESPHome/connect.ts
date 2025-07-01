@@ -8,7 +8,7 @@ export const connect = (connection: Connection): Promise<Connection> => {
     const timeout = setTimeout(() => {
       logWarn(`[ESPHome] Connection timeout for ${connection.host}:${connection.port}`);
       reject(new Error(`Connection timeout for ${connection.host}:${connection.port}`));
-    }, 10000); // 10 second timeout
+    }, 15000); // Increased timeout to 15 seconds
     
     const errorHandler = (error: any) => {
       clearTimeout(timeout);
@@ -43,5 +43,15 @@ export const connect = (connection: Connection): Promise<Connection> => {
     });
 
     connection.once('error', errorHandler);
+    
+    // Explicitly start the connection
+    try {
+      logInfo(`[ESPHome] Starting connection to ${connection.host}:${connection.port}`);
+      connection.connect();
+    } catch (error) {
+      clearTimeout(timeout);
+      logError('[ESPHome] Connection start error:', error);
+      reject(error);
+    }
   });
 }; 

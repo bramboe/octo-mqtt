@@ -38,7 +38,7 @@
     ],
     "octoDevices": [
       {
-        "name": "f6:21:dd:dd:6f:19",
+        "mac": "f6:21:dd:dd:6f:19",
         "friendlyName": "RC2 Bed",
         "pin": "0000"
       }
@@ -60,7 +60,7 @@
     ],
     "octoDevices": [
       {
-        "name": "match(^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$)",
+        "mac": "match(^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$)",
         "friendlyName": "str",
         "pin": "str?"
       }

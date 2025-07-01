@@ -27,7 +27,13 @@ export const connectToESPHome = async (): Promise<IESPConnection> => {
           proxies.map(async (config: BLEProxy) => {
         try {
           logInfo(`[ESPHome] Creating connection to ${config.host}:${config.port}`);
-            const connection = new Connection(config);
+          const connection = new Connection({
+            host: config.host,
+            port: config.port,
+            password: config.password,
+            encryptionKey: config.encryptionKey,
+            expectedServerName: config.expectedServerName
+          });
           return {
             success: true,
             connection: await connect(connection),

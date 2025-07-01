@@ -7,7 +7,7 @@
   ],
   "octoDevices": [
     {
-      "name": "f6:21:dd:dd:6f:19",
+      "mac": "f6:21:dd:dd:6f:19",
       "friendlyName": "RC2 Bed",
       "pin": "1987"
     }

@@ -102,7 +102,7 @@ export class BLEScanner {
     
     logInfo(`[BLEScanner DEBUG] getScanStatus called. Found ${configuredDevices.length} configured devices:`);
     configuredDevices.forEach((device: any, index: number) => {
-      logInfo(`[BLEScanner DEBUG] Configured device ${index}: name="${device.name}", friendlyName="${device.friendlyName}"`);
+      logInfo(`[BLEScanner DEBUG] Configured device ${index}: mac="${device.mac || device.name}", friendlyName="${device.friendlyName}"`);
     });
 
     // Check each discovered device against configured devices
@@ -114,25 +114,25 @@ export class BLEScanner {
         // Priority 1: MAC address matching (most reliable)
         // Priority 2: Device name matching (only if it's a meaningful name, not generic)
         const isConfigured = configuredDevices.some((configuredDevice: any) => {
-          // First check: MAC address as device name (new format)
-          const macAsDeviceName = device.address && configuredDevice.name &&
-            device.address.toString().toLowerCase() === configuredDevice.name.toLowerCase();
+          // First check: MAC address matching (new format)
+          const macMatch = device.address && configuredDevice.mac &&
+            device.address.toString().toLowerCase() === configuredDevice.mac.toLowerCase();
           
-          // Second check: MAC address pattern matching
-          const configuredNameAsAddress = configuredDevice.name && 
-            /^[0-9a-f]{2}:[0-9a-f]{2}:[0-9a-f]{2}:[0-9a-f]{2}:[0-9a-f]{2}:[0-9a-f]{2}$/i.test(configuredDevice.name) &&
-            device.address && configuredDevice.name.toLowerCase() === device.address.toString().toLowerCase();
+          // Second check: MAC address pattern matching (backward compatibility with old 'name' field)
+          const configuredMacAsAddress = (configuredDevice.mac || configuredDevice.name) && 
+            /^[0-9a-f]{2}:[0-9a-f]{2}:[0-9a-f]{2}:[0-9a-f]{2}:[0-9a-f]{2}:[0-9a-f]{2}$/i.test(configuredDevice.mac || configuredDevice.name) &&
+            device.address && (configuredDevice.mac || configuredDevice.name).toLowerCase() === device.address.toString().toLowerCase();
           
           // Third check: Device name matching (but avoid generic names)
           const nameMatch = device.name && configuredDevice.name && device.name !== 'Unknown Device' &&
             configuredDevice.name !== 'Unknown Device' && device.name === configuredDevice.name;
 
-          logInfo(`[BLEScanner DEBUG]   Comparing with configured "${configuredDevice.name}":`);
-          logInfo(`[BLEScanner DEBUG]     macAsDeviceName: ${macAsDeviceName}`);
-          logInfo(`[BLEScanner DEBUG]     configuredNameAsAddress: ${configuredNameAsAddress}`);
+          logInfo(`[BLEScanner DEBUG]   Comparing with configured "${configuredDevice.mac || configuredDevice.name}":`);
+          logInfo(`[BLEScanner DEBUG]     macMatch: ${macMatch}`);
+          logInfo(`[BLEScanner DEBUG]     configuredMacAsAddress: ${configuredMacAsAddress}`);
           logInfo(`[BLEScanner DEBUG]     nameMatch: ${nameMatch}`);
           
-          const match = nameMatch || macAsDeviceName || configuredNameAsAddress;
+          const match = nameMatch || macMatch || configuredMacAsAddress;
           logInfo(`[BLEScanner DEBUG]     Final match result: ${match}`);
           
           return match;
@@ -140,22 +140,22 @@ export class BLEScanner {
 
         // Find the configured device name if it exists
         const configuredDevice = configuredDevices.find((configuredDevice: any) => {
-          const macAsDeviceName = device.address && configuredDevice.name &&
-            device.address.toString().toLowerCase() === configuredDevice.name.toLowerCase();
-          const configuredNameAsAddress = configuredDevice.name && 
-            /^[0-9a-f]{2}:[0-9a-f]{2}:[0-9a-f]{2}:[0-9a-f]{2}:[0-9a-f]{2}:[0-9a-f]{2}$/i.test(configuredDevice.name) &&
-            device.address && configuredDevice.name.toLowerCase() === device.address.toString().toLowerCase();
+          const macMatch = device.address && configuredDevice.mac &&
+            device.address.toString().toLowerCase() === configuredDevice.mac.toLowerCase();
+          const configuredMacAsAddress = (configuredDevice.mac || configuredDevice.name) && 
+            /^[0-9a-f]{2}:[0-9a-f]{2}:[0-9a-f]{2}:[0-9a-f]{2}:[0-9a-f]{2}:[0-9a-f]{2}$/i.test(configuredDevice.mac || configuredDevice.name) &&
+            device.address && (configuredDevice.mac || configuredDevice.name).toLowerCase() === device.address.toString().toLowerCase();
           const nameMatch = device.name && configuredDevice.name && device.name !== 'Unknown Device' &&
             configuredDevice.name !== 'Unknown Device' && device.name === configuredDevice.name;
-          return nameMatch || macAsDeviceName || configuredNameAsAddress;
+          return nameMatch || macMatch || configuredMacAsAddress;
         });
 
-        logInfo(`[BLEScanner DEBUG] Device ${device.name} (${device.address}) - isConfigured: ${isConfigured}, configuredName: ${configuredDevice?.friendlyName || configuredDevice?.name || 'N/A'}`);
+        logInfo(`[BLEScanner DEBUG] Device ${device.name} (${device.address}) - isConfigured: ${isConfigured}, configuredName: ${configuredDevice?.friendlyName || configuredDevice?.mac || configuredDevice?.name || 'N/A'}`);
 
         return {
           ...device,
           isConfigured,
-          configuredName: configuredDevice?.friendlyName || configuredDevice?.name
+          configuredName: configuredDevice?.friendlyName || configuredDevice?.mac || configuredDevice?.name
         };
       });
 

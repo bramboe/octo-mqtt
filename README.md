@@ -46,7 +46,7 @@ After installing the add-on, you'll need to configure it:
    - `mqtt_host`, `mqtt_port`, `mqtt_user`, `mqtt_password`: Your MQTT broker details (usually Auto-detect works)
    - `bleProxies`: List of your ESPHome BLE proxies with their host and port
    - `octoDevices`: Configuration for your Octo beds
-     - `name`: The device name (usually "RC2")
+     - `mac`: The MAC address of your Octo bed (e.g., "f6:21:dd:dd:6f:19")
      - `friendlyName`: A user-friendly name for the device
      - `pin`: The PIN code for your bed (default: "0000")
 
@@ -61,8 +61,8 @@ bleProxies:
   - host: 192.168.1.100
     port: 6053
 octoDevices:
-  - name: RC2
-    friendlyName: Octo Bed
+  - mac: "f6:21:dd:dd:6f:19"
+    friendlyName: "Octo Bed"
     pin: "0000"
 ```
 
