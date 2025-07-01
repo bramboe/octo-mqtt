@@ -13,13 +13,27 @@ import { BLEDeviceAdvertisement } from './BLE/BLEController';
 
 const app = express();
 const server = createServer(app);
-const wss = new WebSocketServer({ server });
+const wss = new WebSocketServer({ 
+  server,
+  path: '/ws' // Explicitly set the WebSocket path
+});
 const PORT = process.env.PORT || 8099;
 
 logInfo('[Server] Express app created');
 logInfo('[Server] HTTP server created');
-logInfo('[Server] WebSocket server created');
+logInfo('[Server] WebSocket server created with path: /ws');
 logInfo('[Server] Port:', PORT);
+
+// Add WebSocket upgrade event handler for debugging
+wss.on('headers', (headers, req) => {
+  logInfo('[WebSocket] Headers event triggered');
+  logInfo('[WebSocket] Request URL:', req.url);
+  logInfo('[WebSocket] Request method:', req.method);
+});
+
+wss.on('error', (error) => {
+  logError('[WebSocket] Server error:', error);
+});
 
 // Middleware
 app.use(express.json());
@@ -39,6 +53,17 @@ app.get('/ws', (_req, res) => {
   res.send('WebSocket endpoint - use WebSocket protocol to connect');
 });
 
+// Manual WebSocket upgrade handler for debugging
+app.get('/ws-debug', (_req, res) => {
+  logInfo('[HTTP] WebSocket debug endpoint accessed');
+  res.json({
+    message: 'WebSocket debug endpoint',
+    timestamp: new Date().toISOString(),
+    websocketPath: '/ws',
+    websocketClients: wss.clients.size
+  });
+});
+
 // Global variables for addon state
 let mqttConnection: IMQTTConnection | null = null;
 let esphomeConnection: IESPConnection | null = null;
@@ -48,9 +73,11 @@ let isScanning = false;
 let discoveredDevices = new Map<string, BLEDeviceAdvertisement>();
 
 // WebSocket connection handling
-wss.on('connection', (ws) => {
+wss.on('connection', (ws, req) => {
   logInfo('[WebSocket] New client connected');
   logInfo('[WebSocket] Client IP:', (ws as any)._socket?.remoteAddress);
+  logInfo('[WebSocket] Request URL:', req.url);
+  logInfo('[WebSocket] Request headers:', req.headers);
   logInfo('[WebSocket] Total clients connected:', wss.clients.size);
   
   // Send initial status

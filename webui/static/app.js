@@ -25,7 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function connectWebSocket() {
     console.log('Attempting to connect WebSocket...');
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}`;
+    const wsUrl = `${protocol}//${window.location.host}/ws`;
     console.log('WebSocket URL:', wsUrl);
     
     try {
@@ -880,11 +880,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const host = window.location.host;
     
     const urlsToTest = [
-      `${protocol}//${host}`,
       `${protocol}//${host}/ws`,
+      `${protocol}//${host}`,
       `${protocol}//${host}/api/ws`,
-      `ws://${host}`,
-      `wss://${host}`
+      `ws://${host}/ws`,
+      `wss://${host}/ws`
     ];
     
     for (const url of urlsToTest) {
