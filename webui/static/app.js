@@ -116,6 +116,12 @@ document.addEventListener('DOMContentLoaded', () => {
       case 'addDeviceStatus':
         handleAddDeviceStatus(data.payload);
         break;
+      case 'removeDeviceStatus':
+        handleRemoveDeviceStatus(data.payload);
+        break;
+      case 'configuredDevices':
+        handleConfiguredDevices(data.payload);
+        break;
       default:
         console.log('Unknown message type:', data.type);
     }
@@ -487,79 +493,20 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   // Function to start scanning
-  async function startScan() {
-    try {
-      console.log('Starting scan...');
-      scanButton.disabled = true;
-      deviceList.innerHTML = ''; // Clear previous results
-      scanStatus.textContent = 'Starting scan...';
+  function startScan() {
+    console.log('Starting scan...');
+    scanButton.disabled = true;
+    deviceList.innerHTML = ''; // Clear previous results
+    scanStatus.textContent = 'Starting scan...';
 
-      // Get base URL from window.location
-      const baseUrl = window.location.pathname.endsWith('/') 
-        ? window.location.pathname.slice(0, -1) 
-        : window.location.pathname;
-
-      console.log('Sending POST request to scan/start');
-      const response = await fetch(`${baseUrl}/scan/start`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-
-      console.log('Response status:', response.status);
-      const data = await response.json();
-      console.log('Response data:', data);
-      
-      if (response.ok) {
-        console.log('Scan started successfully');
-        // Start checking scan status periodically
-        if (scanCheckInterval) {
-          clearInterval(scanCheckInterval);
-        }
-        scanCheckInterval = setInterval(checkScanStatus, 1000);
-      } else {
-        console.error('Failed to start scan:', data.error);
-        scanStatus.textContent = `Error: ${data.error || 'Failed to start scan'}`;
-        scanButton.disabled = false;
-      }
-    } catch (error) {
-      console.error('Error in startScan:', error);
-      scanStatus.textContent = `Error: ${error.message || 'Failed to start scan'}`;
-      scanButton.disabled = false;
-    }
+    // Send WebSocket message to start scan
+    sendMessage('scanBeds');
   }
 
   // Function to stop scanning
-  async function stopScan() {
-    try {
-      const baseUrl = window.location.pathname.endsWith('/') 
-        ? window.location.pathname.slice(0, -1) 
-        : window.location.pathname;
-
-      const response = await fetch(`${baseUrl}/scan/stop`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-
-      const data = await response.json();
-      
-      if (response.ok) {
-        scanStatus.textContent = 'Scan stopped';
-        scanButton.disabled = false;
-        if (scanCheckInterval) {
-          clearInterval(scanCheckInterval);
-          scanCheckInterval = null;
-        }
-      } else {
-        scanStatus.textContent = data.error || 'Failed to stop scan';
-      }
-    } catch (error) {
-      console.error('Error stopping scan:', error);
-      scanStatus.textContent = 'Error stopping scan';
-    }
+  function stopScan() {
+    console.log('Stopping scan...');
+    sendMessage('stopScan');
   }
 
   // Add click handler to scan button
@@ -589,24 +536,28 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // Handle server messages for device discovery
   function handleScanStatus(data) {
-    const { status, message, deviceCount } = data;
+    const { scanning, message, deviceCount } = data;
     
     discoveryStatus.textContent = message;
     
-    if (status === 'complete' || status === 'error') {
+    if (!scanning) {
       // Enable scan button
       scanButton.disabled = false;
       scanButton.classList.remove('scanning');
       
       // If devices were found, show the list
-      if (status === 'complete' && deviceCount > 0) {
+      if (deviceCount > 0) {
         discoveredDevices.style.display = 'block';
       }
+    } else {
+      // Disable scan button during scanning
+      scanButton.disabled = true;
+      scanButton.classList.add('scanning');
     }
   }
   
   function handleDeviceDiscovered(device) {
-    const { name, mac } = device;
+    const { name, address, rssi, service_uuids } = device;
     
     // Create device element
     const deviceEl = document.createElement('div');
@@ -617,21 +568,26 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const deviceName = document.createElement('div');
     deviceName.className = 'device-name';
-    deviceName.textContent = name;
+    deviceName.textContent = name || 'Unknown Device';
     
     const deviceMac = document.createElement('div');
     deviceMac.className = 'device-mac';
-    deviceMac.textContent = `MAC: ${mac}`;
+    deviceMac.textContent = `MAC: ${address}`;
+    
+    const deviceDetails = document.createElement('div');
+    deviceDetails.className = 'device-details';
+    deviceDetails.textContent = `RSSI: ${rssi}dBm`;
     
     deviceInfo.appendChild(deviceName);
     deviceInfo.appendChild(deviceMac);
+    deviceInfo.appendChild(deviceDetails);
     
     const addButton = document.createElement('button');
     addButton.className = 'action-button';
     addButton.innerHTML = '<i class="material-icons">add</i> Add';
     addButton.addEventListener('click', () => {
       // Store selected device and show PIN dialog
-      selectedDevice = { name, mac };
+      selectedDevice = { name: name || 'Unknown Device', mac: address };
       pinDialog.style.display = 'flex';
     });
     
@@ -642,9 +598,69 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   
   function handleAddDeviceStatus(data) {
-    // This function is no longer used - device addition now uses REST API
-    // and preserves scan results to allow adding multiple devices
-    console.log('Legacy handleAddDeviceStatus called:', data);
+    if (data.success) {
+      alert(data.message);
+      // Refresh the configured devices list
+      loadConfiguredDevices();
+    } else {
+      alert(`Failed to add device: ${data.message}`);
+    }
+  }
+  
+  function handleRemoveDeviceStatus(data) {
+    if (data.success) {
+      alert(data.message);
+      // Refresh the configured devices list
+      loadConfiguredDevices();
+    } else {
+      alert(`Failed to remove device: ${data.message}`);
+    }
+  }
+  
+  function handleConfiguredDevices(data) {
+    const loadingElement = document.getElementById('configured-devices-loading');
+    const listElement = document.getElementById('configured-devices-list');
+    const emptyElement = document.getElementById('configured-devices-empty');
+    const itemsContainer = document.getElementById('configured-devices-items');
+
+    // Hide loading indicator
+    loadingElement.style.display = 'none';
+
+    if (data.devices && data.devices.length > 0) {
+      // Show the list and populate it
+      listElement.style.display = 'block';
+      emptyElement.style.display = 'none';
+
+      itemsContainer.innerHTML = ''; // Clear existing items
+
+      data.devices.forEach(device => {
+        const deviceElement = document.createElement('div');
+        deviceElement.className = 'configured-device-item';
+
+        deviceElement.innerHTML = `
+          <div class="configured-device-info">
+            <div class="configured-device-name">${device.friendlyName || device.name}</div>
+            <div class="configured-device-details">
+              Name: ${device.name}${device.pin ? ' • PIN: ****' : ''}
+            </div>
+          </div>
+          <div class="configured-device-actions">
+            <div class="configured-status">Configured</div>
+            <button class="remove-button" onclick="removeDevice('${device.mac || device.name}', '${device.friendlyName || device.name}')">
+              <i class="material-icons">delete</i> Remove
+            </button>
+          </div>
+        `;
+
+        itemsContainer.appendChild(deviceElement);
+      });
+    } else {
+      // Show empty state
+      listElement.style.display = 'none';
+      emptyElement.style.display = 'block';
+    }
+
+    console.log(`Loaded ${data.devices ? data.devices.length : 0} configured device(s)`);
   }
   
   // PIN dialog functionality
@@ -664,12 +680,14 @@ document.addEventListener('DOMContentLoaded', () => {
     
     if (selectedDevice) {
       sendMessage('addDevice', { 
-        mac: selectedDevice.mac,
+        address: selectedDevice.mac,
+        name: selectedDevice.name,
         pin: pin
       });
       
       pinDialog.style.display = 'none';
       pinInput.value = '';
+      selectedDevice = null;
     }
   });
   
@@ -680,105 +698,22 @@ document.addEventListener('DOMContentLoaded', () => {
   loadConfiguredDevices();
 
   // Function to load and display configured devices
-  async function loadConfiguredDevices() {
-    try {
-      const baseUrl = window.location.pathname.endsWith('/') 
-        ? window.location.pathname.slice(0, -1) 
-        : window.location.pathname;
-
-      const response = await fetch(`${baseUrl}/devices/configured`);
-      const data = await response.json();
-
-      const loadingElement = document.getElementById('configured-devices-loading');
-      const listElement = document.getElementById('configured-devices-list');
-      const emptyElement = document.getElementById('configured-devices-empty');
-      const itemsContainer = document.getElementById('configured-devices-items');
-
-      // Hide loading indicator
-      loadingElement.style.display = 'none';
-
-      if (data.devices && data.devices.length > 0) {
-        // Show the list and populate it
-        listElement.style.display = 'block';
-        emptyElement.style.display = 'none';
-
-        itemsContainer.innerHTML = ''; // Clear existing items
-
-        data.devices.forEach(device => {
-          const deviceElement = document.createElement('div');
-          deviceElement.className = 'configured-device-item';
-
-          deviceElement.innerHTML = `
-            <div class="configured-device-info">
-              <div class="configured-device-name">${device.friendlyName || device.name}</div>
-              <div class="configured-device-details">
-                Name: ${device.name}${device.pin ? ' • PIN: ****' : ''}
-              </div>
-            </div>
-            <div class="configured-device-actions">
-              <div class="configured-status">Configured</div>
-              <button class="remove-button" onclick="removeDevice('${device.name}', '${device.friendlyName || device.name}')">
-                <i class="material-icons">delete</i> Remove
-              </button>
-            </div>
-          `;
-
-          itemsContainer.appendChild(deviceElement);
-        });
-      } else {
-        // Show empty state
-        listElement.style.display = 'none';
-        emptyElement.style.display = 'block';
-      }
-
-      console.log(`Loaded ${data.count} configured device(s)`);
-    } catch (error) {
-      console.error('Error loading configured devices:', error);
-      document.getElementById('configured-devices-loading').textContent = 'Error loading devices';
-    }
+  function loadConfiguredDevices() {
+    sendMessage('getConfiguredDevices');
   }
 
   // Function to remove a device
-  async function removeDevice(deviceAddress, deviceName) {
-    try {
-      console.log(`[DEBUG] removeDevice called for ${deviceName} (${deviceAddress})`);
-      
-      const confirmed = confirm(`Are you sure you want to remove "${deviceName}"?`);
-      if (!confirmed) {
-        console.log(`[DEBUG] User cancelled removal`);
-        return;
-      }
-
-      const baseUrl = window.location.pathname.endsWith('/') 
-        ? window.location.pathname.slice(0, -1) 
-        : window.location.pathname;
-
-      console.log(`[DEBUG] Making DELETE request to: ${baseUrl}/device/remove/${encodeURIComponent(deviceAddress)}`);
-
-      const response = await fetch(`${baseUrl}/device/remove/${encodeURIComponent(deviceAddress)}`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-
-      const data = await response.json();
-      
-      console.log(`[DEBUG] Remove response:`, data);
-      
-      if (response.ok) {
-        alert(`Successfully removed "${deviceName}"`);
-        // Refresh the configured devices list
-        await loadConfiguredDevices();
-        console.log(`[DEBUG] Refreshed configured devices list`);
-      } else {
-        console.error(`[DEBUG] Remove failed:`, data);
-        alert(`Failed to remove device: ${data.error || 'Unknown error'}`);
-      }
-    } catch (error) {
-      console.error(`[DEBUG] Remove error:`, error);
-      alert(`Error removing device: ${error.message}`);
+  function removeDevice(deviceAddress, deviceName) {
+    console.log(`[DEBUG] removeDevice called for ${deviceName} (${deviceAddress})`);
+    
+    const confirmed = confirm(`Are you sure you want to remove "${deviceName}"?`);
+    if (!confirmed) {
+      console.log(`[DEBUG] User cancelled removal`);
+      return;
     }
+
+    console.log(`[DEBUG] Sending removeDevice message for: ${deviceAddress}`);
+    sendMessage('removeDevice', { address: deviceAddress });
   }
 
   // Make removeDevice available globally

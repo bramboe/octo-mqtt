@@ -1,14 +1,19 @@
 import express from 'express';
 import { logInfo, logError, logWarn } from './Utils/logger';
-import { getRootOptions, resetOptionsCache } from './Utils/options';
+import { getRootOptions, resetOptionsCache, saveRootOptions } from './Utils/options';
 import { connectToMQTT } from './MQTT/connectToMQTT';
 import { connectToESPHome } from './ESPHome/connectToESPHome';
 import { octo } from './Octo/octo';
 import { IMQTTConnection } from './MQTT/IMQTTConnection';
 import { IESPConnection } from './ESPHome/IESPConnection';
 import { BLEController } from './BLE/BLEController';
+import { createServer } from 'http';
+import { WebSocketServer } from 'ws';
+import { BLEDeviceAdvertisement } from './BLE/BLEController';
 
 const app = express();
+const server = createServer(app);
+const wss = new WebSocketServer({ server });
 const PORT = process.env.PORT || 8099;
 
 // Middleware
@@ -20,6 +25,288 @@ let mqttConnection: IMQTTConnection | null = null;
 let esphomeConnection: IESPConnection | null = null;
 let bleController: BLEController | null = null;
 let isInitialized = false;
+let isScanning = false;
+let discoveredDevices = new Map<string, BLEDeviceAdvertisement>();
+
+// WebSocket connection handling
+wss.on('connection', (ws) => {
+  logInfo('[WebSocket] New client connected');
+  
+  // Send initial status
+  sendToClient(ws, {
+    type: 'status',
+    payload: {
+      connected: true,
+      positions: { head: 0, feet: 0 },
+      lightState: false,
+      calibration: { head: 30.0, feet: 30.0 }
+    }
+  });
+  
+  ws.on('message', async (message) => {
+    try {
+      const data = JSON.parse(message.toString());
+      await handleWebSocketMessage(ws, data);
+    } catch (error) {
+      logError('[WebSocket] Error handling message:', error);
+      sendToClient(ws, {
+        type: 'error',
+        payload: { message: 'Invalid message format' }
+      });
+    }
+  });
+  
+  ws.on('close', () => {
+    logInfo('[WebSocket] Client disconnected');
+  });
+});
+
+function sendToClient(ws: any, data: any) {
+  if (ws.readyState === 1) { // WebSocket.OPEN
+    ws.send(JSON.stringify(data));
+  }
+}
+
+function broadcastToAllClients(data: any) {
+  wss.clients.forEach((client) => {
+    sendToClient(client, data);
+  });
+}
+
+async function handleWebSocketMessage(ws: any, data: any) {
+  switch (data.type) {
+    case 'getStatus':
+      // Send current status
+      sendToClient(ws, {
+        type: 'status',
+        payload: {
+          connected: esphomeConnection !== null && esphomeConnection.hasActiveConnections(),
+          positions: { head: 0, feet: 0 }, // TODO: Get actual positions
+          lightState: false, // TODO: Get actual light state
+          calibration: { head: 30.0, feet: 30.0 } // TODO: Get actual calibration
+        }
+      });
+      break;
+      
+    case 'scanBeds':
+      await startDeviceDiscovery(ws);
+      break;
+      
+    case 'stopScan':
+      await stopDeviceDiscovery();
+      break;
+      
+    case 'addDevice':
+      await addDevice(data.payload);
+      break;
+      
+    case 'removeDevice':
+      await removeDevice(data.payload);
+      break;
+      
+    case 'getConfiguredDevices':
+      await getConfiguredDevices(ws);
+      break;
+      
+    default:
+      logWarn('[WebSocket] Unknown message type:', data.type);
+  }
+}
+
+async function startDeviceDiscovery(ws: any) {
+  if (isScanning) {
+    sendToClient(ws, {
+      type: 'scanStatus',
+      payload: { scanning: true, message: 'Scan already in progress' }
+    });
+    return;
+  }
+  
+  if (!esphomeConnection || !esphomeConnection.hasActiveConnections()) {
+    sendToClient(ws, {
+      type: 'error',
+      payload: { message: 'No ESPHome connection available for BLE scanning' }
+    });
+    return;
+  }
+  
+  try {
+    isScanning = true;
+    discoveredDevices.clear();
+    
+    sendToClient(ws, {
+      type: 'scanStatus',
+      payload: { scanning: true, message: 'Starting BLE scan...' }
+    });
+    
+    // Start BLE scan with callback for discovered devices
+    await esphomeConnection.startBleScan(30000, (device: BLEDeviceAdvertisement) => {
+      discoveredDevices.set(device.address.toString(), device);
+      
+      // Send device to client
+      sendToClient(ws, {
+        type: 'deviceDiscovered',
+        payload: {
+          address: device.address.toString(),
+          name: device.name || 'Unknown',
+          rssi: device.rssi,
+          service_uuids: device.service_uuids || []
+        }
+      });
+    });
+    
+    sendToClient(ws, {
+      type: 'scanStatus',
+      payload: { scanning: true, message: 'Scanning for BLE devices...' }
+    });
+    
+  } catch (error) {
+    logError('[Device Discovery] Error starting scan:', error);
+    isScanning = false;
+    sendToClient(ws, {
+      type: 'error',
+      payload: { message: 'Failed to start BLE scan' }
+    });
+  }
+}
+
+async function stopDeviceDiscovery() {
+  if (!isScanning) {
+    return;
+  }
+  
+  try {
+    if (esphomeConnection && esphomeConnection.stopBleScan) {
+      await esphomeConnection.stopBleScan();
+    }
+    
+    isScanning = false;
+    
+    broadcastToAllClients({
+      type: 'scanStatus',
+      payload: { 
+        scanning: false, 
+        message: `Scan completed. Found ${discoveredDevices.size} device(s).`,
+        deviceCount: discoveredDevices.size
+      }
+    });
+    
+  } catch (error) {
+    logError('[Device Discovery] Error stopping scan:', error);
+    isScanning = false;
+  }
+}
+
+async function addDevice(payload: { address: string; name: string; pin: string }) {
+  try {
+    const config = getRootOptions();
+    
+    // Add device to configuration
+    if (!config.octoDevices) {
+      config.octoDevices = [];
+    }
+    
+    const newDevice = {
+      name: payload.name,
+      mac: payload.address,
+      pin: payload.pin
+    };
+    
+    // Check if device already exists
+    const existingIndex = config.octoDevices.findIndex(
+      (device: any) => device.mac?.toLowerCase() === payload.address.toLowerCase()
+    );
+    
+    if (existingIndex >= 0) {
+      config.octoDevices[existingIndex] = newDevice;
+    } else {
+      config.octoDevices.push(newDevice);
+    }
+    
+    // Save configuration
+    saveRootOptions(config);
+    logInfo(`[Device Management] Added device: ${payload.name} (${payload.address})`);
+    
+    broadcastToAllClients({
+      type: 'addDeviceStatus',
+      payload: { 
+        success: true, 
+        message: `Device ${payload.name} added successfully`,
+        device: newDevice
+      }
+    });
+    
+  } catch (error) {
+    logError('[Device Management] Error adding device:', error);
+    broadcastToAllClients({
+      type: 'addDeviceStatus',
+      payload: { 
+        success: false, 
+        message: 'Failed to add device' 
+      }
+    });
+  }
+}
+
+async function removeDevice(payload: { address: string }) {
+  try {
+    const config = getRootOptions();
+    
+    if (config.octoDevices) {
+      const index = config.octoDevices.findIndex(
+        (device: any) => device.mac?.toLowerCase() === payload.address.toLowerCase()
+      );
+      
+      if (index >= 0) {
+        const removedDevice = config.octoDevices[index];
+        config.octoDevices.splice(index, 1);
+        
+        // Save configuration
+        saveRootOptions(config);
+        
+        logInfo(`[Device Management] Removed device: ${removedDevice.name} (${removedDevice.mac})`);
+        
+        broadcastToAllClients({
+          type: 'removeDeviceStatus',
+          payload: { 
+            success: true, 
+            message: `Device ${removedDevice.name} removed successfully`,
+            address: payload.address
+          }
+        });
+      }
+    }
+    
+  } catch (error) {
+    logError('[Device Management] Error removing device:', error);
+    broadcastToAllClients({
+      type: 'removeDeviceStatus',
+      payload: { 
+        success: false, 
+        message: 'Failed to remove device' 
+      }
+    });
+  }
+}
+
+async function getConfiguredDevices(ws: any) {
+  try {
+    const config = getRootOptions();
+    const devices = config.octoDevices || [];
+    
+    sendToClient(ws, {
+      type: 'configuredDevices',
+      payload: { devices }
+    });
+    
+  } catch (error) {
+    logError('[Device Management] Error getting configured devices:', error);
+    sendToClient(ws, {
+      type: 'error',
+      payload: { message: 'Failed to get configured devices' }
+    });
+  }
+}
 
 // Health check endpoint
 app.get('/health', (_req, res) => {
@@ -151,7 +438,7 @@ async function initializeAddon() {
 }
 
 // Start the server
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   logInfo(`[Octo MQTT] Server started on port ${PORT}`);
   logInfo(`[Octo MQTT] Web interface available at http://localhost:${PORT}`);
   

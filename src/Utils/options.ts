@@ -86,3 +86,47 @@ export function resetOptionsCache() {
   rootOptions = null;
   logInfo('[Options] Options cache reset');
 }
+
+export function saveRootOptions(options: any) {
+  try {
+    // Determine the correct path to save to
+    let savePath: string;
+    
+    // First try development config
+    const devPath = path.join(process.cwd(), 'dev.config.json');
+    try {
+      fs.accessSync(devPath, fs.constants.W_OK);
+      savePath = devPath;
+      logInfo('[Options] Saving to development config:', savePath);
+    } catch (error) {
+      // Try to read from data directory
+      const localPath = path.join(process.cwd(), 'data', 'options.json');
+      try {
+        fs.accessSync(localPath, fs.constants.W_OK);
+        savePath = localPath;
+        logInfo('[Options] Saving to local path:', savePath);
+      } catch (error) {
+        // Try to save to /data/options.json (Home Assistant environment)
+        try {
+          fs.accessSync('/data/options.json', fs.constants.W_OK);
+          savePath = '/data/options.json';
+          logInfo('[Options] Saving to /data/options.json');
+        } catch (error) {
+          throw new Error('No writable configuration file found');
+        }
+      }
+    }
+    
+    // Save the configuration
+    fs.writeFileSync(savePath, JSON.stringify(options, null, 2), 'utf8');
+    
+    // Update the cached options
+    rootOptions = options;
+    
+    logInfo('[Options] Configuration saved successfully');
+    return true;
+  } catch (error) {
+    logInfo('[Options] Error saving configuration:', error);
+    throw error;
+  }
+}
