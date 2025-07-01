@@ -830,14 +830,28 @@ document.addEventListener('DOMContentLoaded', () => {
     const debugOutput = document.getElementById('debug-output');
     debugOutput.innerHTML = '<p>Testing WebSocket connection...</p>';
     
-    if (checkWebSocketStatus()) {
-      debugOutput.innerHTML = '<p style="color: green;">✅ WebSocket is connected and ready!</p>';
-      sendMessage('getStatus');
-    } else {
-      debugOutput.innerHTML = '<p style="color: red;">❌ WebSocket is not connected. Check console for details.</p>';
-      console.log('Attempting to reconnect...');
-      connectWebSocket();
-    }
+    // First test if the server is responding
+    fetch('/test')
+      .then(response => response.json())
+      .then(data => {
+        console.log('Server test response:', data);
+        debugOutput.innerHTML += `<p>✅ Server is running: ${data.message}</p>`;
+        debugOutput.innerHTML += `<p>WebSocket clients: ${data.websocketClients}</p>`;
+        
+        // Now test WebSocket connection
+        if (checkWebSocketStatus()) {
+          debugOutput.innerHTML += '<p style="color: green;">✅ WebSocket is connected and ready!</p>';
+          sendMessage('getStatus');
+        } else {
+          debugOutput.innerHTML += '<p style="color: red;">❌ WebSocket is not connected. Attempting to reconnect...</p>';
+          console.log('Attempting to reconnect...');
+          connectWebSocket();
+        }
+      })
+      .catch(error => {
+        console.error('Server test failed:', error);
+        debugOutput.innerHTML += `<p style="color: red;">❌ Server test failed: ${error.message}</p>`;
+      });
   });
   
   document.getElementById('check-status').addEventListener('click', () => {
@@ -857,6 +871,35 @@ document.addEventListener('DOMContentLoaded', () => {
     debugOutput.innerHTML = statusHtml;
   });
   
+  document.getElementById('test-urls').addEventListener('click', async () => {
+    console.log('=== TESTING DIFFERENT WEBSOCKET URLS ===');
+    const debugOutput = document.getElementById('debug-output');
+    debugOutput.innerHTML = '<p>Testing different WebSocket URLs...</p>';
+    
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const host = window.location.host;
+    
+    const urlsToTest = [
+      `${protocol}//${host}`,
+      `${protocol}//${host}/ws`,
+      `${protocol}//${host}/api/ws`,
+      `ws://${host}`,
+      `wss://${host}`
+    ];
+    
+    for (const url of urlsToTest) {
+      try {
+        debugOutput.innerHTML += `<p>Testing: ${url}</p>`;
+        const result = await testWebSocketConnection(url);
+        debugOutput.innerHTML += `<p style="color: green;">✅ Success: ${url}</p>`;
+      } catch (error) {
+        debugOutput.innerHTML += `<p style="color: red;">❌ Failed: ${url} - ${error.error}</p>`;
+      }
+    }
+    
+    debugOutput.innerHTML += '<p><strong>URL testing complete!</strong></p>';
+  });
+  
   function getReadyStateName(state) {
     switch (state) {
       case 0: return 'CONNECTING';
@@ -865,6 +908,32 @@ document.addEventListener('DOMContentLoaded', () => {
       case 3: return 'CLOSED';
       default: return 'UNKNOWN';
     }
+  }
+  
+  function testWebSocketConnection(url) {
+    return new Promise((resolve, reject) => {
+      console.log(`Testing WebSocket connection to: ${url}`);
+      const testSocket = new WebSocket(url);
+      
+      testSocket.onopen = () => {
+        console.log(`✅ WebSocket connection successful to: ${url}`);
+        testSocket.close();
+        resolve({ success: true, url });
+      };
+      
+      testSocket.onerror = (error) => {
+        console.log(`❌ WebSocket connection failed to: ${url}`, error);
+        reject({ success: false, url, error });
+      };
+      
+      // Timeout after 5 seconds
+      setTimeout(() => {
+        if (testSocket.readyState === WebSocket.CONNECTING) {
+          testSocket.close();
+          reject({ success: false, url, error: 'Connection timeout' });
+        }
+      }, 5000);
+    });
   }
 
   // Make removeDevice available globally

@@ -16,9 +16,28 @@ const server = createServer(app);
 const wss = new WebSocketServer({ server });
 const PORT = process.env.PORT || 8099;
 
+logInfo('[Server] Express app created');
+logInfo('[Server] HTTP server created');
+logInfo('[Server] WebSocket server created');
+logInfo('[Server] Port:', PORT);
+
 // Middleware
 app.use(express.json());
 app.use(express.static('webui'));
+
+// Test endpoint to verify server is working
+app.get('/test', (req, res) => {
+  res.json({ 
+    message: 'Server is running',
+    timestamp: new Date().toISOString(),
+    websocketClients: wss.clients.size
+  });
+});
+
+// WebSocket endpoint for explicit routing
+app.get('/ws', (req, res) => {
+  res.send('WebSocket endpoint - use WebSocket protocol to connect');
+});
 
 // Global variables for addon state
 let mqttConnection: IMQTTConnection | null = null;
