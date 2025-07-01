@@ -41,13 +41,19 @@ document.addEventListener('DOMContentLoaded', () => {
       };
       
       socket.onmessage = (event) => {
-        console.log('Received WebSocket message:', event.data);
+        console.log('=== WEBSOCKET MESSAGE RECEIVED ===');
+        console.log('Raw message data:', event.data);
+        console.log('Message type:', typeof event.data);
+        
         try {
           const data = JSON.parse(event.data);
           console.log('Parsed message:', data);
+          console.log('Message type:', data.type);
+          console.log('Message payload:', data.payload);
           handleMessage(data);
         } catch (error) {
-          console.error('Error processing message:', error);
+          console.error('ERROR parsing WebSocket message:', error);
+          console.error('Raw message that failed to parse:', event.data);
         }
       };
       
@@ -76,55 +82,87 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   
   function sendMessage(type, payload = {}) {
+    console.log('=== SEND MESSAGE CALLED ===');
+    console.log('Message type:', type);
+    console.log('Message payload:', payload);
+    console.log('Socket exists:', !!socket);
+    console.log('Socket readyState:', socket ? socket.readyState : 'null');
+    
     if (socket && socket.readyState === WebSocket.OPEN) {
       const message = { type, ...payload };
       console.log('Sending WebSocket message:', message);
-      socket.send(JSON.stringify(message));
+      console.log('Message JSON:', JSON.stringify(message));
+      
+      try {
+        socket.send(JSON.stringify(message));
+        console.log('Message sent successfully!');
+      } catch (error) {
+        console.error('ERROR sending message:', error);
+      }
     } else {
-      console.warn('Cannot send message - WebSocket is not connected. Socket state:', socket ? socket.readyState : 'null');
+      console.error('ERROR: Cannot send message - WebSocket is not connected');
+      console.error('Socket state:', socket ? socket.readyState : 'null');
+      console.error('WebSocket states: CONNECTING=0, OPEN=1, CLOSING=2, CLOSED=3');
     }
   }
   
   function handleMessage(data) {
+    console.log('=== HANDLING MESSAGE ===');
+    console.log('Message type:', data.type);
+    console.log('Message payload:', data.payload);
+    
     switch (data.type) {
       case 'status':
+        console.log('Handling status message');
         updateStatus(data.payload);
         break;
       case 'deviceInfo':
+        console.log('Handling deviceInfo message');
         updateDeviceInfo(data.payload);
         break;
       case 'addonInfo':
+        console.log('Handling addonInfo message');
         updateAddonInfo(data.payload);
         break;
       case 'positionUpdate':
+        console.log('Handling positionUpdate message');
         updatePositions(data.payload);
         break;
       case 'lightState':
+        console.log('Handling lightState message');
         updateLightState(data.payload.state);
         break;
       case 'calibrationValues':
+        console.log('Handling calibrationValues message');
         updateCalibrationValues(data.payload);
         break;
       case 'error':
+        console.log('Handling error message:', data.payload.message);
         handleError(data.payload.message);
         break;
       case 'scanStatus':
+        console.log('Handling scanStatus message:', data.payload);
         handleScanStatus(data.payload);
         break;
       case 'deviceDiscovered':
+        console.log('Handling deviceDiscovered message:', data.payload);
         handleDeviceDiscovered(data.payload);
         break;
       case 'addDeviceStatus':
+        console.log('Handling addDeviceStatus message:', data.payload);
         handleAddDeviceStatus(data.payload);
         break;
       case 'removeDeviceStatus':
+        console.log('Handling removeDeviceStatus message:', data.payload);
         handleRemoveDeviceStatus(data.payload);
         break;
       case 'configuredDevices':
+        console.log('Handling configuredDevices message:', data.payload);
         handleConfiguredDevices(data.payload);
         break;
       default:
-        console.log('Unknown message type:', data.type);
+        console.warn('Unknown message type:', data.type);
+        console.warn('Full message:', data);
     }
   }
   
@@ -495,14 +533,39 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Function to start scanning
   function startScan() {
-    console.log('Starting scan...');
+    console.log('=== SCAN BUTTON CLICKED ===');
     console.log('Scan button clicked, WebSocket state:', socket ? socket.readyState : 'null');
+    console.log('Socket object:', socket);
+    console.log('Scan button element:', scanButton);
+    console.log('Device list element:', deviceList);
+    console.log('Scan status element:', scanStatus);
+    
+    if (!socket) {
+      console.error('ERROR: No WebSocket connection available!');
+      alert('No WebSocket connection. Please refresh the page and try again.');
+      return;
+    }
+    
+    if (socket.readyState !== WebSocket.OPEN) {
+      console.error('ERROR: WebSocket is not open. State:', socket.readyState);
+      console.log('WebSocket states: CONNECTING=0, OPEN=1, CLOSING=2, CLOSED=3');
+      alert('WebSocket connection is not ready. Please wait and try again.');
+      return;
+    }
+    
+    console.log('Disabling scan button...');
     scanButton.disabled = true;
+    
+    console.log('Clearing device list...');
     deviceList.innerHTML = ''; // Clear previous results
+    
+    console.log('Updating scan status...');
     scanStatus.textContent = 'Starting scan...';
 
+    console.log('Sending scanBeds message via WebSocket...');
     // Send WebSocket message to start scan
     sendMessage('scanBeds');
+    console.log('=== SCAN REQUEST SENT ===');
   }
 
   // Function to stop scanning
@@ -538,20 +601,32 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // Handle server messages for device discovery
   function handleScanStatus(data) {
-    const { scanning, message, deviceCount } = data;
+    console.log('=== HANDLING SCAN STATUS ===');
+    console.log('Scan status data:', data);
     
+    const { scanning, message, deviceCount } = data;
+    console.log('Scanning:', scanning);
+    console.log('Message:', message);
+    console.log('Device count:', deviceCount);
+    
+    console.log('Updating discovery status text...');
     discoveryStatus.textContent = message;
     
     if (!scanning) {
+      console.log('Scan completed, enabling scan button...');
       // Enable scan button
       scanButton.disabled = false;
       scanButton.classList.remove('scanning');
       
       // If devices were found, show the list
       if (deviceCount > 0) {
+        console.log('Devices found, showing discovered devices list...');
         discoveredDevices.style.display = 'block';
+      } else {
+        console.log('No devices found');
       }
     } else {
+      console.log('Scan in progress, disabling scan button...');
       // Disable scan button during scanning
       scanButton.disabled = true;
       scanButton.classList.add('scanning');

@@ -31,8 +31,11 @@ let discoveredDevices = new Map<string, BLEDeviceAdvertisement>();
 // WebSocket connection handling
 wss.on('connection', (ws) => {
   logInfo('[WebSocket] New client connected');
+  logInfo('[WebSocket] Client IP:', (ws as any)._socket?.remoteAddress);
+  logInfo('[WebSocket] Total clients connected:', wss.clients.size);
   
   // Send initial status
+  logInfo('[WebSocket] Sending initial status to client');
   sendToClient(ws, {
     type: 'status',
     payload: {
@@ -44,11 +47,18 @@ wss.on('connection', (ws) => {
   });
   
   ws.on('message', async (message) => {
+    logInfo('[WebSocket] Received message from client');
+    logInfo('[WebSocket] Raw message:', message.toString());
+    logInfo('[WebSocket] Message length:', message.toString().length);
+    
     try {
       const data = JSON.parse(message.toString());
+      logInfo('[WebSocket] Parsed message:', data);
+      logInfo('[WebSocket] Message type:', data.type);
       await handleWebSocketMessage(ws, data);
     } catch (error) {
       logError('[WebSocket] Error handling message:', error);
+      logError('[WebSocket] Raw message that failed to parse:', message.toString());
       sendToClient(ws, {
         type: 'error',
         payload: { message: 'Invalid message format' }
@@ -58,6 +68,11 @@ wss.on('connection', (ws) => {
   
   ws.on('close', () => {
     logInfo('[WebSocket] Client disconnected');
+    logInfo('[WebSocket] Remaining clients:', wss.clients.size);
+  });
+  
+  ws.on('error', (error) => {
+    logError('[WebSocket] Client error:', error);
   });
 });
 
