@@ -58,39 +58,42 @@ export class ESPConnection extends EventEmitter implements IESPConnection {
     });
   }
 
-  async getBLEDevices(deviceAddresses: number[]): Promise<IBLEDevice[]> {
+  async getBLEDevices(deviceNames: string[], nameMapper?: (name: string) => string): Promise<IBLEDevice[]> {
     if (this.connections.length === 0) {
       logWarn('[ESPHome] No active proxy connections available for device discovery');
       return [];
     }
     
-    logInfo(`[ESPHome] Searching for device(s): ${deviceAddresses.join(', ')}`);
+    logInfo(`[ESPHome] Searching for device(s): ${deviceNames.join(', ')}`);
+    deviceNames = deviceNames.map((name) => name.toLowerCase());
     const bleDevices: IBLEDevice[] = [];
     const complete = new Deferred<void>();
     
     try {
       await this.discoverBLEDevices(
         (bleDevice) => {
-          const { address } = bleDevice;
-          const index = deviceAddresses.indexOf(address);
+          const { name, mac } = bleDevice;
+          let index = deviceNames.indexOf(mac);
+          if (index === -1) index = deviceNames.indexOf(name.toLowerCase());
           if (index === -1) return;
 
-          deviceAddresses.splice(index, 1);
-          logInfo(`[ESPHome] Found device with address: ${address}`);
+          deviceNames.splice(index, 1);
+          logInfo(`[ESPHome] Found device: ${name} (${mac})`);
           bleDevices.push(bleDevice);
           this.activeDevices.add(bleDevice);
-          if (deviceAddresses.length) return;
+          if (deviceNames.length) return;
           complete.resolve();
         },
-        complete
+        complete,
+        nameMapper
       );
     } catch (error) {
       logError('[ESPHome] Error during device discovery:', error);
       // Don't throw, just return empty array
     }
     
-    if (deviceAddresses.length) {
-      logWarn(`[ESPHome] Could not find device(s) with addresses: ${deviceAddresses.join(', ')}`);
+    if (deviceNames.length) {
+      logWarn(`[ESPHome] Could not find address for device(s): ${deviceNames.join(', ')}`);
     }
     
     return bleDevices;
@@ -98,7 +101,8 @@ export class ESPConnection extends EventEmitter implements IESPConnection {
 
   async discoverBLEDevices(
     onNewDeviceFound: (bleDevice: IBLEDevice) => void,
-    complete: Deferred<void>
+    complete: Deferred<void>,
+    nameMapper?: (name: string) => string
   ) {
     const seenAddresses: number[] = [];
     const listenerBuilder = (connection: Connection) => ({
@@ -114,6 +118,8 @@ export class ESPConnection extends EventEmitter implements IESPConnection {
         
         if (seenAddresses.includes(address) || !name) return;
         seenAddresses.push(address);
+
+        if (nameMapper) name = nameMapper(name);
         onNewDeviceFound(new BLEDevice(name, advertisement, connection));
       },
     });

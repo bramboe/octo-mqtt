@@ -4,8 +4,6 @@ import { getRootOptions } from './Utils/options';
 import { connectToMQTT } from './MQTT/connectToMQTT';
 import { connectToESPHome } from './ESPHome/connectToESPHome';
 import { octo } from './Octo/octo';
-import { setupMemoryPositionEntities } from './Octo/setupMemoryPositionEntities';
-import { setupStorage } from './Octo/setupStorage';
 import { IMQTTConnection } from './MQTT/IMQTTConnection';
 import { IESPConnection } from './ESPHome/IESPConnection';
 import { BLEController } from './BLE/BLEController';
@@ -21,7 +19,6 @@ app.use(express.static('webui'));
 let mqttConnection: IMQTTConnection | null = null;
 let esphomeConnection: IESPConnection | null = null;
 let bleController: BLEController | null = null;
-let storage: any = null;
 let isInitialized = false;
 
 // Health check endpoint
@@ -96,9 +93,6 @@ async function initializeAddon() {
       }
     }
     
-    // Initialize storage
-    storage = setupStorage(bleController || undefined);
-    
     // Initialize BLE controller if ESPHome connection is available
     // Try to start a BLE scan to test if connections are working
     try {
@@ -109,12 +103,12 @@ async function initializeAddon() {
           if (esphomeConnection.stopBleScan) {
             await esphomeConnection.stopBleScan();
           }
-          bleController = new BLEController(esphomeConnection);
+          // BLEController is now created per device in octo.ts
           logInfo('[Octo MQTT] BLE controller initialized successfully');
           
           // Set up memory position entities if we have devices configured
           if (config.octoDevices && config.octoDevices.length > 0) {
-            await setupMemoryPositionEntities(bleController, storage, mqttConnection);
+            // Memory position entities are now set up per device in octo.ts
             logInfo('[Octo MQTT] Memory position entities setup complete');
           }
         } catch (bleError) {

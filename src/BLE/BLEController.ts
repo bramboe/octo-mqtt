@@ -1,10 +1,10 @@
 import { EventEmitter } from 'events';
-import { logInfo, logError, logWarn } from '../Utils/logger';
+import { logError } from '../Utils/logger';
 import { IBLEDevice } from '../ESPHome/types/IBLEDevice';
-import { IESPConnection } from '../ESPHome/IESPConnection';
 import { IController } from '../Common/IController';
 import { Dictionary } from '../Utils/Dictionary';
 import { IDeviceData } from '../HomeAssistant/IDeviceData';
+import { IEventSource } from '../Common/IEventSource';
 
 export interface BLEDeviceAdvertisement {
   name: string;
@@ -25,196 +25,141 @@ export interface LightCache {
   brightness: number;
 }
 
-export class BLEController extends EventEmitter implements IController<Command | number[]> {
+export class BLEController<TCommand = Command | number[]> extends EventEmitter implements IController<TCommand>, IEventSource {
   public cache: Dictionary<Object> = {};
-  public deviceData: IDeviceData = {
-    deviceTopic: '',
-    device: {
-      ids: [],
-      name: '',
-      mf: '',
-      mdl: ''
+  public deviceData: IDeviceData;
+  private timer?: any;
+  private notifyValues: Dictionary<Uint8Array> = {};
+  private disconnectTimeout?: NodeJS.Timeout;
+  private lastCommands?: number[][];
+
+  constructor(
+    deviceData: IDeviceData,
+    private bleDevice: IBLEDevice,
+    private handle: number,
+    private commandBuilder: (command: TCommand) => number[],
+    private notifyHandles: Dictionary<number> = {},
+    private stayConnected: boolean = false
+  ) {
+    super();
+    this.deviceData = deviceData;
+    
+    Object.entries(this.notifyHandles).forEach(([key, handle]) => {
+      this.stayConnected ||= true;
+      void this.bleDevice.subscribeToCharacteristic(handle, (data) => {
+        const previous = this.notifyValues[key];
+        if (previous && this.arrayEquals(data, previous)) return;
+        this.emit(key, data);
+      });
+    });
+  }
+
+  private arrayEquals(a: Uint8Array, b: Uint8Array): boolean {
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) {
+      if (a[i] !== b[i]) return false;
     }
+    return true;
+  }
+
+  private disconnect = () => this.bleDevice.disconnect();
+
+  private write = async (command: number[]) => {
+    if (this.disconnectTimeout) {
+      clearTimeout(this.disconnectTimeout);
+      this.disconnectTimeout = undefined;
+    }
+    try {
+      await this.bleDevice.writeCharacteristic(this.handle, new Uint8Array(command));
+    } catch (e) {
+      logError(`[BLE] Failed to write characteristic`, e);
+    }
+    if (this.stayConnected) return;
+
+    this.disconnectTimeout = setTimeout(this.disconnect, 60_000);
   };
 
-  private connectedDevices = new Map<number, IBLEDevice>();
-  private keepAliveIntervals = new Map<number, NodeJS.Timeout>();
-  private reconnectAttempts = new Map<number, number>();
-  private readonly MAX_RECONNECT_ATTEMPTS = 5;
-  private readonly KEEP_ALIVE_INTERVAL = 30000; // 30 seconds
-  private readonly SERVICE_UUID = 'ffe0';
-  private readonly CHARACTERISTIC_UUID = 'ffe1';
+  writeCommand = (command: TCommand, count: number = 1, waitTime?: number) =>
+    this.writeCommands([command], count, waitTime);
 
-  constructor(private espConnection: IESPConnection) {
-    super();
-  }
+  writeCommands = async (commands: TCommand[], count: number = 1, waitTime?: number) => {
+    const commandList = commands.map(this.commandBuilder).filter((command) => command.length > 0);
+    if (commandList.length === 0) return;
 
-  async connectToDevice(deviceAddress: number, _pin: string): Promise<boolean> {
-    try {
-      // Validate device address
-      if (typeof deviceAddress !== 'number' || isNaN(deviceAddress) || deviceAddress === 0) {
-        logError(`[BLE] Invalid device address: ${deviceAddress}`);
-        return false;
-      }
-      
-      logInfo(`[BLE] Attempting to connect to device: ${deviceAddress.toString(16)}`);
-      
-      // Get the device from ESPHome
-      const devices = await this.espConnection.getBLEDevices([deviceAddress]);
-      if (devices.length === 0) {
-        logError(`[BLE] Device not found: ${deviceAddress.toString(16)}`);
-        return false;
-      }
+    await this.bleDevice.connect();
 
-      const device = devices[0];
-      
-      // Connect to the device
-      await device.connect();
-      
-      // Get the characteristic for communication
-      const characteristic = await device.getCharacteristic(this.SERVICE_UUID, this.CHARACTERISTIC_UUID);
-      if (!characteristic) {
-        logError(`[BLE] Required characteristic not found for device: ${deviceAddress.toString(16)}`);
-        await device.disconnect();
-        return false;
-      }
+    const onTick =
+      commandList.length === 1 ? () => this.write(commandList[0]) : () => this.loopWithWait(commandList, this.write);
+    if (count === 1 && !waitTime) return await onTick();
 
-      // Store the connected device
-      this.connectedDevices.set(deviceAddress, device);
-      
-      // Start keep-alive mechanism
-      this.startKeepAlive(deviceAddress, device);
-      
-      // Reset reconnect attempts on successful connection
-      this.reconnectAttempts.set(deviceAddress, 0);
-      
-      logInfo(`[BLE] Successfully connected to device: ${deviceAddress.toString(16)}`);
-      this.emit('deviceConnected', deviceAddress);
-      
-      return true;
-    } catch (error) {
-      logError(`[BLE] Error connecting to device ${deviceAddress.toString(16)}:`, error);
-      return false;
+    if (this.timer && this.lastCommands) {
+      if (this.deepArrayEquals(commandList, this.lastCommands)) return void this.timer.extendCount(count);
+      await this.cancelCommands();
     }
-  }
 
-  private startKeepAlive(deviceAddress: number, device: IBLEDevice) {
-    // Clear any existing interval
-    this.stopKeepAlive(deviceAddress);
-    
-    // Create new keep-alive interval
-    const interval = setInterval(async () => {
-      try {
-        // Send keep-alive command based on the YAML configuration
-        await device.writeCharacteristic(
-          0x0B, // Handle for the characteristic
-          new Uint8Array([0x40, 0x20, 0x43, 0x00, 0x04, 0x00, 0x01, 0x09, 0x08, 0x07, 0x40])
-        );
-        logInfo(`[BLE] Keep-alive sent to device: ${deviceAddress.toString(16)}`);
-      } catch (error) {
-        logError(`[BLE] Keep-alive failed for device ${deviceAddress.toString(16)}:`, error);
-        await this.handleConnectionError(deviceAddress);
+    this.lastCommands = commandList;
+    const onFinish = () => {
+      this.timer = undefined;
+      this.lastCommands = undefined;
+    };
+    this.timer = new (class Timer {
+      private count: number;
+      private onTick: () => void;
+      private waitTime?: number;
+      private onFinish: () => void;
+      private interval?: NodeJS.Timeout;
+
+      constructor(onTick: () => void, count: number, waitTime?: number, onFinish?: () => void) {
+        this.onTick = onTick;
+        this.count = count;
+        this.waitTime = waitTime;
+        this.onFinish = onFinish || (() => {});
       }
-    }, this.KEEP_ALIVE_INTERVAL);
 
-    this.keepAliveIntervals.set(deviceAddress, interval);
-  }
-
-  private stopKeepAlive(deviceAddress: number) {
-    const interval = this.keepAliveIntervals.get(deviceAddress);
-    if (interval) {
-      clearInterval(interval);
-      this.keepAliveIntervals.delete(deviceAddress);
-    }
-  }
-
-  private async handleConnectionError(deviceAddress: number) {
-    const attempts = (this.reconnectAttempts.get(deviceAddress) || 0) + 1;
-    this.reconnectAttempts.set(deviceAddress, attempts);
-
-    if (attempts <= this.MAX_RECONNECT_ATTEMPTS) {
-      logWarn(`[BLE] Attempting to reconnect to device ${deviceAddress.toString(16)} (attempt ${attempts}/${this.MAX_RECONNECT_ATTEMPTS})`);
-      await this.disconnectDevice(deviceAddress);
-      const device = this.connectedDevices.get(deviceAddress);
-      if (device) {
-        try {
-          await device.connect();
-          this.startKeepAlive(deviceAddress, device);
-          this.reconnectAttempts.set(deviceAddress, 0);
-          logInfo(`[BLE] Successfully reconnected to device: ${deviceAddress.toString(16)}`);
-        } catch (error) {
-          logError(`[BLE] Reconnection attempt failed for device ${deviceAddress.toString(16)}:`, error);
-        }
-      }
-    } else {
-      logError(`[BLE] Max reconnection attempts reached for device: ${deviceAddress.toString(16)}`);
-      await this.disconnectDevice(deviceAddress);
-      this.emit('deviceDisconnected', deviceAddress);
-    }
-  }
-
-  async disconnectDevice(deviceAddress: number) {
-    try {
-      const device = this.connectedDevices.get(deviceAddress);
-      if (device) {
-        await device.disconnect();
-        this.connectedDevices.delete(deviceAddress);
-      }
-      this.stopKeepAlive(deviceAddress);
-      this.reconnectAttempts.delete(deviceAddress);
-      logInfo(`[BLE] Disconnected from device: ${deviceAddress.toString(16)}`);
-    } catch (error) {
-      logError(`[BLE] Error disconnecting from device ${deviceAddress.toString(16)}:`, error);
-    }
-  }
-
-  async disconnectAll() {
-    const addresses = Array.from(this.connectedDevices.keys());
-    await Promise.all(addresses.map(addr => this.disconnectDevice(addr)));
-  }
-
-  async writeCommand(command: Command | number[], count: number = 1, waitTime: number = 0): Promise<void> {
-    const commandData = Array.isArray(command) ? command : command.data || command.command;
-    const retries = !Array.isArray(command) && command.retries ? command.retries : 1;
-    const commandWaitTime = !Array.isArray(command) && command.waitTime ? command.waitTime : waitTime;
-
-    for (let i = 0; i < count; i++) {
-      for (let j = 0; j < retries; j++) {
-        try {
-          for (const device of this.connectedDevices.values()) {
-            await device.writeCharacteristic(0x0B, new Uint8Array(commandData));
+      async start() {
+        for (let i = 0; i < this.count; i++) {
+          await this.onTick();
+          if (this.waitTime && i < this.count - 1) {
+            await new Promise(resolve => setTimeout(resolve, this.waitTime));
           }
-          if (commandWaitTime > 0 && i < count - 1) {
-            await new Promise(resolve => setTimeout(resolve, commandWaitTime));
-          }
-          break;
-        } catch (error) {
-          logError(`[BLE] Error writing command (attempt ${j + 1}/${retries}):`, error);
-          if (j === retries - 1) throw error;
         }
+        this.onFinish();
       }
+
+      extendCount(count: number) {
+        this.count += count;
+      }
+
+      async cancel() {
+        if (this.interval) {
+          clearInterval(this.interval);
+        }
+        this.onFinish();
+      }
+    })(onTick, count, waitTime, onFinish);
+    await this.timer.start();
+  };
+
+  private async loopWithWait(commands: number[][], writeFn: (command: number[]) => Promise<void>) {
+    for (const command of commands) {
+      await writeFn(command);
     }
   }
 
-  async writeCommands(commands: (Command | number[])[], count: number = 1, waitTime: number = 0): Promise<void> {
-    for (let i = 0; i < count; i++) {
-      for (const command of commands) {
-        await this.writeCommand(command);
-      }
-      if (waitTime > 0 && i < count - 1) {
-        await new Promise(resolve => setTimeout(resolve, waitTime));
-      }
+  private deepArrayEquals(a: number[][], b: number[][]): boolean {
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) {
+      if (!this.arrayEquals(new Uint8Array(a[i]), new Uint8Array(b[i]))) return false;
     }
+    return true;
   }
 
-  async cancelCommands(): Promise<void> {
-    // Implementation for canceling commands if applicable
-    logWarn('[BLE] Cancel commands not fully implemented yet.');
-  }
+  cancelCommands = async () => {
+    await this.timer?.cancel();
+  };
 
-  async setPin(pin: string): Promise<void> {
-    // Store PIN for later use if needed, e.g. for re-authentication
-    logInfo('[BLE] PIN set for controller:', pin ? '****' : 'none');
-    // Actual PIN usage would be in connectToDevice or during specific operations
-  }
+  on = (eventName: string, handler: (data: Uint8Array) => void): this => {
+    this.addListener(eventName, handler);
+    return this;
+  };
 } 

@@ -5,7 +5,7 @@ import { IBLEDevice } from './types/IBLEDevice';
 export interface IESPConnection extends EventEmitter {
   reconnect(): Promise<void>;
   disconnect(): void;
-  getBLEDevices(deviceAddresses: number[]): Promise<IBLEDevice[]>;
+  getBLEDevices(deviceNames: string[], nameMapper?: (name: string) => string): Promise<IBLEDevice[]>;
   startBleScan(
     durationMs: number,
     onDeviceDiscoveredDuringScan: (device: BLEDeviceAdvertisement) => void
