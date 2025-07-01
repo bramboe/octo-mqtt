@@ -355,8 +355,6 @@ export class ESPConnection extends EventEmitter implements IESPConnection {
     return isTarget;
   }
 
-
-
   async startBleScan(
     durationMs: number,
     onDeviceDiscoveredDuringScan: (device: BLEDeviceAdvertisement) => void
@@ -379,17 +377,20 @@ export class ESPConnection extends EventEmitter implements IESPConnection {
     logInfo('[ESPHome] Looking for all BLE devices (filtering will be applied)...');
     const discoveredDevicesDuringScan = new Map<string, BLEDeviceAdvertisement>();
     
-    // Log scan parameters
+    // Get target MAC and PIN from environment variables
     const targetMac = process.env.OCTO_TARGET_MAC || '';
     const targetPin = process.env.OCTO_TARGET_PIN || '';
-    logInfo(`[ESPHome] Scan parameters: Target MAC="${targetMac}", Target PIN="${targetPin}"`);
+    
+    // Normalize target MAC address (remove colons, convert to uppercase)
+    const normalizedTargetMac = targetMac.replace(/:/g, '').toUpperCase();
+    
+    logInfo(`[ESPHome] Scan parameters: Target MAC="${targetMac}" (normalized: "${normalizedTargetMac}"), Target PIN="${targetPin}"`);
     logInfo(`[ESPHome] MAC filtering: ${targetMac ? 'enabled' : 'disabled'}`);
     logInfo(`[ESPHome] PIN filtering: ${targetPin ? 'enabled' : 'disabled'}`);
     
     this.advertisementPacketListener = (data: any) => {
       // Log ALL advertisement data for debugging
       logInfo(`[ESPHome DEBUG] Advertisement received: name="${data.name || 'Unknown'}", address=${data.address}, mac="${data.mac || 'N/A'}", rssi=${data.rssi || 'N/A'}`);
-      logInfo(`[ESPHome DEBUG] Raw advertisement data: ${JSON.stringify(data)}`);
       
       // Debug the address conversion process
       const rawAddress = data.address;
@@ -403,7 +404,10 @@ export class ESPConnection extends EventEmitter implements IESPConnection {
         return;
       }
       
-      logInfo(`[ESPHome DEBUG] Address processing: raw=${rawAddress}, mac=${macFromData}, converted=${convertedMac}, final=${finalAddress}`);
+      // Normalize the device MAC address (remove colons, convert to uppercase)
+      const deviceMacStr = finalAddress.replace(/:/g, '').toUpperCase();
+      
+      logInfo(`[ESPHome DEBUG] Address processing: raw=${rawAddress}, mac=${macFromData}, converted=${convertedMac}, final=${finalAddress}, normalized=${deviceMacStr}`);
       
       // Log ALL devices for debugging - don't filter yet
       logInfo(`[ESPHome DEBUG] Processing device: ${data.name || 'Unknown'} (${finalAddress})`);
@@ -415,26 +419,46 @@ export class ESPConnection extends EventEmitter implements IESPConnection {
         service_uuids: data.serviceUuids || data.service_uuids || [],
       };
 
-      // Get target MAC and PIN from environment variables
-      const targetMac = process.env.OCTO_TARGET_MAC || '';
-      const targetPin = process.env.OCTO_TARGET_PIN || '';
+      // Enhanced device matching logic based on ESPHome configuration
+      let shouldConnect = false;
+      let matchReason = '';
 
-      logInfo(`[ESPHome DEBUG] Target MAC: "${targetMac}", Target PIN: "${targetPin}"`);
-
-      // Use enhanced filtering logic
-      const isTargetDevice = this.isTargetDevice(discoveredDevice, targetMac, targetPin);
+      // Check MAC address match first (most reliable)
+      if (normalizedTargetMac && deviceMacStr === normalizedTargetMac) {
+        shouldConnect = true;
+        matchReason = 'MAC address match';
+      }
+      
+      // Check device name match (case-insensitive)
+      const deviceName = data.name || '';
+      const targetDeviceName = process.env.OCTO_TARGET_DEVICE_NAME || 'RC2';
+      
+      if (deviceName.toLowerCase() === targetDeviceName.toLowerCase()) {
+        if (normalizedTargetMac) {
+          // If MAC is specified, require BOTH name AND MAC to match
+          shouldConnect = shouldConnect && true; // Already true if MAC matched
+          if (shouldConnect) {
+            matchReason = 'Both name and MAC match';
+          }
+        } else {
+          // If no MAC specified, connect based on name only
+          shouldConnect = true;
+          matchReason = 'Device name match (no MAC specified)';
+        }
+      }
 
       // Always add the device to discovered devices for debugging
       if (!discoveredDevicesDuringScan.has(discoveredDevice.address.toString())) {
         logInfo(`[ESPHome SCAN] Found device: ${discoveredDevice.name} (${finalAddress})`);
         logInfo(`[ESPHome SCAN] RSSI: ${discoveredDevice.rssi}`);
         logInfo(`[ESPHome SCAN] Service UUIDs: ${discoveredDevice.service_uuids.join(', ') || 'None'}`);
+        logInfo(`[ESPHome SCAN] Match result: ${shouldConnect ? 'YES' : 'NO'} - ${matchReason}`);
         discoveredDevicesDuringScan.set(discoveredDevice.address.toString(), discoveredDevice);
       }
 
       // Only call the callback for target devices
-      if (isTargetDevice) {
-        logInfo(`[ESPHome SCAN] Found target device: ${discoveredDevice.name} (${finalAddress})`);
+      if (shouldConnect) {
+        logInfo(`[ESPHome SCAN] Found target device: ${discoveredDevice.name} (${finalAddress}) - ${matchReason}`);
         onDeviceDiscoveredDuringScan(discoveredDevice);
       }
     };

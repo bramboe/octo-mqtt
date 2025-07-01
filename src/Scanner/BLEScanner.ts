@@ -8,7 +8,7 @@ export class BLEScanner {
   private isScanning = false;
   private scanStartTime: number | null = null;
   private scanTimeout: NodeJS.Timeout | null = null;
-  private readonly SCAN_DURATION_MS = 30000; // 30 seconds scan duration
+  private readonly SCAN_DURATION_MS = 30000; // 30 seconds scan duration (matching ESPHome config)
   private discoveredDevices = new Map<string, BLEDeviceAdvertisement>();
   private esphomeConnection: IESPConnection & EventEmitter;
 

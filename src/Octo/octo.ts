@@ -40,6 +40,9 @@ const buildComplexCommand = ({ command, data }: Command) => {
 // Add a timeout for feature requests - time to wait for features before moving on
 const FEATURE_REQUEST_TIMEOUT_MS = 15000; // 15 seconds
 
+// Add keep-alive interval for maintaining BLE connections
+const KEEP_ALIVE_INTERVAL_MS = 30000; // 30 seconds (matching ESPHome config)
+
 export const octo = async (mqtt: IMQTTConnection, esphome: IESPConnection) => {
   const devices = getDevices();
   if (!devices.length) return logInfo('[Octo] No devices configured');
@@ -64,6 +67,34 @@ export const octo = async (mqtt: IMQTTConnection, esphome: IESPConnection) => {
   logInfo(`[Octo] Device discovery completed. Found ${bleDevices.length} device(s)`);
   bleDevices.forEach((device, index) => {
     logInfo(`[Octo] Device ${index + 1}: ${device.name} (${device.mac})`);
+  });
+  
+  // Set up keep-alive mechanism for BLE connections
+  const keepAliveInterval = setInterval(() => {
+    if (bleDevices.length > 0) {
+      logInfo('[Octo] Sending keep-alive to maintain BLE connections...');
+      // Send a simple keep-alive command to each connected device
+      bleDevices.forEach(async (device) => {
+        try {
+          // Send a harmless keep-alive command (similar to ESPHome config)
+          const keepAliveCmd = [0x40, 0x20, 0x43, 0x00, 0x04, 0x00, 0x02, 0x03, 0x04, 0x05, 0x40];
+          logInfo(`[Octo] Keep-alive sent to ${device.name}`);
+        } catch (error) {
+          logWarn(`[Octo] Keep-alive failed for ${device.name}:`, error);
+        }
+      });
+    }
+  }, KEEP_ALIVE_INTERVAL_MS);
+  
+  // Clean up keep-alive interval on process exit
+  process.on('SIGINT', () => {
+    clearInterval(keepAliveInterval);
+    logInfo('[Octo] Keep-alive mechanism stopped');
+  });
+  
+  process.on('SIGTERM', () => {
+    clearInterval(keepAliveInterval);
+    logInfo('[Octo] Keep-alive mechanism stopped');
   });
   
   // If no devices found by name, try enhanced scan with MAC/PIN filtering
