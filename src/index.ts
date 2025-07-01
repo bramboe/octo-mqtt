@@ -89,6 +89,7 @@ async function handleWebSocketMessage(ws: any, data: any) {
       break;
       
     case 'scanBeds':
+      logInfo('[WebSocket] Received scanBeds request');
       await startDeviceDiscovery(ws);
       break;
       
@@ -114,7 +115,10 @@ async function handleWebSocketMessage(ws: any, data: any) {
 }
 
 async function startDeviceDiscovery(ws: any) {
+  logInfo('[Device Discovery] Starting device discovery...');
+  
   if (isScanning) {
+    logInfo('[Device Discovery] Scan already in progress');
     sendToClient(ws, {
       type: 'scanStatus',
       payload: { scanning: true, message: 'Scan already in progress' }
@@ -122,10 +126,20 @@ async function startDeviceDiscovery(ws: any) {
     return;
   }
   
-  if (!esphomeConnection || !esphomeConnection.hasActiveConnections()) {
+  if (!esphomeConnection) {
+    logError('[Device Discovery] No ESPHome connection available');
     sendToClient(ws, {
       type: 'error',
       payload: { message: 'No ESPHome connection available for BLE scanning' }
+    });
+    return;
+  }
+  
+  if (!esphomeConnection.hasActiveConnections()) {
+    logError('[Device Discovery] ESPHome connection has no active connections');
+    sendToClient(ws, {
+      type: 'error',
+      payload: { message: 'No active BLE proxy connections available' }
     });
     return;
   }
@@ -140,7 +154,9 @@ async function startDeviceDiscovery(ws: any) {
     });
     
     // Start BLE scan with callback for discovered devices
+    logInfo('[Device Discovery] Starting BLE scan via ESPHome...');
     await esphomeConnection.startBleScan(30000, (device: BLEDeviceAdvertisement) => {
+      logInfo(`[Device Discovery] Device discovered: ${device.name || 'Unknown'} (${device.address})`);
       discoveredDevices.set(device.address.toString(), device);
       
       // Send device to client
