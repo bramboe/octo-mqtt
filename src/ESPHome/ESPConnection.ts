@@ -243,10 +243,6 @@ export class ESPConnection extends EventEmitter implements IESPConnection {
     return mac;
   }
 
-
-
-
-
   async startBleScan(
     durationMs: number,
     onDeviceDiscoveredDuringScan: (device: BLEDeviceAdvertisement) => void
@@ -345,14 +341,29 @@ export class ESPConnection extends EventEmitter implements IESPConnection {
         logInfo(`[ESPHome SCAN] RSSI: ${discoveredDevice.rssi}`);
         logInfo(`[ESPHome SCAN] Service UUIDs: ${discoveredDevice.service_uuids.join(', ') || 'None'}`);
         logInfo(`[ESPHome SCAN] Match result: ${shouldConnect ? 'YES' : 'NO'} - ${matchReason}`);
+        
+        // Additional debugging for potential RC2 devices
+        const deviceNameLower = (discoveredDevice.name || '').toLowerCase();
+        const macLower = finalAddress.toLowerCase();
+        
+        if (deviceNameLower.includes('rc2') || 
+            deviceNameLower.includes('octo') || 
+            deviceNameLower.includes('ergomotion') ||
+            macLower.startsWith('f6:21:dd') ||
+            macLower.startsWith('c3:e7:63')) {
+          logInfo(`[ESPHome SCAN] *** POTENTIAL RC2 DEVICE DETECTED ***`);
+          logInfo(`[ESPHome SCAN] Name: "${discoveredDevice.name}"`);
+          logInfo(`[ESPHome SCAN] MAC: ${finalAddress}`);
+          logInfo(`[ESPHome SCAN] RSSI: ${discoveredDevice.rssi}`);
+        }
+        
         discoveredDevicesDuringScan.set(discoveredDevice.address.toString(), discoveredDevice);
       }
 
-      // Only call the callback for target devices
-      if (shouldConnect) {
-        logInfo(`[ESPHome SCAN] Found target device: ${discoveredDevice.name} (${finalAddress}) - ${matchReason}`);
-        onDeviceDiscoveredDuringScan(discoveredDevice);
-      }
+      // Call the callback for ALL devices, not just target devices
+      // This allows the UI to show all discovered devices for manual selection
+      logInfo(`[ESPHome SCAN] Reporting device: ${discoveredDevice.name} (${finalAddress}) - ${matchReason}`);
+      onDeviceDiscoveredDuringScan(discoveredDevice);
     };
 
     try {
