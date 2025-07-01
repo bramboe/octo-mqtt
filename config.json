@@ -30,6 +30,7 @@
     "mqtt_port": "<auto_detect>",
     "mqtt_user": "<auto_detect>",
     "mqtt_password": "<auto_detect>",
+    "log_level": "debug",
     "bleProxies": [
       {
         "host": "192.168.1.109",
@@ -41,7 +42,7 @@
       {
         "mac": "f6:21:dd:dd:6f:19",
         "friendlyName": "RC2 Bed",
-        "pin": "0000"
+        "pin": "1987"
       }
     ]
   },

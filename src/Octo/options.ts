@@ -2,7 +2,8 @@ import { getRootOptions } from '../Utils/options';
 
 export interface OctoDevice {
   friendlyName: string;
-  name: string;
+  name?: string;  // Optional for backward compatibility
+  mac?: string;   // New field for MAC addresses
   pin?: string;
 }
 

@@ -99,7 +99,7 @@ async function initializeAddon() {
       if (esphomeConnection && esphomeConnection.hasActiveConnections()) {
         // Test the ESPHome connection by attempting a short scan
         try {
-          await esphomeConnection.startBleScan(1000, () => {});
+          await esphomeConnection.startBleScan(5000, () => {});
           if (esphomeConnection.stopBleScan) {
             await esphomeConnection.stopBleScan();
           }

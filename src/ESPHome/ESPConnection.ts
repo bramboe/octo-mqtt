@@ -65,7 +65,22 @@ export class ESPConnection extends EventEmitter implements IESPConnection {
     }
     
     logInfo(`[ESPHome] Searching for device(s): ${deviceNames.join(', ')}`);
-    deviceNames = deviceNames.map((name) => name.toLowerCase());
+    
+    // Separate MAC addresses from device names
+    const macAddresses: string[] = [];
+    const actualDeviceNames: string[] = [];
+    
+    deviceNames.forEach(device => {
+      // Check if this looks like a MAC address (XX:XX:XX:XX:XX:XX format)
+      if (/^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$/.test(device)) {
+        macAddresses.push(device.toLowerCase());
+        logInfo(`[ESPHome] Treating "${device}" as MAC address`);
+      } else {
+        actualDeviceNames.push(device.toLowerCase());
+        logInfo(`[ESPHome] Treating "${device}" as device name`);
+      }
+    });
+    
     const bleDevices: IBLEDevice[] = [];
     const complete = new Deferred<void>();
     
@@ -73,16 +88,45 @@ export class ESPConnection extends EventEmitter implements IESPConnection {
       await this.discoverBLEDevices(
         (bleDevice) => {
           const { name, mac } = bleDevice;
-          let index = deviceNames.indexOf(mac);
-          if (index === -1) index = deviceNames.indexOf(name.toLowerCase());
-          if (index === -1) return;
-
-          deviceNames.splice(index, 1);
-          logInfo(`[ESPHome] Found device: ${name} (${mac})`);
-          bleDevices.push(bleDevice);
-          this.activeDevices.add(bleDevice);
-          if (deviceNames.length) return;
-          complete.resolve();
+          
+          // Check MAC address match first (most reliable)
+          let macIndex = macAddresses.indexOf(mac.toLowerCase());
+          if (macIndex !== -1) {
+            macAddresses.splice(macIndex, 1);
+            logInfo(`[ESPHome] Found device by MAC: ${name} (${mac})`);
+            bleDevices.push(bleDevice);
+            this.activeDevices.add(bleDevice);
+            if (macAddresses.length === 0 && actualDeviceNames.length === 0) {
+              complete.resolve();
+            }
+            return;
+          }
+          
+          // Check device name match
+          let nameIndex = actualDeviceNames.indexOf(name.toLowerCase());
+          if (nameIndex !== -1) {
+            actualDeviceNames.splice(nameIndex, 1);
+            logInfo(`[ESPHome] Found device by name: ${name} (${mac})`);
+            bleDevices.push(bleDevice);
+            this.activeDevices.add(bleDevice);
+            if (macAddresses.length === 0 && actualDeviceNames.length === 0) {
+              complete.resolve();
+            }
+            return;
+          }
+          
+          // Additional check: if we're looking for RC2 devices, also check for RC2 in the name
+          if (actualDeviceNames.includes('rc2') && name.toLowerCase().includes('rc2')) {
+            const rc2Index = actualDeviceNames.indexOf('rc2');
+            actualDeviceNames.splice(rc2Index, 1);
+            logInfo(`[ESPHome] Found RC2 device by name pattern: ${name} (${mac})`);
+            bleDevices.push(bleDevice);
+            this.activeDevices.add(bleDevice);
+            if (macAddresses.length === 0 && actualDeviceNames.length === 0) {
+              complete.resolve();
+            }
+            return;
+          }
         },
         complete,
         nameMapper
@@ -92,8 +136,11 @@ export class ESPConnection extends EventEmitter implements IESPConnection {
       // Don't throw, just return empty array
     }
     
-    if (deviceNames.length) {
-      logWarn(`[ESPHome] Could not find address for device(s): ${deviceNames.join(', ')}`);
+    if (macAddresses.length > 0) {
+      logWarn(`[ESPHome] Could not find MAC address(es): ${macAddresses.join(', ')}`);
+    }
+    if (actualDeviceNames.length > 0) {
+      logWarn(`[ESPHome] Could not find device name(s): ${actualDeviceNames.join(', ')}`);
     }
     
     return bleDevices;
@@ -116,10 +163,20 @@ export class ESPConnection extends EventEmitter implements IESPConnection {
           return;
         }
         
-        if (seenAddresses.includes(address) || !name) return;
+        // Don't skip devices without names - many BLE devices don't broadcast names
+        if (seenAddresses.includes(address)) return;
         seenAddresses.push(address);
 
+        // Use a default name if none is provided
+        if (!name) {
+          name = 'Unknown Device';
+        }
+
         if (nameMapper) name = nameMapper(name);
+        
+        // Log all discovered devices for debugging
+        logInfo(`[ESPHome DEBUG] Processing discovered device: ${name} (address: ${address}, mac: ${this.convertAddressToMac(address)})`);
+        
         onNewDeviceFound(new BLEDevice(name, advertisement, connection));
       },
     });
@@ -183,10 +240,8 @@ export class ESPConnection extends EventEmitter implements IESPConnection {
     const discoveredDevicesDuringScan = new Map<string, BLEDeviceAdvertisement>();
     
     this.advertisementPacketListener = (data: any) => {
-      // Log raw advertisement data for debugging (but limit the verbosity)
-      if (data.name || data.address) {
-        logInfo(`[ESPHome DEBUG] Advertisement: name="${data.name || 'Unknown'}", address=${data.address}, mac="${data.mac || 'N/A'}", rssi=${data.rssi || 'N/A'}`);
-      }
+      // Log ALL advertisement data for debugging
+      logInfo(`[ESPHome DEBUG] Advertisement: name="${data.name || 'Unknown'}", address=${data.address}, mac="${data.mac || 'N/A'}", rssi=${data.rssi || 'N/A'}`);
       
       // Debug the address conversion process
       const rawAddress = data.address;

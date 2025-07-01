@@ -44,13 +44,18 @@ export const octo = async (mqtt: IMQTTConnection, esphome: IESPConnection) => {
   const devices = getDevices();
   if (!devices.length) return logInfo('[Octo] No devices configured');
 
-  const devicesMap = buildDictionary<OctoDevice, OctoDevice>(devices, (device: OctoDevice) => ({ key: device.name.toLowerCase(), value: device }));
-  const deviceNames = Object.keys(devicesMap);
-  if (deviceNames.length !== devices.length) return logError('[Octo] Duplicate name detected in configuration');
+  // Build device map using either mac or name as key
+  const devicesMap = buildDictionary<OctoDevice, OctoDevice>(devices, (device: OctoDevice) => {
+    const key = device.mac || device.name || '';
+    return { key: key.toLowerCase(), value: device };
+  });
   
-  logInfo(`[Octo] Looking for devices with names: ${deviceNames.join(', ')}`);
+  const deviceIdentifiers = Object.keys(devicesMap);
+  if (deviceIdentifiers.length !== devices.length) return logError('[Octo] Duplicate identifier detected in configuration');
   
-  const bleDevices = await esphome.getBLEDevices(deviceNames);
+  logInfo(`[Octo] Looking for devices with identifiers: ${deviceIdentifiers.join(', ')}`);
+  
+  const bleDevices = await esphome.getBLEDevices(deviceIdentifiers);
   
   // If no devices found by name, try a broader scan for RC2 devices
   if (bleDevices.length === 0) {
@@ -58,7 +63,7 @@ export const octo = async (mqtt: IMQTTConnection, esphome: IESPConnection) => {
     
     // Start a scan to look for RC2 devices by name
     const discoveredDevices: BLEDeviceAdvertisement[] = [];
-    await esphome.startBleScan(5000, (device) => {
+    await esphome.startBleScan(30000, (device) => {
       logInfo(`[Octo] Found device during scan: ${device.name} (${device.address})`);
       if (device.name && device.name.toUpperCase().includes('RC2')) {
         discoveredDevices.push(device);
@@ -102,7 +107,11 @@ export const octo = async (mqtt: IMQTTConnection, esphome: IESPConnection) => {
   for (const bleDevice of bleDevices) {
     const { name, mac, address, connect, disconnect, getCharacteristic } = bleDevice;
     const { pin, ...device } = devicesMap[mac] || devicesMap[name.toLowerCase()];
-    const deviceData = buildMQTTDeviceData({ ...device, address }, 'Octo');
+    const deviceData = buildMQTTDeviceData({ 
+      ...device, 
+      name: device.name || device.mac || 'Unknown Device',
+      address 
+    }, 'Octo');
     await connect();
 
     const characteristic = await getCharacteristic(
