@@ -289,6 +289,17 @@ export class ESPConnection extends EventEmitter implements IESPConnection {
       
       logInfo(`[ESPHome DEBUG] Address processing: raw=${rawAddress}, mac=${macFromData}, converted=${convertedMac}, final=${finalAddress}`);
       
+      // Log ALL devices for debugging - don't filter yet
+      logInfo(`[ESPHome DEBUG] Processing device: ${data.name || 'Unknown'} (${finalAddress})`);
+
+      const discoveredDevice: BLEDeviceAdvertisement = {
+        name: data.name || 'Unknown Device',
+        address: rawAddress, 
+        rssi: data.rssi,
+        service_uuids: data.serviceUuids || data.service_uuids || [],
+      };
+
+      // Check if this device matches our configured device
       const isRC2Device = (
         // Primary check: device name must explicitly contain "RC2"
         (data.name && data.name.toUpperCase().includes('RC2')) ||
@@ -296,28 +307,24 @@ export class ESPConnection extends EventEmitter implements IESPConnection {
         (finalAddress && (
           finalAddress.toLowerCase().startsWith('c3:e7:63') ||
           finalAddress.toLowerCase().startsWith('f6:21:dd')
-        ))
+        )) ||
+        // Third check: exact MAC address match from configuration
+        (finalAddress && finalAddress.toLowerCase() === 'f6:21:dd:dd:6f:19')
       );
 
-      // Log all devices for debugging, but only process RC2 devices
-      logInfo(`[ESPHome DEBUG] Processing device: ${data.name || 'Unknown'} (${finalAddress}) - IsRC2: ${isRC2Device}`);
+      logInfo(`[ESPHome DEBUG] Device ${data.name || 'Unknown'} (${finalAddress}) - IsRC2: ${isRC2Device}`);
 
-      const discoveredDevice: BLEDeviceAdvertisement = {
-        name: data.name || (isRC2Device ? 'RC2' : 'Unknown Device'),
-        address: rawAddress, 
-        rssi: data.rssi,
-        service_uuids: data.serviceUuids || data.service_uuids || [],
-      };
+      // Always add the device to discovered devices for debugging
+      if (!discoveredDevicesDuringScan.has(discoveredDevice.address.toString())) {
+        logInfo(`[ESPHome SCAN] Found device: ${discoveredDevice.name} (${finalAddress})`);
+        logInfo(`[ESPHome SCAN] RSSI: ${discoveredDevice.rssi}`);
+        logInfo(`[ESPHome SCAN] Service UUIDs: ${discoveredDevice.service_uuids.join(', ') || 'None'}`);
+        discoveredDevicesDuringScan.set(discoveredDevice.address.toString(), discoveredDevice);
+      }
 
+      // Only call the callback for RC2 devices
       if (isRC2Device) {
-        if (!discoveredDevicesDuringScan.has(discoveredDevice.address.toString())) {
-          logInfo('[ESPHome SCAN] Found RC2 device!');
-          logInfo(`[ESPHome SCAN] Name: ${discoveredDevice.name}`);
-          logInfo(`[ESPHome SCAN] MAC Address: ${discoveredDevice.address}`);
-          logInfo(`[ESPHome SCAN] RSSI: ${discoveredDevice.rssi}`);
-          logInfo(`[ESPHome SCAN] Service UUIDs: ${discoveredDevice.service_uuids.join(', ') || 'None'}`);
-          discoveredDevicesDuringScan.set(discoveredDevice.address.toString(), discoveredDevice);
-        }
+        logInfo('[ESPHome SCAN] Found RC2 device!');
         onDeviceDiscoveredDuringScan(discoveredDevice);
       }
     };
@@ -337,7 +344,15 @@ export class ESPConnection extends EventEmitter implements IESPConnection {
       return new Promise((resolve, _reject) => {
         this.scanTimeoutId = setTimeout(async () => {
           const devices = Array.from(discoveredDevicesDuringScan.values());
-          logInfo(`[ESPHome] Scan completed. Found ${devices.length} RC2 device(s).`);
+          logInfo(`[ESPHome] Scan completed. Found ${devices.length} total device(s).`);
+          
+          // Log all discovered devices for debugging
+          devices.forEach((device, index) => {
+            const macStr = device.address.toString(16).padStart(12, '0');
+            const macWithColons = macStr.match(/.{2}/g)?.join(':') || '';
+            logInfo(`[ESPHome] Device ${index + 1}: ${device.name} (MAC: ${macWithColons}, RSSI: ${device.rssi})`);
+          });
+          
           await this.stopBleScan();
           resolve(devices);
         }, durationMs);

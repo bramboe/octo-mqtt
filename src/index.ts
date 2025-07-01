@@ -1,6 +1,6 @@
 import express from 'express';
 import { logInfo, logError, logWarn } from './Utils/logger';
-import { getRootOptions } from './Utils/options';
+import { getRootOptions, resetOptionsCache } from './Utils/options';
 import { connectToMQTT } from './MQTT/connectToMQTT';
 import { connectToESPHome } from './ESPHome/connectToESPHome';
 import { octo } from './Octo/octo';
@@ -24,15 +24,26 @@ let isInitialized = false;
 // Health check endpoint
 app.get('/health', (_req, res) => {
   const status = {
-    status: 'healthy',
+    status: isInitialized ? 'healthy' : 'initializing',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
     bleControllerInitialized: bleController !== null,
     mqttConnected: mqttConnection !== null,
     esphomeConnected: esphomeConnection !== null,
-    isInitialized
+    isInitialized,
+    version: process.env.npm_package_version || '1.2.7'
   };
   res.json(status);
+});
+
+// Home Assistant addon info endpoint
+app.get('/api/addon-info', (_req, res) => {
+  res.json({
+    name: 'Octo MQTT',
+    version: process.env.npm_package_version || '1.2.7',
+    description: 'A Home Assistant add-on to enable controlling Octo actuators star version 2.',
+    url: 'https://github.com/bramboe/octo-mqtt.git'
+  });
 });
 
 // Configuration endpoint
@@ -99,7 +110,7 @@ async function initializeAddon() {
       if (esphomeConnection && esphomeConnection.hasActiveConnections()) {
         // Test the ESPHome connection by attempting a short scan
         try {
-          await esphomeConnection.startBleScan(5000, () => {});
+          await esphomeConnection.startBleScan(10000, () => {});
           if (esphomeConnection.stopBleScan) {
             await esphomeConnection.stopBleScan();
           }
@@ -171,7 +182,10 @@ process.on('SIGTERM', () => {
     }
   }
   
-  process.exit(0);
+  // Give connections time to close properly
+  setTimeout(() => {
+    process.exit(0);
+  }, 1000);
 });
 
 process.on('SIGINT', () => {
@@ -179,13 +193,24 @@ process.on('SIGINT', () => {
   process.exit(0);
 });
 
-// Error handling
+// Handle SIGHUP for configuration reload
+process.on('SIGHUP', () => {
+  logInfo('[Octo MQTT] Received SIGHUP, reloading configuration...');
+  // Reset options cache to force reload
+  resetOptionsCache();
+  // Reinitialize the addon
+  initializeAddon().catch(error => {
+    logError('[Octo MQTT] Failed to reinitialize addon:', error);
+  });
+});
+
+// Error handling - don't exit for Home Assistant addon stability
 process.on('uncaughtException', (error) => {
   logError('[Octo MQTT] Uncaught Exception:', error);
-  process.exit(1);
+  // Don't exit, just log the error for Home Assistant addon stability
 });
 
 process.on('unhandledRejection', (reason, promise) => {
   logError('[Octo MQTT] Unhandled Rejection at:', promise, 'reason:', reason);
-  process.exit(1);
+  // Don't exit, just log the error for Home Assistant addon stability
 }); 

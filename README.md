@@ -1,101 +1,145 @@
-# Octo MQTT
+# Octo MQTT - Home Assistant Add-on
 
-A Home Assistant add-on to enable controlling Octo adjustable beds via MQTT and ESPHome BLE proxy.
+A Home Assistant add-on to enable controlling Octo actuators star version 2 via MQTT and BLE.
 
 ## Features
 
-- Control your Octo bed's elevation for head and feet positions
-- Toggle the underbed lighting
-- Integration with Home Assistant's MQTT broker
-- Support for Octo BLE beds using an ESP32 as a BLE proxy
-
-## Requirements
-
-1. Home Assistant installation
-2. Octo smart bed
-3. ESP32 device running ESPHome with BLE proxy configured
+- **BLE Integration**: Connects to Octo RC2 devices via ESPHome BLE proxy
+- **MQTT Control**: Provides MQTT entities for Home Assistant integration
+- **Position Control**: Full head and feet position control (0-100%)
+- **Memory Positions**: Save and recall favorite bed positions
+- **Light Control**: Control bed lighting
+- **Web Interface**: Built-in web UI for device management
+- **Auto-discovery**: Automatic device discovery and configuration
 
 ## Installation
 
-### Option 1: Using Home Assistant Add-on Repository
-
-1. Navigate to your Home Assistant instance
-2. Go to **Settings** → **Add-ons** → **Add-on Store**
-3. Click the menu in the top right (⋮) and select **Repositories**
-4. Add this repository URL: `https://github.com/bramboe/octo-mqtt`
-5. Click **Add**
-6. Find the "Octo MQTT" add-on in the store and click **Install**
-
-### Option 2: Manual Installation
-
-1. Copy this repository to the `/addons` directory of your Home Assistant installation
-2. Restart Home Assistant
-3. Go to **Settings** → **Add-ons** → **Add-on Store**
-4. Find "Octo MQTT" in the **Local add-ons** section and click **Install**
+1. Add this repository to your Home Assistant add-on store
+2. Install the "Octo MQTT" add-on
+3. Configure your BLE proxy and Octo devices
+4. Start the add-on
 
 ## Configuration
 
-After installing the add-on, you'll need to configure it:
+### MQTT Settings
 
-1. **BLE Proxy**: You need an ESPHome BLE proxy that can connect to your Octo bed
-   - Set up an ESP32 device with ESPHome
-   - Configure it as a Bluetooth proxy
-   - Note its IP address and port (usually 6053)
+The add-on automatically detects and connects to the Home Assistant MQTT broker. You can override these settings if needed:
 
-2. **Add-on Configuration**:
-   - `mqtt_host`, `mqtt_port`, `mqtt_user`, `mqtt_password`: Your MQTT broker details (usually Auto-detect works)
-   - `bleProxies`: List of your ESPHome BLE proxies with their host and port
-   - `octoDevices`: Configuration for your Octo beds
-     - `mac`: The MAC address of your Octo bed (e.g., "f6:21:dd:dd:6f:19")
-     - `friendlyName`: A user-friendly name for the device
-     - `pin`: The PIN code for your bed (default: "0000")
+- `mqtt_host`: MQTT broker hostname (default: auto-detect)
+- `mqtt_port`: MQTT broker port (default: auto-detect)
+- `mqtt_username`: MQTT username (default: auto-detect)
+- `mqtt_password`: MQTT password (default: auto-detect)
 
-Example configuration:
+### BLE Proxy Configuration
+
+Configure your ESPHome BLE proxy devices:
 
 ```yaml
-mqtt_host: homeassistant.local
-mqtt_port: "1883"
-mqtt_user: mqtt
-mqtt_password: mqtt
 bleProxies:
-  - host: 192.168.1.100
+  - host: "192.168.1.109"
     port: 6053
+    password: ""
+```
+
+### Octo Device Configuration
+
+Configure your Octo RC2 devices:
+
+```yaml
 octoDevices:
   - mac: "f6:21:dd:dd:6f:19"
-    friendlyName: "Octo Bed"
-    pin: "0000"
+    friendlyName: "RC2 Bed"
+    pin: "1987"
+```
+
+## ESPHome BLE Proxy Setup
+
+You need an ESP32 device running ESPHome with BLE proxy functionality. The ESPHome configuration should include:
+
+```yaml
+esp32_ble_tracker:
+  id: ble_tracker
+  scan_parameters:
+    duration: 30s
+    interval: 100ms
+    window: 50ms
+    active: true
+
+ble_client:
+  id: star2octo
+  mac_address: "00:00:00:00:00:00"
+  auto_connect: false
 ```
 
 ## Usage
 
-After configuration, the add-on will:
+### Web Interface
 
-1. Connect to your ESPHome BLE proxy
-2. Discover your Octo bed
-3. Create MQTT entities for controlling the bed
-4. Expose these entities to Home Assistant
+Access the web interface at `http://[your-home-assistant]:8099` to:
+- View device status
+- Control bed positions
+- Configure devices
+- Monitor BLE scanning
 
-You can then control your bed through:
-- Home Assistant UI
-- Automations
-- Scripts
-- Voice assistants like Alexa or Google Home (if configured)
+### MQTT Topics
+
+The add-on creates MQTT entities for each configured device:
+
+- `octo/[device_name]/head_position` - Head position (0-100%)
+- `octo/[device_name]/feet_position` - Feet position (0-100%)
+- `octo/[device_name]/light` - Bed light control
+- `octo/[device_name]/memory_[1-4]` - Memory position controls
+
+### Home Assistant Integration
+
+The add-on automatically creates Home Assistant entities:
+- Cover entities for head and feet position control
+- Light entity for bed lighting
+- Button entities for memory positions
+- Sensor entities for position feedback
 
 ## Troubleshooting
 
-If you encounter issues:
+### Device Not Found
 
-1. Check the add-on logs
-2. Verify your BLE proxy is working correctly
-3. Ensure your Octo bed is powered on and in range
-4. Double-check your PIN code
+1. Ensure your ESPHome BLE proxy is running and accessible
+2. Check that the Octo device is powered on and in range
+3. Verify the MAC address is correct
+4. Check the add-on logs for BLE scanning results
+
+### Connection Issues
+
+1. Verify ESPHome device IP address and port
+2. Check network connectivity between Home Assistant and ESPHome device
+3. Ensure ESPHome device has BLE proxy configured
+4. Check firewall settings
+
+### MQTT Issues
+
+1. Verify MQTT broker is running
+2. Check MQTT credentials if authentication is enabled
+3. Ensure MQTT service is available in Home Assistant
+
+## Development
+
+### Building Locally
+
+```bash
+npm install
+npm run build
+npm start
+```
+
+### Docker Build
+
+```bash
+docker build -t octo-mqtt .
+```
 
 ## Support
 
-For help with setup, or for sharing feedback please join the Discord server: https://discord.gg/Hf3kpFjbZs
-
-This add-on is based on the work at [richardhopton/smartbed-mqtt](https://github.com/richardhopton/smartbed-mqtt)
+For issues and feature requests, please visit the [GitHub repository](https://github.com/bramboe/octo-mqtt).
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License.

@@ -43,19 +43,24 @@ export function getRootOptions() {
 
   // If no options file could be read, return development defaults
   rootOptions = {
-    mqtt_host: "localhost",
-    mqtt_port: "1883",
-    mqtt_user: "",
-    mqtt_password: "",
+    mqtt_host: process.env.MQTTHOST || "localhost",
+    mqtt_port: process.env.MQTTPORT || "1883",
+    mqtt_user: process.env.MQTTUSER || "",
+    mqtt_password: process.env.MQTTPASSWORD || "",
     bleProxies: [
       {
         host: "localhost",
         port: 6053
       }
     ],
-      octoDevices: []
-    };
+    octoDevices: []
+  };
 
   logInfo('[Options] Using default development options');
   return rootOptions;
-  }
+}
+
+export function resetOptionsCache() {
+  rootOptions = null;
+  logInfo('[Options] Options cache reset');
+}

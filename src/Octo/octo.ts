@@ -70,10 +70,22 @@ export const octo = async (mqtt: IMQTTConnection, esphome: IESPConnection) => {
   if (bleDevices.length === 0) {
     logWarn('[Octo] No devices found by name, trying broader scan for RC2 devices...');
     
-    // Start a scan to look for RC2 devices by name
+    // First, do a scan to see ALL devices for debugging
+    logInfo('[Octo] Starting debug scan to see all available devices...');
+    const allDevices: BLEDeviceAdvertisement[] = [];
+    await esphome.startBleScan(15000, (device) => {
+      const macStr = device.address.toString(16).padStart(12, '0');
+      const macWithColons = macStr.match(/.{2}/g)?.join(':') || '';
+      logInfo(`[Octo DEBUG] Found device: ${device.name || 'Unknown'} (MAC: ${macWithColons}, RSSI: ${device.rssi})`);
+      allDevices.push(device);
+    });
+    
+    logInfo(`[Octo DEBUG] Debug scan completed. Found ${allDevices.length} total devices.`);
+    
+    // Now filter for RC2 devices
     const discoveredDevices: BLEDeviceAdvertisement[] = [];
-    await esphome.startBleScan(30000, (device) => {
-      logInfo(`[Octo] Found device during scan: ${device.name} (${device.address})`);
+    allDevices.forEach(device => {
+      logInfo(`[Octo] Checking device: ${device.name} (${device.address})`);
       // Accept any device that might be an RC2 (name contains RC2 or has a valid MAC)
       if (device.name && device.name.toUpperCase().includes('RC2')) {
         logInfo(`[Octo] RC2 device found by name: ${device.name}`);
