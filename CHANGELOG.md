@@ -373,6 +373,15 @@
 - Improved error handling for device connections
 - Enhanced WebSocket reconnection logic
 
+## v1.2.7
+
+### Fixed
+- Fixed MAC address conversion for BLE device discovery
+- Added partial MAC prefix matching for more flexible device discovery
+- Enhanced BLE advertisement processing and logging
+- Improved device discovery reliability with fallback scanning logic
+- Fixed version inconsistencies across all configuration files
+
 ## v1.2.2
 
 ### Fixed
