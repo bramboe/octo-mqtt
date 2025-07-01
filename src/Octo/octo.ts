@@ -55,7 +55,16 @@ export const octo = async (mqtt: IMQTTConnection, esphome: IESPConnection) => {
   
   logInfo(`[Octo] Looking for devices with identifiers: ${deviceIdentifiers.join(', ')}`);
   
+  // Add more detailed logging for device discovery
+  logInfo(`[Octo] Starting device discovery with ${deviceIdentifiers.length} identifier(s)`);
+  logInfo(`[Octo] Device identifiers: ${JSON.stringify(deviceIdentifiers)}`);
+  
   const bleDevices = await esphome.getBLEDevices(deviceIdentifiers);
+  
+  logInfo(`[Octo] Device discovery completed. Found ${bleDevices.length} device(s)`);
+  bleDevices.forEach((device, index) => {
+    logInfo(`[Octo] Device ${index + 1}: ${device.name} (${device.mac})`);
+  });
   
   // If no devices found by name, try a broader scan for RC2 devices
   if (bleDevices.length === 0) {

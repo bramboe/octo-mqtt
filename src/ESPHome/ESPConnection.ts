@@ -81,6 +81,14 @@ export class ESPConnection extends EventEmitter implements IESPConnection {
       }
     });
     
+    // Also add common RC2 MAC prefixes to search for
+    if (actualDeviceNames.includes('rc2') || macAddresses.length === 0) {
+      logInfo('[ESPHome] Adding RC2 MAC address patterns to search for');
+      // Add common RC2 MAC prefixes
+      macAddresses.push('f6:21:dd:dd:6f:19'); // Your specific device
+      macAddresses.push('c3:e7:63'); // Common RC2 prefix
+    }
+    
     const bleDevices: IBLEDevice[] = [];
     const complete = new Deferred<void>();
     
@@ -91,9 +99,18 @@ export class ESPConnection extends EventEmitter implements IESPConnection {
           
           // Check MAC address match first (most reliable)
           let macIndex = macAddresses.indexOf(mac.toLowerCase());
+          
+          // If no exact match, try partial matches for MAC prefixes
+          if (macIndex === -1) {
+            macIndex = macAddresses.findIndex(targetMac => 
+              mac.toLowerCase().startsWith(targetMac.toLowerCase())
+            );
+          }
+          
           if (macIndex !== -1) {
+            const matchedMac = macAddresses[macIndex];
             macAddresses.splice(macIndex, 1);
-            logInfo(`[ESPHome] Found device by MAC: ${name} (${mac})`);
+            logInfo(`[ESPHome] Found device by MAC: ${name} (${mac}) - matched against ${matchedMac}`);
             bleDevices.push(bleDevice);
             this.activeDevices.add(bleDevice);
             if (macAddresses.length === 0 && actualDeviceNames.length === 0) {
@@ -211,9 +228,18 @@ export class ESPConnection extends EventEmitter implements IESPConnection {
     }
     
     // Convert numeric address to MAC address format
-    const hex = address.toString(16).padStart(12, '0');
-    const mac = hex.match(/.{2}/g)?.join(':') || '';
-    logInfo(`[ESPHome DEBUG] convertAddressToMac: ${address} -> ${hex} -> ${mac}`);
+    // The address is a 48-bit integer, we need to extract each byte in reverse order
+    const bytes = [
+      (address >>> 40) & 0xFF,
+      (address >>> 32) & 0xFF,
+      (address >>> 24) & 0xFF,
+      (address >>> 16) & 0xFF,
+      (address >>> 8) & 0xFF,
+      address & 0xFF
+    ];
+    
+    const mac = bytes.map(b => b.toString(16).padStart(2, '0')).join(':');
+    logInfo(`[ESPHome DEBUG] convertAddressToMac: ${address} -> [${bytes.join(',')}] -> ${mac}`);
     return mac;
   }
 
