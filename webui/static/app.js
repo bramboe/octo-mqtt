@@ -25,7 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function connectWebSocket() {
     console.log('Attempting to connect WebSocket...');
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/api/ws`;
+    const wsUrl = `${protocol}//${window.location.host}`;
     console.log('WebSocket URL:', wsUrl);
     
     try {
@@ -78,9 +78,10 @@ document.addEventListener('DOMContentLoaded', () => {
   function sendMessage(type, payload = {}) {
     if (socket && socket.readyState === WebSocket.OPEN) {
       const message = { type, ...payload };
+      console.log('Sending WebSocket message:', message);
       socket.send(JSON.stringify(message));
     } else {
-      console.warn('Cannot send message - WebSocket is not connected');
+      console.warn('Cannot send message - WebSocket is not connected. Socket state:', socket ? socket.readyState : 'null');
     }
   }
   
@@ -495,6 +496,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Function to start scanning
   function startScan() {
     console.log('Starting scan...');
+    console.log('Scan button clicked, WebSocket state:', socket ? socket.readyState : 'null');
     scanButton.disabled = true;
     deviceList.innerHTML = ''; // Clear previous results
     scanStatus.textContent = 'Starting scan...';
