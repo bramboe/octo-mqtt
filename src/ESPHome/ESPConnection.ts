@@ -279,6 +279,7 @@ export class ESPConnection extends EventEmitter implements IESPConnection {
     this.advertisementPacketListener = (data: any) => {
       // Log ALL advertisement data for debugging
       logInfo(`[ESPHome DEBUG] Advertisement received: name="${data.name || 'Unknown'}", address=${data.address}, mac="${data.mac || 'N/A'}", rssi=${data.rssi || 'N/A'}`);
+      logInfo(`[ESPHome DEBUG] Full advertisement data:`, JSON.stringify(data, null, 2));
       
       // Debug the address conversion process
       const rawAddress = data.address;
@@ -367,6 +368,9 @@ export class ESPConnection extends EventEmitter implements IESPConnection {
     };
 
     try {
+      logInfo('[ESPHome] Testing connection to ESPHome device...');
+      logInfo(`[ESPHome] Connection details: host=${primaryConnection.host}, port=${primaryConnection.port}`);
+      
       logInfo('[ESPHome] Setting up advertisement listener...');
       primaryConnection.on('message.BluetoothLEAdvertisementResponse', this.advertisementPacketListener);
       logInfo('[ESPHome] Advertisement listener attached successfully');
@@ -377,6 +381,11 @@ export class ESPConnection extends EventEmitter implements IESPConnection {
       
       this.isProxyScanning = true;
       logInfo('[ESPHome] Scan started successfully. Waiting for RC2 devices...');
+      logInfo('[ESPHome] If no devices are found, check:');
+      logInfo('  1. ESPHome BLE proxy is configured correctly');
+      logInfo('  2. BLE devices are in range and advertising');
+      logInfo('  3. ESPHome device has BLE proxy enabled');
+      logInfo('  4. Network connectivity to ESPHome device');
 
       return new Promise((resolve, _reject) => {
         this.scanTimeoutId = setTimeout(async () => {
