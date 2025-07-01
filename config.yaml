@@ -49,7 +49,7 @@ schema:
   mqtt_port: port?
   mqtt_username: str?
   mqtt_password: password?
-  log_level: list(trace|debug|info|notice|warning|error|fatal)?
+  log_level: match(^(trace|debug|info|notice|warning|error|fatal)$)?
   bleProxies:
     - host: str
       port: port?
@@ -65,5 +65,5 @@ schema:
   target_pin: match(^\d{4}$)?
   enable_mac_filtering: bool?
   enable_pin_filtering: bool?
-  scan_duration: int(1000..60000)?
-  scan_interval: int(1000..30000)? 
+  scan_duration: int(1000,60000)?
+  scan_interval: int(1000,30000)? 
