@@ -66,48 +66,30 @@ export const octo = async (mqtt: IMQTTConnection, esphome: IESPConnection) => {
     logInfo(`[Octo] Device ${index + 1}: ${device.name} (${device.mac})`);
   });
   
-  // If no devices found by name, try a broader scan for RC2 devices
+  // If no devices found by name, try enhanced scan with MAC/PIN filtering
   if (bleDevices.length === 0) {
-    logWarn('[Octo] No devices found by name, trying broader scan for RC2 devices...');
+    logWarn('[Octo] No devices found by name, trying enhanced scan with MAC/PIN filtering...');
     
-    // First, do a scan to see ALL devices for debugging
-    logInfo('[Octo] Starting debug scan to see all available devices...');
-    const allDevices: BLEDeviceAdvertisement[] = [];
-    await esphome.startBleScan(15000, (device) => {
-      const macStr = device.address.toString(16).padStart(12, '0');
-      const macWithColons = macStr.match(/.{2}/g)?.join(':') || '';
-      logInfo(`[Octo DEBUG] Found device: ${device.name || 'Unknown'} (MAC: ${macWithColons}, RSSI: ${device.rssi})`);
-      allDevices.push(device);
-    });
+    // Get scan duration from configuration
+    const scanDuration = process.env.OCTO_SCAN_DURATION ? parseInt(process.env.OCTO_SCAN_DURATION) : 15000;
+    logInfo(`[Octo] Starting enhanced scan for ${scanDuration}ms with MAC/PIN filtering...`);
     
-    logInfo(`[Octo DEBUG] Debug scan completed. Found ${allDevices.length} total devices.`);
-    
-    // Now filter for RC2 devices
+    // Start a scan to look for RC2 devices with enhanced filtering
     const discoveredDevices: BLEDeviceAdvertisement[] = [];
-    allDevices.forEach(device => {
-      logInfo(`[Octo] Checking device: ${device.name} (${device.address})`);
-      // Accept any device that might be an RC2 (name contains RC2 or has a valid MAC)
-      if (device.name && device.name.toUpperCase().includes('RC2')) {
-        logInfo(`[Octo] RC2 device found by name: ${device.name}`);
-        discoveredDevices.push(device);
-      } else if (device.address) {
-        // Also check if the MAC address matches known RC2 patterns
-        const macStr = device.address.toString(16).padStart(12, '0');
-        const macWithColons = macStr.match(/.{2}/g)?.join(':') || '';
-        logInfo(`[Octo] Device MAC: ${macWithColons}`);
-        
-        if (macWithColons.startsWith('f6:21:dd') || macWithColons.startsWith('c3:e7:63')) {
-          logInfo(`[Octo] RC2 device found by MAC: ${macWithColons}`);
-          discoveredDevices.push(device);
-        }
-      }
+    await esphome.startBleScan(scanDuration, (device) => {
+      logInfo(`[Octo] Found target device during enhanced scan: ${device.name} (${device.address})`);
+      
+      // The enhanced filtering is now handled in ESPConnection.ts
+      // This callback will only be called for devices that pass the MAC/PIN filter
+      discoveredDevices.push(device);
     });
     
     if (discoveredDevices.length > 0) {
-      logInfo(`[Octo] Found ${discoveredDevices.length} RC2 device(s) during scan`);
-      // Try to connect to the first RC2 device found
+      logInfo(`[Octo] Found ${discoveredDevices.length} target device(s) during enhanced scan`);
+      
+      // Try to connect to the first target device found
       const firstDevice = discoveredDevices[0];
-      logInfo(`[Octo] Attempting to connect to RC2 device: ${firstDevice.name} (${firstDevice.address})`);
+      logInfo(`[Octo] Attempting to connect to target device: ${firstDevice.name} (${firstDevice.address})`);
       
       // Create a mock device for connection attempt
       const mockDevice = {
@@ -115,14 +97,12 @@ export const octo = async (mqtt: IMQTTConnection, esphome: IESPConnection) => {
         mac: firstDevice.address.toString(16).padStart(12, '0'),
         address: firstDevice.address,
         connect: async () => {
-          // This would need to be implemented properly
           logInfo(`[Octo] Mock connection to ${firstDevice.name}`);
         },
         disconnect: async () => {
           logInfo(`[Octo] Mock disconnection from ${firstDevice.name}`);
         },
         getCharacteristic: async () => {
-          // Mock characteristic
           return { handle: 0x0B };
         },
         getDeviceInfo: async () => {
@@ -133,7 +113,8 @@ export const octo = async (mqtt: IMQTTConnection, esphome: IESPConnection) => {
       // Add to bleDevices array for processing
       bleDevices.push(mockDevice as any);
     } else {
-      logWarn('[Octo] No RC2 devices found during scan');
+      logWarn('[Octo] No target devices found during enhanced scan');
+      logWarn('[Octo] Check your MAC/PIN configuration and ensure the ESPHome BLE proxy is working');
     }
   }
 

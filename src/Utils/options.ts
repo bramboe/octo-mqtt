@@ -26,6 +26,17 @@ export function getRootOptions() {
     const content = fs.readFileSync(localPath, 'utf8');
     rootOptions = JSON.parse(content);
     logInfo('[Options] Successfully read options from local path:', localPath);
+    
+    // Set environment variables for BLE filtering
+    if (rootOptions.target_mac) {
+      process.env.OCTO_TARGET_MAC = rootOptions.target_mac;
+      logInfo('[Options] Set OCTO_TARGET_MAC:', rootOptions.target_mac);
+    }
+    if (rootOptions.target_pin) {
+      process.env.OCTO_TARGET_PIN = rootOptions.target_pin;
+      logInfo('[Options] Set OCTO_TARGET_PIN:', rootOptions.target_pin);
+    }
+    
     return rootOptions;
   } catch (error) {
     logInfo('[Options] Could not read from local path, trying /data/options.json');
@@ -36,6 +47,17 @@ export function getRootOptions() {
     const content = fs.readFileSync('/data/options.json', 'utf8');
     rootOptions = JSON.parse(content);
     logInfo('[Options] Successfully read options from /data/options.json');
+    
+    // Set environment variables for BLE filtering
+    if (rootOptions.target_mac) {
+      process.env.OCTO_TARGET_MAC = rootOptions.target_mac;
+      logInfo('[Options] Set OCTO_TARGET_MAC:', rootOptions.target_mac);
+    }
+    if (rootOptions.target_pin) {
+      process.env.OCTO_TARGET_PIN = rootOptions.target_pin;
+      logInfo('[Options] Set OCTO_TARGET_PIN:', rootOptions.target_pin);
+    }
+    
     return rootOptions;
   } catch (error) {
     logInfo('[Options] Could not read from /data/options.json, using default development options');

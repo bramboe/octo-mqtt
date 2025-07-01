@@ -243,6 +243,120 @@ export class ESPConnection extends EventEmitter implements IESPConnection {
     return mac;
   }
 
+  /**
+   * Extract PIN from BLE advertisement data
+   * This method looks for PIN information in various advertisement formats
+   */
+  private extractPinFromAdvertisement(data: any): string {
+    try {
+      // Check if PIN is directly in the advertisement data
+      if (data.pin) {
+        logInfo(`[ESPHome DEBUG] PIN found in advertisement data: ${data.pin}`);
+        return data.pin.toString();
+      }
+
+      // Check if PIN is in manufacturer data
+      if (data.manufacturerData) {
+        const manufacturerData = Buffer.from(data.manufacturerData, 'hex');
+        // Look for PIN patterns in manufacturer data
+        // This is a simplified example - actual implementation depends on bed's data format
+        for (let i = 0; i < manufacturerData.length - 3; i++) {
+          const potentialPin = manufacturerData.slice(i, i + 4).toString('ascii');
+          if (/^\d{4}$/.test(potentialPin)) {
+            logInfo(`[ESPHome DEBUG] PIN found in manufacturer data: ${potentialPin}`);
+            return potentialPin;
+          }
+        }
+      }
+
+      // Check if PIN is in service data
+      if (data.serviceData) {
+        for (const [uuid, serviceData] of Object.entries(data.serviceData)) {
+          const dataBuffer = Buffer.from(serviceData as string, 'hex');
+          // Look for PIN patterns in service data
+          for (let i = 0; i < dataBuffer.length - 3; i++) {
+            const potentialPin = dataBuffer.slice(i, i + 4).toString('ascii');
+            if (/^\d{4}$/.test(potentialPin)) {
+              logInfo(`[ESPHome DEBUG] PIN found in service data (UUID: ${uuid}): ${potentialPin}`);
+              return potentialPin;
+            }
+          }
+        }
+      }
+
+      logInfo(`[ESPHome DEBUG] No PIN found in advertisement data`);
+      return '';
+    } catch (error) {
+      logError('[ESPHome DEBUG] Error extracting PIN from advertisement:', error);
+      return '';
+    }
+  }
+
+  /**
+   * Enhanced target device filtering based on MAC address and PIN
+   */
+  private isTargetDevice(
+    device: BLEDeviceAdvertisement, 
+    targetMac: string, 
+    targetPin: string
+  ): boolean {
+    const deviceMac = this.convertAddressToMac(device.address);
+    const devicePin = this.extractPinFromAdvertisement(device);
+
+    // Log filtering criteria
+    logInfo(`[ESPHome DEBUG] Device filtering:`);
+    logInfo(`[ESPHome DEBUG]   Device MAC: ${deviceMac}`);
+    logInfo(`[ESPHome DEBUG]   Device PIN: ${devicePin || 'Not found'}`);
+    logInfo(`[ESPHome DEBUG]   Target MAC: ${targetMac || 'Not set'}`);
+    logInfo(`[ESPHome DEBUG]   Target PIN: ${targetPin || 'Not set'}`);
+
+    // If no target criteria are set, accept all RC2 devices
+    if (!targetMac && !targetPin) {
+      const isRC2ByName = device.name && device.name.toUpperCase().includes('RC2');
+      const isRC2ByMac = Boolean(deviceMac && (
+        deviceMac.toLowerCase().startsWith('c3:e7:63') ||
+        deviceMac.toLowerCase().startsWith('f6:21:dd')
+      ));
+      
+      const accepted = isRC2ByName || isRC2ByMac;
+      logInfo(`[ESPHome DEBUG] No target criteria set. Accepting RC2 devices: ${accepted}`);
+      return accepted;
+    }
+
+    // Check MAC address match
+    let macMatch = false;
+    if (targetMac) {
+      // Exact MAC match
+      macMatch = deviceMac.toLowerCase() === targetMac.toLowerCase();
+      
+      // If no exact match, try partial match for MAC prefixes
+      if (!macMatch && targetMac.length < 17) {
+        macMatch = deviceMac.toLowerCase().startsWith(targetMac.toLowerCase());
+      }
+      
+      logInfo(`[ESPHome DEBUG] MAC match: ${macMatch}`);
+    } else {
+      macMatch = true; // No MAC requirement
+    }
+
+    // Check PIN match
+    let pinMatch = false;
+    if (targetPin) {
+      pinMatch = devicePin === targetPin;
+      logInfo(`[ESPHome DEBUG] PIN match: ${pinMatch}`);
+    } else {
+      pinMatch = true; // No PIN requirement
+    }
+
+    // Device must match all specified criteria
+    const isTarget = macMatch && pinMatch;
+    logInfo(`[ESPHome DEBUG] Device ${device.name} (${deviceMac}) is target device: ${isTarget}`);
+    
+    return isTarget;
+  }
+
+
+
   async startBleScan(
     durationMs: number,
     onDeviceDiscoveredDuringScan: (device: BLEDeviceAdvertisement) => void
@@ -281,11 +395,6 @@ export class ESPConnection extends EventEmitter implements IESPConnection {
         logWarn('[ESPHome] Skipping device with invalid address:', rawAddress);
         return;
       }
-      // Validate MAC: must match pattern XX:XX:XX:XX:XX:XX
-      if (!/^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$/.test(finalAddress)) {
-        logWarn('[ESPHome] Skipping device with invalid MAC address:', finalAddress);
-        return;
-      }
       
       logInfo(`[ESPHome DEBUG] Address processing: raw=${rawAddress}, mac=${macFromData}, converted=${convertedMac}, final=${finalAddress}`);
       
@@ -299,20 +408,12 @@ export class ESPConnection extends EventEmitter implements IESPConnection {
         service_uuids: data.serviceUuids || data.service_uuids || [],
       };
 
-      // Check if this device matches our configured device
-      const isRC2Device = (
-        // Primary check: device name must explicitly contain "RC2"
-        (data.name && data.name.toUpperCase().includes('RC2')) ||
-        // Secondary check: specific MAC address patterns for known RC2 beds
-        (finalAddress && (
-          finalAddress.toLowerCase().startsWith('c3:e7:63') ||
-          finalAddress.toLowerCase().startsWith('f6:21:dd')
-        )) ||
-        // Third check: exact MAC address match from configuration
-        (finalAddress && finalAddress.toLowerCase() === 'f6:21:dd:dd:6f:19')
-      );
+      // Get target MAC and PIN from environment variables
+      const targetMac = process.env.OCTO_TARGET_MAC || '';
+      const targetPin = process.env.OCTO_TARGET_PIN || '';
 
-      logInfo(`[ESPHome DEBUG] Device ${data.name || 'Unknown'} (${finalAddress}) - IsRC2: ${isRC2Device}`);
+      // Use enhanced filtering logic
+      const isTargetDevice = this.isTargetDevice(discoveredDevice, targetMac, targetPin);
 
       // Always add the device to discovered devices for debugging
       if (!discoveredDevicesDuringScan.has(discoveredDevice.address.toString())) {
@@ -322,9 +423,9 @@ export class ESPConnection extends EventEmitter implements IESPConnection {
         discoveredDevicesDuringScan.set(discoveredDevice.address.toString(), discoveredDevice);
       }
 
-      // Only call the callback for RC2 devices
-      if (isRC2Device) {
-        logInfo('[ESPHome SCAN] Found RC2 device!');
+      // Only call the callback for target devices
+      if (isTargetDevice) {
+        logInfo(`[ESPHome SCAN] Found target device: ${discoveredDevice.name} (${finalAddress})`);
         onDeviceDiscoveredDuringScan(discoveredDevice);
       }
     };

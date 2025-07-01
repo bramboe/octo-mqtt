@@ -37,6 +37,13 @@ options:
     - mac: "f6:21:dd:dd:6f:19"
       friendlyName: "RC2 Bed"
       pin: "1987"
+  # Enhanced BLE filtering options
+  target_mac: "f6:21:dd:dd:6f:19"
+  target_pin: "1987"
+  enable_mac_filtering: true
+  enable_pin_filtering: true
+  scan_duration: 15000
+  scan_interval: 5000
 schema:
   mqtt_host: str?
   mqtt_port: port?
@@ -52,4 +59,11 @@ schema:
   octoDevices:
     - mac: match(^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$)
       friendlyName: str
-      pin: str? 
+      pin: str?
+  # Enhanced BLE filtering schema
+  target_mac: match(^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$)?
+  target_pin: match(^\d{4}$)?
+  enable_mac_filtering: bool?
+  enable_pin_filtering: bool?
+  scan_duration: int(1000..60000)?
+  scan_interval: int(1000..30000)? 
