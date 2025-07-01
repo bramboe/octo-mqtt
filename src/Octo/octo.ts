@@ -115,6 +115,36 @@ export const octo = async (mqtt: IMQTTConnection, esphome: IESPConnection) => {
     } else {
       logWarn('[Octo] No target devices found during enhanced scan');
       logWarn('[Octo] Check your MAC/PIN configuration and ensure the ESPHome BLE proxy is working');
+      
+      // Try a debug scan to see ALL devices without filtering
+      logWarn('[Octo] Starting debug scan to see ALL available BLE devices...');
+      const allDevices: BLEDeviceAdvertisement[] = [];
+      
+      // Temporarily disable filtering by clearing environment variables
+      const originalTargetMac = process.env.OCTO_TARGET_MAC;
+      const originalTargetPin = process.env.OCTO_TARGET_PIN;
+      delete process.env.OCTO_TARGET_MAC;
+      delete process.env.OCTO_TARGET_PIN;
+      
+      await esphome.startBleScan(10000, (device) => {
+        const macStr = device.address.toString(16).padStart(12, '0');
+        const macWithColons = macStr.match(/.{2}/g)?.join(':') || '';
+        logInfo(`[Octo DEBUG] Found ANY device: ${device.name || 'Unknown'} (MAC: ${macWithColons}, RSSI: ${device.rssi})`);
+        allDevices.push(device);
+      });
+      
+      // Restore environment variables
+      if (originalTargetMac) process.env.OCTO_TARGET_MAC = originalTargetMac;
+      if (originalTargetPin) process.env.OCTO_TARGET_PIN = originalTargetPin;
+      
+      logInfo(`[Octo DEBUG] Debug scan completed. Found ${allDevices.length} total devices.`);
+      if (allDevices.length === 0) {
+        logWarn('[Octo DEBUG] No BLE devices found at all. Possible issues:');
+        logWarn('[Octo DEBUG] 1. ESPHome BLE proxy is not scanning properly');
+        logWarn('[Octo DEBUG] 2. No BLE devices are in range');
+        logWarn('[Octo DEBUG] 3. ESPHome BLE proxy configuration issue');
+        logWarn('[Octo DEBUG] 4. Your Octo bed is not advertising');
+      }
     }
   }
 

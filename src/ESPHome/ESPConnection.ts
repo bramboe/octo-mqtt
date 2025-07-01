@@ -376,8 +376,15 @@ export class ESPConnection extends EventEmitter implements IESPConnection {
     await this.cleanupScan();
 
     logInfo(`[ESPHome] Starting BLE scan for ${durationMs}ms via primary proxy...`);
-    logInfo('[ESPHome] Looking specifically for devices named "RC2"...');
+    logInfo('[ESPHome] Looking for all BLE devices (filtering will be applied)...');
     const discoveredDevicesDuringScan = new Map<string, BLEDeviceAdvertisement>();
+    
+    // Log scan parameters
+    const targetMac = process.env.OCTO_TARGET_MAC || '';
+    const targetPin = process.env.OCTO_TARGET_PIN || '';
+    logInfo(`[ESPHome] Scan parameters: Target MAC="${targetMac}", Target PIN="${targetPin}"`);
+    logInfo(`[ESPHome] MAC filtering: ${targetMac ? 'enabled' : 'disabled'}`);
+    logInfo(`[ESPHome] PIN filtering: ${targetPin ? 'enabled' : 'disabled'}`);
     
     this.advertisementPacketListener = (data: any) => {
       // Log ALL advertisement data for debugging
@@ -411,6 +418,8 @@ export class ESPConnection extends EventEmitter implements IESPConnection {
       // Get target MAC and PIN from environment variables
       const targetMac = process.env.OCTO_TARGET_MAC || '';
       const targetPin = process.env.OCTO_TARGET_PIN || '';
+
+      logInfo(`[ESPHome DEBUG] Target MAC: "${targetMac}", Target PIN: "${targetPin}"`);
 
       // Use enhanced filtering logic
       const isTargetDevice = this.isTargetDevice(discoveredDevice, targetMac, targetPin);

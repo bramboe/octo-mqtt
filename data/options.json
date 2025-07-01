@@ -19,5 +19,11 @@
   "mqttPassword": "",
   "mqttClientId": "octo_mqtt",
   "mqttTopic": "octo",
-  "log_level": "debug"
+  "log_level": "debug",
+  "target_mac": "f6:21:dd:dd:6f:19",
+  "target_pin": "1987",
+  "enable_mac_filtering": true,
+  "enable_pin_filtering": true,
+  "scan_duration": 30000,
+  "scan_interval": 5000
 }
