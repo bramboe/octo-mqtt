@@ -26,7 +26,7 @@ app.use(express.json());
 app.use(express.static('webui'));
 
 // Test endpoint to verify server is working
-app.get('/test', (req, res) => {
+app.get('/test', (_req, res) => {
   res.json({ 
     message: 'Server is running',
     timestamp: new Date().toISOString(),
@@ -35,7 +35,7 @@ app.get('/test', (req, res) => {
 });
 
 // WebSocket endpoint for explicit routing
-app.get('/ws', (req, res) => {
+app.get('/ws', (_req, res) => {
   res.send('WebSocket endpoint - use WebSocket protocol to connect');
 });
 
