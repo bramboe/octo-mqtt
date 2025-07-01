@@ -32,11 +32,15 @@ document.addEventListener('DOMContentLoaded', () => {
       socket = new WebSocket(wsUrl);
       
       socket.onopen = () => {
+        console.log('=== WEBSOCKET CONNECTION OPENED ===');
         console.log('WebSocket connected successfully');
+        console.log('Socket readyState:', socket.readyState);
+        console.log('Socket URL:', socket.url);
         updateConnectionStatus('connected');
         reconnectAttempts = 0;
         
         // Request initial status
+        console.log('Requesting initial status...');
         sendMessage('getStatus');
       };
       
@@ -57,8 +61,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       };
       
-      socket.onclose = () => {
+      socket.onclose = (event) => {
+        console.log('=== WEBSOCKET CONNECTION CLOSED ===');
         console.log('WebSocket connection closed');
+        console.log('Close event code:', event.code);
+        console.log('Close event reason:', event.reason);
+        console.log('Close event wasClean:', event.wasClean);
         updateConnectionStatus('disconnected');
         
         // Try to reconnect with progressive backoff
@@ -73,7 +81,10 @@ document.addEventListener('DOMContentLoaded', () => {
       };
       
       socket.onerror = (error) => {
+        console.error('=== WEBSOCKET ERROR ===');
         console.error('WebSocket error:', error);
+        console.error('Error type:', typeof error);
+        console.error('Error details:', error);
       };
     } catch (error) {
       console.error('Error creating WebSocket:', error);
@@ -81,6 +92,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
   
+  function checkWebSocketStatus() {
+    console.log('=== WEBSOCKET STATUS CHECK ===');
+    console.log('Socket exists:', !!socket);
+    if (socket) {
+      console.log('Socket readyState:', socket.readyState);
+      console.log('Socket URL:', socket.url);
+      console.log('Socket protocol:', socket.protocol);
+      console.log('Socket extensions:', socket.extensions);
+      console.log('Socket bufferedAmount:', socket.bufferedAmount);
+    }
+    return socket && socket.readyState === WebSocket.OPEN;
+  }
+
   function sendMessage(type, payload = {}) {
     console.log('=== SEND MESSAGE CALLED ===');
     console.log('Message type:', type);
@@ -769,10 +793,17 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   
   // Initialize the connection
-  connectWebSocket();
-
-  // Load configured devices when page loads
-  loadConfiguredDevices();
+  console.log('=== INITIALIZING APPLICATION ===');
+  console.log('Current location:', window.location.href);
+  console.log('Protocol:', window.location.protocol);
+  console.log('Host:', window.location.host);
+  
+  // Wait a moment for the page to fully load before connecting
+  setTimeout(() => {
+    console.log('Starting WebSocket connection...');
+    connectWebSocket();
+    loadConfiguredDevices();
+  }, 1000);
 
   // Function to load and display configured devices
   function loadConfiguredDevices() {
@@ -791,6 +822,49 @@ document.addEventListener('DOMContentLoaded', () => {
 
     console.log(`[DEBUG] Sending removeDevice message for: ${deviceAddress}`);
     sendMessage('removeDevice', { address: deviceAddress });
+  }
+
+  // Debug button handlers
+  document.getElementById('test-connection').addEventListener('click', () => {
+    console.log('=== TESTING WEBSOCKET CONNECTION ===');
+    const debugOutput = document.getElementById('debug-output');
+    debugOutput.innerHTML = '<p>Testing WebSocket connection...</p>';
+    
+    if (checkWebSocketStatus()) {
+      debugOutput.innerHTML = '<p style="color: green;">✅ WebSocket is connected and ready!</p>';
+      sendMessage('getStatus');
+    } else {
+      debugOutput.innerHTML = '<p style="color: red;">❌ WebSocket is not connected. Check console for details.</p>';
+      console.log('Attempting to reconnect...');
+      connectWebSocket();
+    }
+  });
+  
+  document.getElementById('check-status').addEventListener('click', () => {
+    console.log('=== CHECKING CONNECTION STATUS ===');
+    const debugOutput = document.getElementById('debug-output');
+    const status = checkWebSocketStatus();
+    
+    let statusHtml = '<h4>Connection Status:</h4>';
+    statusHtml += `<p>WebSocket Connected: ${status ? '✅ Yes' : '❌ No'}</p>`;
+    statusHtml += `<p>Socket Exists: ${socket ? '✅ Yes' : '❌ No'}</p>`;
+    
+    if (socket) {
+      statusHtml += `<p>Ready State: ${socket.readyState} (${getReadyStateName(socket.readyState)})</p>`;
+      statusHtml += `<p>URL: ${socket.url}</p>`;
+    }
+    
+    debugOutput.innerHTML = statusHtml;
+  });
+  
+  function getReadyStateName(state) {
+    switch (state) {
+      case 0: return 'CONNECTING';
+      case 1: return 'OPEN';
+      case 2: return 'CLOSING';
+      case 3: return 'CLOSED';
+      default: return 'UNKNOWN';
+    }
   }
 
   // Make removeDevice available globally

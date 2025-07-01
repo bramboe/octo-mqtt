@@ -486,4 +486,30 @@ footer a:hover {
 
 .scanning {
   animation: scanning 2s infinite;
+}
+
+.debug-container {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.debug-output {
+  background-color: #f8f9fa;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 15px;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.debug-output h4 {
+  margin-bottom: 10px;
+  color: var(--primary-dark);
+}
+
+.debug-output p {
+  margin-bottom: 5px;
 } 
