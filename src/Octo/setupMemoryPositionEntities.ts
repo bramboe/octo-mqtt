@@ -29,10 +29,13 @@ export async function setupMemoryPositionEntities(
 ): Promise<void> {
   logInfo('[Octo] Setting up memory position entities');
 
+  // Ensure we have a valid address for the device
+  const deviceAddress = controller.deviceData.device.ids?.[0] || controller.deviceData.device.mdl || 'unknown';
+  
   const deviceData = buildMQTTDeviceData({
     friendlyName: controller.deviceData.device.name,
     name: controller.deviceData.device.mdl,
-    address: controller.deviceData.device.ids[0]
+    address: deviceAddress
   }, 'Octo');
   
   const deviceId = deviceData.deviceTopic;

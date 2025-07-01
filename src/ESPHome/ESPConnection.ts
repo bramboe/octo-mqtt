@@ -177,8 +177,10 @@ export class ESPConnection extends EventEmitter implements IESPConnection {
     const discoveredDevicesDuringScan = new Map<string, BLEDeviceAdvertisement>();
     
     this.advertisementPacketListener = (data: any) => {
-      // Log raw advertisement data for debugging
-      logInfo('[ESPHome DEBUG] Raw advertisement data:', JSON.stringify(data));
+      // Log raw advertisement data for debugging (but limit the verbosity)
+      if (data.name || data.address) {
+        logInfo(`[ESPHome DEBUG] Advertisement: name="${data.name || 'Unknown'}", address=${data.address}, mac="${data.mac || 'N/A'}", rssi=${data.rssi || 'N/A'}`);
+      }
       
       // Debug the address conversion process
       const rawAddress = data.address;

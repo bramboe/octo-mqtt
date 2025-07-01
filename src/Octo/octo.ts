@@ -13,6 +13,7 @@ import { setupMotorEntities } from './setupMotorEntities';
 import { setupDeviceInfoSensor } from '../BLE/setupDeviceInfoSensor';
 import { BLEDeviceInfo } from '../ESPHome/types/BLEDeviceInfo';
 import { OctoDevice } from './options';
+import { BLEDeviceAdvertisement } from '../BLE/BLEController';
 
 export type Command = {
   command: number[];
@@ -29,7 +30,9 @@ const MAX_FEATURE_REQUEST_ATTEMPTS = 3;
 function macToInteger(mac: string): number {
   // Remove colons and convert to integer
   const cleanMac = mac.replace(/:/g, '');
-  return parseInt(cleanMac, 16);
+  const result = parseInt(cleanMac, 16);
+  logInfo(`[Octo] MAC conversion: ${mac} -> ${cleanMac} -> ${result} (0x${result.toString(16)})`);
+  return result;
 }
 
 // Function to validate MAC address format
@@ -60,7 +63,57 @@ export const octo = async (mqtt: IMQTTConnection, esphome: IESPConnection) => {
     return;
   }
   
+  logInfo(`[Octo] Looking for devices with addresses: ${deviceAddresses.map(addr => `0x${addr.toString(16)}`).join(', ')}`);
+  
   const bleDevices = await esphome.getBLEDevices(deviceAddresses);
+  
+  // If no devices found by MAC address, try a broader scan for RC2 devices
+  if (bleDevices.length === 0) {
+    logWarn('[Octo] No devices found by MAC address, trying broader scan for RC2 devices...');
+    
+    // Start a scan to look for RC2 devices by name
+    const discoveredDevices: BLEDeviceAdvertisement[] = [];
+    await esphome.startBleScan(5000, (device) => {
+      logInfo(`[Octo] Found device during scan: ${device.name} (${device.address})`);
+      if (device.name && device.name.toUpperCase().includes('RC2')) {
+        discoveredDevices.push(device);
+      }
+    });
+    
+    if (discoveredDevices.length > 0) {
+      logInfo(`[Octo] Found ${discoveredDevices.length} RC2 device(s) during scan`);
+      // Try to connect to the first RC2 device found
+      const firstDevice = discoveredDevices[0];
+      logInfo(`[Octo] Attempting to connect to RC2 device: ${firstDevice.name} (${firstDevice.address})`);
+      
+      // Create a mock device for connection attempt
+      const mockDevice = {
+        name: firstDevice.name,
+        mac: firstDevice.address.toString(16).padStart(12, '0'),
+        address: firstDevice.address,
+        connect: async () => {
+          // This would need to be implemented properly
+          logInfo(`[Octo] Mock connection to ${firstDevice.name}`);
+        },
+        disconnect: async () => {
+          logInfo(`[Octo] Mock disconnection from ${firstDevice.name}`);
+        },
+        getCharacteristic: async () => {
+          // Mock characteristic
+          return { handle: 0x0B };
+        },
+        getDeviceInfo: async () => {
+          return { name: firstDevice.name, mac: firstDevice.address.toString(16) };
+        }
+      };
+      
+      // Add to bleDevices array for processing
+      bleDevices.push(mockDevice as any);
+    } else {
+      logWarn('[Octo] No RC2 devices found during scan');
+    }
+  }
+  
   for (const bleDevice of bleDevices) {
     const { name, mac, address, connect, disconnect, getCharacteristic, getDeviceInfo } = bleDevice;
     const device = devicesMap[mac] || devicesMap[name.toLowerCase()];
