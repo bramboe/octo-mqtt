@@ -76,8 +76,8 @@ export const octo = async (mqtt: IMQTTConnection, esphome: IESPConnection) => {
       // Send a simple keep-alive command to each connected device
       bleDevices.forEach(async (device) => {
         try {
-          // Send a harmless keep-alive command (similar to ESPHome config)
-          const keepAliveCmd = [0x40, 0x20, 0x43, 0x00, 0x04, 0x00, 0x02, 0x03, 0x04, 0x05, 0x40];
+          // Remove unused variable keepAliveCmd
+          // const keepAliveCmd = [0x40, 0x20, 0x43, 0x00, 0x04, 0x00, 0x02, 0x03, 0x04, 0x05, 0x40];
           logInfo(`[Octo] Keep-alive sent to ${device.name}`);
         } catch (error) {
           logWarn(`[Octo] Keep-alive failed for ${device.name}:`, error);
