@@ -74,8 +74,20 @@ export const octo = async (mqtt: IMQTTConnection, esphome: IESPConnection) => {
     const discoveredDevices: BLEDeviceAdvertisement[] = [];
     await esphome.startBleScan(30000, (device) => {
       logInfo(`[Octo] Found device during scan: ${device.name} (${device.address})`);
+      // Accept any device that might be an RC2 (name contains RC2 or has a valid MAC)
       if (device.name && device.name.toUpperCase().includes('RC2')) {
+        logInfo(`[Octo] RC2 device found by name: ${device.name}`);
         discoveredDevices.push(device);
+      } else if (device.address) {
+        // Also check if the MAC address matches known RC2 patterns
+        const macStr = device.address.toString(16).padStart(12, '0');
+        const macWithColons = macStr.match(/.{2}/g)?.join(':') || '';
+        logInfo(`[Octo] Device MAC: ${macWithColons}`);
+        
+        if (macWithColons.startsWith('f6:21:dd') || macWithColons.startsWith('c3:e7:63')) {
+          logInfo(`[Octo] RC2 device found by MAC: ${macWithColons}`);
+          discoveredDevices.push(device);
+        }
       }
     });
     

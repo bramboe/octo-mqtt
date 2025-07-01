@@ -267,7 +267,8 @@ export class ESPConnection extends EventEmitter implements IESPConnection {
     
     this.advertisementPacketListener = (data: any) => {
       // Log ALL advertisement data for debugging
-      logInfo(`[ESPHome DEBUG] Advertisement: name="${data.name || 'Unknown'}", address=${data.address}, mac="${data.mac || 'N/A'}", rssi=${data.rssi || 'N/A'}`);
+      logInfo(`[ESPHome DEBUG] Advertisement received: name="${data.name || 'Unknown'}", address=${data.address}, mac="${data.mac || 'N/A'}", rssi=${data.rssi || 'N/A'}`);
+      logInfo(`[ESPHome DEBUG] Raw advertisement data: ${JSON.stringify(data)}`);
       
       // Debug the address conversion process
       const rawAddress = data.address;
@@ -322,8 +323,14 @@ export class ESPConnection extends EventEmitter implements IESPConnection {
     };
 
     try {
+      logInfo('[ESPHome] Setting up advertisement listener...');
       primaryConnection.on('message.BluetoothLEAdvertisementResponse', this.advertisementPacketListener);
+      logInfo('[ESPHome] Advertisement listener attached successfully');
+      
+      logInfo('[ESPHome] Subscribing to Bluetooth advertisement service...');
       await primaryConnection.subscribeBluetoothAdvertisementService();
+      logInfo('[ESPHome] Bluetooth advertisement service subscription completed');
+      
       this.isProxyScanning = true;
       logInfo('[ESPHome] Scan started successfully. Waiting for RC2 devices...');
 
