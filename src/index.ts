@@ -25,7 +25,7 @@ logInfo('[Server] WebSocket server created with path: /ws');
 logInfo('[Server] Port:', PORT);
 
 // Add WebSocket upgrade event handler for debugging
-wss.on('headers', (headers, req) => {
+wss.on('headers', (_headers, req) => {
   logInfo('[WebSocket] Headers event triggered');
   logInfo('[WebSocket] Request URL:', req.url);
   logInfo('[WebSocket] Request method:', req.method);
