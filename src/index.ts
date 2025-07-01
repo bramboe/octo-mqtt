@@ -82,8 +82,18 @@ async function initializeAddon() {
       logInfo('[Octo MQTT] ESPHome connected successfully');
     } else {
       logWarn('[Octo MQTT] ESPHome connection failed - no active BLE proxy connections available');
-      logWarn('[Octo MQTT] BLE functionality will be disabled');
-      esphomeConnection = null;
+      logWarn('[Octo MQTT] Waiting for connections to be established...');
+      
+      // Wait for connections to be established (up to 30 seconds)
+      const connectionEstablished = await esphomeConnection.waitForConnection(30000);
+      
+      if (connectionEstablished) {
+        logInfo('[Octo MQTT] ESPHome connection established after waiting');
+      } else {
+        logWarn('[Octo MQTT] ESPHome connection failed - no active BLE proxy connections available');
+        logWarn('[Octo MQTT] BLE functionality will be disabled');
+        esphomeConnection = null;
+      }
     }
     
     // Initialize storage

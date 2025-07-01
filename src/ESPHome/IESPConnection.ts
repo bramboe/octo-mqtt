@@ -12,4 +12,5 @@ export interface IESPConnection extends EventEmitter {
   ): Promise<BLEDeviceAdvertisement[]>;
   stopBleScan?(): Promise<void>;
   hasActiveConnections(): boolean;
+  waitForConnection(maxWaitTime?: number): Promise<boolean>;
 } 

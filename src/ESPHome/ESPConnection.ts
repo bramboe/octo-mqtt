@@ -28,6 +28,17 @@ export class ESPConnection extends EventEmitter implements IESPConnection {
     return this.connections.length > 0;
   }
 
+  async waitForConnection(maxWaitTime = 30000): Promise<boolean> {
+    const startTime = Date.now();
+    while (Date.now() - startTime < maxWaitTime) {
+      if (this.connections.length > 0) {
+        return true;
+      }
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
+    }
+    return false;
+  }
+
   async reconnect(): Promise<void> {
     this.disconnect();
     logInfo('[ESPHome] Reconnecting...');

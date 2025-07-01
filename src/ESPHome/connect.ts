@@ -1,14 +1,17 @@
 import { Connection } from '@2colors/esphome-native-api';
 import { logError, logInfo, logWarn } from '../Utils/logger';
 
-export const connect = (connection: Connection): Promise<Connection> => {
+export const connect = (connection: Connection, retryCount = 0): Promise<Connection> => {
+  const maxRetries = 3;
+  const retryDelay = 2000; // 2 seconds between retries
+  
   return new Promise<Connection>((resolve, reject) => {
-    logInfo(`[ESPHome] Attempting to connect to ${connection.host}:${connection.port}`);
+    logInfo(`[ESPHome] Attempting to connect to ${connection.host}:${connection.port} (attempt ${retryCount + 1}/${maxRetries + 1})`);
     
     const timeout = setTimeout(() => {
       logWarn(`[ESPHome] Connection timeout for ${connection.host}:${connection.port}`);
       reject(new Error(`Connection timeout for ${connection.host}:${connection.port}`));
-    }, 15000); // Increased timeout to 15 seconds
+    }, 20000); // Increased timeout to 20 seconds
     
     const errorHandler = (error: any) => {
       clearTimeout(timeout);
@@ -17,6 +20,16 @@ export const connect = (connection: Connection): Promise<Connection> => {
       if (error.code) {
         logError(`[ESPHome] Error code: ${error.code}`);
       }
+      
+      // Retry on EHOSTUNREACH errors (device might be starting up)
+      if (error.code === 'EHOSTUNREACH' && retryCount < maxRetries) {
+        logWarn(`[ESPHome] Host unreachable, retrying in ${retryDelay}ms... (${retryCount + 1}/${maxRetries})`);
+        setTimeout(() => {
+          connect(connection, retryCount + 1).then(resolve).catch(reject);
+        }, retryDelay);
+        return;
+      }
+      
       reject(error);
     };
     
@@ -35,6 +48,7 @@ export const connect = (connection: Connection): Promise<Connection> => {
           return reject(new Error(`No Bluetooth proxy features on ${connection.host}`));
         }
         
+        logInfo(`[ESPHome] Successfully connected to ${connection.host} with BLE proxy features`);
         resolve(connection);
       } catch (error) {
         logError('[ESPHome] Error getting device info:', error);
