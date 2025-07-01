@@ -14,14 +14,14 @@ import { BLEDeviceAdvertisement } from './BLE/BLEController';
 const app = express();
 const server = createServer(app);
 const wss = new WebSocketServer({ 
-  server,
-  path: '/ws' // Explicitly set the WebSocket path
+  server
+  // Remove path restriction to allow connections on any path
 });
 const PORT = process.env.PORT || 8099;
 
 logInfo('[Server] Express app created');
 logInfo('[Server] HTTP server created');
-logInfo('[Server] WebSocket server created with path: /ws');
+logInfo('[Server] WebSocket server created');
 logInfo('[Server] Port:', PORT);
 
 // Add WebSocket upgrade event handler for debugging

@@ -25,7 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function connectWebSocket() {
     console.log('Attempting to connect WebSocket...');
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/ws`;
+    const wsUrl = `${protocol}//${window.location.host}`;
     console.log('WebSocket URL:', wsUrl);
     
     try {

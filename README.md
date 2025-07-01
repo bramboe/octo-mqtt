@@ -18,6 +18,7 @@ A Home Assistant add-on to enable controlling Octo actuators star version 2 via 
 2. Install the "Octo MQTT" add-on
 3. Configure your BLE proxy and Octo devices
 4. Start the add-on
+5. Check the logs for successful startup and device discovery.
 
 ## Configuration
 
@@ -143,3 +144,56 @@ For issues and feature requests, please visit the [GitHub repository](https://gi
 ## License
 
 This project is licensed under the MIT License.
+
+## Overview
+This add-on enables Home Assistant to control Octo actuators (smart beds) via MQTT and BLE, using an ESPHome BLE proxy.
+
+## Configuration Options
+- `mqtt_host`: MQTT broker host (default: `<auto_detect>`)
+- `mqtt_port`: MQTT broker port (default: `<auto_detect>`)
+- `mqtt_user`: MQTT username (default: `<auto_detect>`)
+- `mqtt_password`: MQTT password (default: `<auto_detect>`)
+- `bleProxies`: List of ESPHome BLE proxy hosts
+- `octoDevices`: List of Octo devices (MAC, friendlyName, pin)
+- `target_mac`, `target_pin`: Optional filtering for BLE devices
+- `enable_mac_filtering`, `enable_pin_filtering`: Enable/disable filtering
+- `scan_duration`, `scan_interval`: BLE scan timing
+- `target_device_name`: Optional BLE device name filter
+- `ble_scan_parameters`: Advanced BLE scan settings
+
+## Example Configuration
+```
+mqtt_host: "<auto_detect>"
+mqtt_port: "<auto_detect>"
+mqtt_user: "<auto_detect>"
+mqtt_password: "<auto_detect>"
+bleProxies:
+  - host: "192.168.1.109"
+    port: 6053
+    password: ""
+octoDevices:
+  - mac: "f6:21:dd:dd:6f:19"
+    friendlyName: "RC2 Bed"
+    pin: "1987"
+target_mac: "f6:21:dd:dd:6f:19"
+target_pin: "1987"
+enable_mac_filtering: true
+enable_pin_filtering: true
+scan_duration: 30000
+scan_interval: 5000
+target_device_name: "RC2 Bed"
+ble_scan_parameters:
+  duration: 30000
+  interval: 100
+  window: 50
+  active: true
+```
+
+## Troubleshooting
+- **MQTT connection issues:** Ensure MQTT is running and credentials are correct. The add-on auto-detects Home Assistant's MQTT service if available.
+- **BLE device not found:** Check BLE proxy IP/port, ensure the proxy is online, and increase scan duration if needed.
+- **WebSocket connection not ready:** Ensure the add-on is running, port 8099 is open, and no other add-on is using the same port. Use the web UI debug tools for diagnostics.
+- **Schema errors:** After changing config options, always rebuild the add-on.
+
+## Support
+For issues, open an issue on [GitHub](https://github.com/bramboe/octo-mqtt).
