@@ -8,19 +8,24 @@ import { IBLEDevice } from './types/IBLEDevice';
 import { BLEDeviceAdvertisement } from '../BLE/BLEController';
 import { EventEmitter } from 'events';
 
-export class ESPConnection implements IESPConnection {
+export class ESPConnection extends EventEmitter implements IESPConnection {
   private advertisementPacketListener: ((data: any) => void) | null = null;
   private isProxyScanning = false;
   private scanTimeoutId: NodeJS.Timeout | null = null;
   private activeDevices = new Set<IBLEDevice>();
 
   constructor(private connections: Connection[]) {
+    super(); // Call EventEmitter constructor
     // Set higher maxListeners on all connections
     connections.forEach(connection => {
       if (connection instanceof EventEmitter) {
         connection.setMaxListeners(100); // Set a higher limit for all connections
       }
     });
+  }
+
+  hasActiveConnections(): boolean {
+    return this.connections.length > 0;
   }
 
   async reconnect(): Promise<void> {

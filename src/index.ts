@@ -76,7 +76,15 @@ async function initializeAddon() {
     // Connect to ESPHome
     logInfo('[Octo MQTT] Connecting to ESPHome...');
     esphomeConnection = await connectToESPHome();
-    logInfo('[Octo MQTT] ESPHome connected successfully');
+    
+    // Check if ESPHome connection actually has active connections
+    if (esphomeConnection && esphomeConnection.hasActiveConnections()) {
+      logInfo('[Octo MQTT] ESPHome connected successfully');
+    } else {
+      logWarn('[Octo MQTT] ESPHome connection failed - no active BLE proxy connections available');
+      logWarn('[Octo MQTT] BLE functionality will be disabled');
+      esphomeConnection = null;
+    }
     
     // Initialize storage
     storage = setupStorage(bleController || undefined);
@@ -84,11 +92,13 @@ async function initializeAddon() {
     // Initialize BLE controller if ESPHome connection is available
     // Try to start a BLE scan to test if connections are working
     try {
-      if (esphomeConnection) {
+      if (esphomeConnection && esphomeConnection.hasActiveConnections()) {
         // Test the ESPHome connection by attempting a short scan
         try {
           await esphomeConnection.startBleScan(1000, () => {});
-          await esphomeConnection.stopBleScan();
+          if (esphomeConnection.stopBleScan) {
+            await esphomeConnection.stopBleScan();
+          }
           bleController = new BLEController(esphomeConnection);
           logInfo('[Octo MQTT] BLE controller initialized successfully');
           
@@ -111,7 +121,7 @@ async function initializeAddon() {
     }
     
     // Initialize Octo devices
-    if (bleController && mqttConnection) {
+    if (bleController && mqttConnection && esphomeConnection) {
       await octo(mqttConnection, esphomeConnection);
       logInfo('[Octo MQTT] Octo devices initialized');
     }
