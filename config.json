@@ -10,10 +10,10 @@
   "services": ["mqtt:need"],
   "host_network": true,
   "ports": {
-    "1883/tcp": null
+    "8099/tcp": 8099
   },
   "ports_description": {
-    "1883/tcp": "MQTT broker port (only needed if not using Home Assistant's MQTT broker)"
+    "8099/tcp": "Web interface"
   },
   "map": ["config:ro"],
   "init": false,
@@ -32,8 +32,9 @@
     "mqtt_password": "<auto_detect>",
     "bleProxies": [
       {
-        "host": "192.168.2.102",
-        "port": 6053
+        "host": "192.168.1.109",
+        "port": 6053,
+        "password": ""
       }
     ],
     "octoDevices": [
