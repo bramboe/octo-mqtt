@@ -6,8 +6,8 @@ RUN apk --no-cache add git
 ARG CACHEBUST=default
 ENV CACHEBUST_ENV=${CACHEBUST}
 
-COPY package.json /octo-mqtt/
-COPY package-lock.json /octo-mqtt/
+COPY octo-mqtt/package.json /octo-mqtt/
+COPY octo-mqtt/yarn.lock /octo-mqtt/
 WORKDIR /octo-mqtt
 
 RUN npm ci --legacy-peer-deps
@@ -15,7 +15,7 @@ RUN npm ci --legacy-peer-deps
 # Force fresh copy of source code with timestamp-based cache busting
 COPY tsconfig.build.json /octo-mqtt/
 COPY tsconfig.json /octo-mqtt/
-COPY --chown=node:node src /octo-mqtt/src/
+COPY octo-mqtt/src /octo-mqtt/src
 
 # Add cache bust info to ensure source changes are detected
 RUN echo "Cache bust: ${CACHEBUST_ENV}" > /octo-mqtt/build_info.txt && \
@@ -46,7 +46,7 @@ RUN chmod a+x run.sh
 
 COPY --from=builder /octo-mqtt/node_modules /octo-mqtt/node_modules
 COPY --from=builder /octo-mqtt/dist/ /octo-mqtt/dist/
-COPY webui /octo-mqtt/webui/
+COPY octo-mqtt/webui /octo-mqtt/webui/
 
 # Copy s6 service files
 COPY rootfs /
