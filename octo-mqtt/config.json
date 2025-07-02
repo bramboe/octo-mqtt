@@ -28,14 +28,23 @@
   },
   "hassio_api": true,
   "hassio_role": "default",
-  "webui": "http://[HOST]:[PORT:8099]",
+  "auth_api": true,
   "codenotary": "bramboe@gmail.com",
+  "webui": "http://[HOST]:[PORT:8099]",
   "options": {
     "mqtt_host": null,
     "mqtt_port": null,
     "mqtt_user": null,
     "mqtt_password": null,
-    "bleProxies": [],
+    "bleProxies": [
+      {
+        "host": "192.168.1.100",
+        "port": 6053,
+        "password": "",
+        "encryptionKey": "",
+        "expectedServerName": ""
+      }
+    ],
     "octoDevices": [],
     "target_mac": null,
     "target_pin": null,

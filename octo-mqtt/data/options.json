@@ -1,5 +1,13 @@
 {
-  "bleProxies": [],
+  "bleProxies": [
+    {
+      "host": "192.168.1.100",
+      "port": 6053,
+      "password": "",
+      "encryptionKey": "",
+      "expectedServerName": ""
+    }
+  ],
   "octoDevices": [],
   "mqtt_host": null,
   "mqtt_port": null,
