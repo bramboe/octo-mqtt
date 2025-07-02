@@ -27,7 +27,6 @@ if [ ! -f /data/options.json ]; then
   "mqtt_port": "<auto_detect>",
   "mqtt_user": "<auto_detect>",
   "mqtt_password": "<auto_detect>",
-  "log_level": "debug",
   "bleProxies": [
     {
       "host": "192.168.1.109",

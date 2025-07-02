@@ -262,24 +262,19 @@ export class ESPConnection extends EventEmitter implements IESPConnection {
     await this.cleanupScan();
 
     logInfo(`[ESPHome] Starting BLE scan for ${durationMs}ms via primary proxy...`);
-    logInfo('[ESPHome] Looking for all BLE devices (filtering will be applied)...');
+    logInfo('[ESPHome] Looking for ALL BLE devices - no filtering during discovery');
     const discoveredDevicesDuringScan = new Map<string, BLEDeviceAdvertisement>();
     
-    // Get target MAC and PIN from environment variables
+    // Get target MAC and PIN from environment variables for reference only
     const targetMac = process.env.OCTO_TARGET_MAC || '';
     const targetPin = process.env.OCTO_TARGET_PIN || '';
     
-    // Normalize target MAC address (remove colons, convert to uppercase)
-    const normalizedTargetMac = targetMac.replace(/:/g, '').toUpperCase();
-    
-    logInfo(`[ESPHome] Scan parameters: Target MAC="${targetMac}" (normalized: "${normalizedTargetMac}"), Target PIN="${targetPin}"`);
-    logInfo(`[ESPHome] MAC filtering: ${targetMac ? 'enabled' : 'disabled'}`);
-    logInfo(`[ESPHome] PIN filtering: ${targetPin ? 'enabled' : 'disabled'}`);
+    logInfo(`[ESPHome] Scan parameters: Target MAC="${targetMac}", Target PIN="${targetPin}" (for connection keep-alive)`);
+    logInfo('[ESPHome] Note: PIN is used for connection keep-alive, not discovery filtering');
     
     this.advertisementPacketListener = (data: any) => {
       // Log ALL advertisement data for debugging
       logInfo(`[ESPHome DEBUG] Advertisement received: name="${data.name || 'Unknown'}", address=${data.address}, mac="${data.mac || 'N/A'}", rssi=${data.rssi || 'N/A'}`);
-      logInfo(`[ESPHome DEBUG] Full advertisement data:`, JSON.stringify(data, null, 2));
       
       // Debug the address conversion process
       const rawAddress = data.address;
@@ -293,13 +288,7 @@ export class ESPConnection extends EventEmitter implements IESPConnection {
         return;
       }
       
-      // Normalize the device MAC address (remove colons, convert to uppercase)
-      const deviceMacStr = finalAddress.replace(/:/g, '').toUpperCase();
-      
-      logInfo(`[ESPHome DEBUG] Address processing: raw=${rawAddress}, mac=${macFromData}, converted=${convertedMac}, final=${finalAddress}, normalized=${deviceMacStr}`);
-      
-      // Log ALL devices for debugging - don't filter yet
-      logInfo(`[ESPHome DEBUG] Processing device: ${data.name || 'Unknown'} (${finalAddress})`);
+      logInfo(`[ESPHome DEBUG] Address processing: raw=${rawAddress}, mac=${macFromData}, converted=${convertedMac}, final=${finalAddress}`);
 
       const discoveredDevice: BLEDeviceAdvertisement = {
         name: data.name || 'Unknown Device',
@@ -308,42 +297,13 @@ export class ESPConnection extends EventEmitter implements IESPConnection {
         service_uuids: data.serviceUuids || data.service_uuids || [],
       };
 
-      // Enhanced device matching logic based on ESPHome configuration
-      let shouldConnect = false;
-      let matchReason = '';
-
-      // Check MAC address match first (most reliable)
-      if (normalizedTargetMac && deviceMacStr === normalizedTargetMac) {
-        shouldConnect = true;
-        matchReason = 'MAC address match';
-      }
-      
-      // Check device name match (case-insensitive)
-      const deviceName = data.name || '';
-      const targetDeviceName = process.env.OCTO_TARGET_DEVICE_NAME || 'RC2';
-      
-      if (deviceName.toLowerCase() === targetDeviceName.toLowerCase()) {
-        if (normalizedTargetMac) {
-          // If MAC is specified, require BOTH name AND MAC to match
-          shouldConnect = shouldConnect && true; // Already true if MAC matched
-          if (shouldConnect) {
-            matchReason = 'Both name and MAC match';
-          }
-        } else {
-          // If no MAC specified, connect based on name only
-          shouldConnect = true;
-          matchReason = 'Device name match (no MAC specified)';
-        }
-      }
-
-      // Always add the device to discovered devices for debugging
+      // Always add the device to discovered devices if not already seen
       if (!discoveredDevicesDuringScan.has(discoveredDevice.address.toString())) {
         logInfo(`[ESPHome SCAN] Found device: ${discoveredDevice.name} (${finalAddress})`);
         logInfo(`[ESPHome SCAN] RSSI: ${discoveredDevice.rssi}`);
         logInfo(`[ESPHome SCAN] Service UUIDs: ${discoveredDevice.service_uuids.join(', ') || 'None'}`);
-        logInfo(`[ESPHome SCAN] Match result: ${shouldConnect ? 'YES' : 'NO'} - ${matchReason}`);
         
-        // Additional debugging for potential RC2 devices
+        // Highlight potential RC2 devices for easier identification
         const deviceNameLower = (discoveredDevice.name || '').toLowerCase();
         const macLower = finalAddress.toLowerCase();
         
@@ -361,9 +321,8 @@ export class ESPConnection extends EventEmitter implements IESPConnection {
         discoveredDevicesDuringScan.set(discoveredDevice.address.toString(), discoveredDevice);
       }
 
-      // Call the callback for ALL devices, not just target devices
-      // This allows the UI to show all discovered devices for manual selection
-      logInfo(`[ESPHome SCAN] Reporting device: ${discoveredDevice.name} (${finalAddress}) - ${matchReason}`);
+      // Report ALL discovered devices to the UI for manual selection
+      logInfo(`[ESPHome SCAN] Reporting device: ${discoveredDevice.name} (${finalAddress})`);
       onDeviceDiscoveredDuringScan(discoveredDevice);
     };
 
@@ -408,12 +367,8 @@ export class ESPConnection extends EventEmitter implements IESPConnection {
       }
       
       this.isProxyScanning = true;
-      logInfo('[ESPHome] Scan started successfully. Waiting for RC2 devices...');
-      logInfo('[ESPHome] If no devices are found, check:');
-      logInfo('  1. ESPHome BLE proxy is configured correctly');
-      logInfo('  2. BLE devices are in range and advertising');
-      logInfo('  3. ESPHome device has BLE proxy enabled');
-      logInfo('  4. Network connectivity to ESPHome device');
+      logInfo('[ESPHome] Scan started successfully. Looking for all BLE devices...');
+      logInfo('[ESPHome] All discovered devices will be shown in the UI for manual selection');
 
       return new Promise((resolve, _reject) => {
         this.scanTimeoutId = setTimeout(async () => {
