@@ -39,10 +39,10 @@ if [ ! -f /data/options.json ]; then
     }
   ],
   "octoDevices": [],
-  "mqtt_host": "core-mosquitto",
-  "mqtt_port": 1883,
-  "mqtt_user": "",
-  "mqtt_password": "",
+  "mqtt_host": "<auto_detect>",
+  "mqtt_port": "<auto_detect>",
+  "mqtt_user": "<auto_detect>",
+  "mqtt_password": "<auto_detect>",
   "target_mac": [
     "AA:BB:CC:DD:EE:FF",
     "11:22:33:44:55:66"
