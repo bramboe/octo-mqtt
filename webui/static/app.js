@@ -593,9 +593,11 @@ document.addEventListener('DOMContentLoaded', () => {
     
     console.log('Clearing device list...');
     deviceList.innerHTML = ''; // Clear previous results
+    discoveredDevices.style.display = 'none'; // Hide the container initially
+    deviceCount = 0; // Reset device count
     
     console.log('Updating scan status...');
-    scanStatus.textContent = 'Starting scan...';
+    discoveryStatus.textContent = 'Starting scan...';
 
     console.log('Sending scanBeds message via WebSocket...');
     // Send WebSocket message to start scan
@@ -633,16 +635,17 @@ document.addEventListener('DOMContentLoaded', () => {
   const pinCancel = document.getElementById('pin-cancel');
   
   let selectedDevice = null;
+  let deviceCount = 0;
   
   // Handle server messages for device discovery
   function handleScanStatus(data) {
     console.log('=== HANDLING SCAN STATUS ===');
     console.log('Scan status data:', data);
     
-    const { scanning, message, deviceCount } = data;
+    const { scanning, message, deviceCount: count } = data;
     console.log('Scanning:', scanning);
     console.log('Message:', message);
-    console.log('Device count:', deviceCount);
+    console.log('Device count:', count);
     
     console.log('Updating discovery status text...');
     discoveryStatus.textContent = message;
@@ -653,12 +656,12 @@ document.addEventListener('DOMContentLoaded', () => {
       scanButton.disabled = false;
       scanButton.classList.remove('scanning');
       
-      // If devices were found, show the list
+      // Update final status message
       if (deviceCount > 0) {
-        console.log('Devices found, showing discovered devices list...');
-        discoveredDevices.style.display = 'block';
+        discoveryStatus.textContent = `Scan completed. Found ${deviceCount} device(s).`;
       } else {
-        console.log('No devices found');
+        discoveryStatus.textContent = 'Scan completed. No devices found.';
+        discoveredDevices.style.display = 'none'; // Hide container if no devices
       }
     } else {
       console.log('Scan in progress, disabling scan button...');
@@ -669,7 +672,19 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   
   function handleDeviceDiscovered(device) {
+    console.log('=== DEVICE DISCOVERED ===');
+    console.log('Device data:', device);
+    
     const { name, address, rssi, service_uuids } = device;
+    
+    // Show the discovered devices container on first device
+    if (deviceCount === 0) {
+      console.log('First device found, showing discovered devices container...');
+      discoveredDevices.style.display = 'block';
+    }
+    
+    deviceCount++;
+    console.log(`Total devices discovered: ${deviceCount}`);
     
     // Create device element
     const deviceEl = document.createElement('div');
@@ -688,7 +703,15 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const deviceDetails = document.createElement('div');
     deviceDetails.className = 'device-details';
-    deviceDetails.textContent = `RSSI: ${rssi}dBm`;
+    deviceDetails.textContent = `RSSI: ${rssi || 'N/A'}dBm`;
+    
+    // Add service UUIDs if available
+    if (service_uuids && service_uuids.length > 0) {
+      const serviceInfo = document.createElement('div');
+      serviceInfo.className = 'device-services';
+      serviceInfo.textContent = `Services: ${service_uuids.join(', ')}`;
+      deviceInfo.appendChild(serviceInfo);
+    }
     
     deviceInfo.appendChild(deviceName);
     deviceInfo.appendChild(deviceMac);
@@ -698,6 +721,7 @@ document.addEventListener('DOMContentLoaded', () => {
     addButton.className = 'action-button';
     addButton.innerHTML = '<i class="material-icons">add</i> Add';
     addButton.addEventListener('click', () => {
+      console.log('Add button clicked for device:', device);
       // Store selected device and show PIN dialog
       selectedDevice = { name: name || 'Unknown Device', mac: address };
       pinDialog.style.display = 'flex';
@@ -707,6 +731,11 @@ document.addEventListener('DOMContentLoaded', () => {
     deviceEl.appendChild(addButton);
     
     devicesContainer.appendChild(deviceEl);
+    
+    // Update status to show device count
+    discoveryStatus.textContent = `Scanning... Found ${deviceCount} device(s) so far.`;
+    
+    console.log('Device element added to UI');
   }
   
   function handleAddDeviceStatus(data) {
