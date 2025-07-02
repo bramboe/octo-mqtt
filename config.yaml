@@ -38,7 +38,9 @@ options:
       expectedServerName: ""
   octoDevices: []
   # Enhanced BLE filtering options
-  target_mac: null
+  target_mac:
+    - "AA:BB:CC:DD:EE:FF"
+    - "11:22:33:44:55:66"
   target_pin: null
   enable_mac_filtering: true
   enable_pin_filtering: true
@@ -66,7 +68,8 @@ schema:
       friendlyName: str
       pin: str?
   # Enhanced BLE filtering schema
-  target_mac: match(^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$)?
+  target_mac:
+    - match(^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$)?
   target_pin: match(^\d{4}$)?
   enable_mac_filtering: bool?
   enable_pin_filtering: bool?

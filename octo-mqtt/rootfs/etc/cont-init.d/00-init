@@ -43,7 +43,10 @@ if [ ! -f /data/options.json ]; then
   "mqtt_port": 1883,
   "mqtt_user": "",
   "mqtt_password": "",
-  "target_mac": null,
+  "target_mac": [
+    "AA:BB:CC:DD:EE:FF",
+    "11:22:33:44:55:66"
+  ],
   "target_pin": null,
   "enable_mac_filtering": true,
   "enable_pin_filtering": true,
