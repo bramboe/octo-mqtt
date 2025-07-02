@@ -26,10 +26,10 @@ auth_api: true
 codenotary: "bramboe@gmail.com"
 webui: http://[HOST]:[PORT:8099]
 options:
-  mqtt_host: null
-  mqtt_port: null
-  mqtt_user: null
-  mqtt_password: null
+  mqtt_host: "core-mosquitto"
+  mqtt_port: 1883
+  mqtt_user: ""
+  mqtt_password: ""
   bleProxies:
     - host: "192.168.1.100"
       port: 6053
