@@ -8,4 +8,6 @@ labels:
   org.opencontainers.image.title: "Home Assistant Add-on: Octo MQTT"
   org.opencontainers.image.description: "A Home Assistant add-on to enable controlling Octo actuators star version 2."
   org.opencontainers.image.source: "https://github.com/bramboe/octo-mqtt"
-  org.opencontainers.image.licenses: "MIT" 
+  org.opencontainers.image.licenses: "MIT"
+codenotary:
+  signer: "bramboe@gmail.com" 

@@ -29,6 +29,7 @@
   "hassio_api": true,
   "hassio_role": "default",
   "webui": "http://[HOST]:[PORT:8099]",
+  "codenotary": "bramboe@gmail.com",
   "options": {
     "mqtt_host": null,
     "mqtt_port": null,
@@ -54,34 +55,20 @@
     "mqtt_host": "str?",
     "mqtt_port": "port?",
     "mqtt_user": "str?",
-    "mqtt_password": "password?",
-    "bleProxies": [
-      {
-        "host": "str",
-        "port": "port?",
-        "password": "password?",
-        "encryptionKey": "match(^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)$)?",
-        "expectedServerName": "str?"
-      }
-    ],
-    "octoDevices": [
-      {
-        "mac": "match(^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$)",
-        "friendlyName": "str",
-        "pin": "str?"
-      }
-    ],
-    "target_mac": "match(^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$)?",
-    "target_pin": "match(^\\d{4}$)?",
+    "mqtt_password": "str?",
+    "bleProxies": "list?",
+    "octoDevices": "list?",
+    "target_mac": "str?",
+    "target_pin": "str?",
     "enable_mac_filtering": "bool?",
     "enable_pin_filtering": "bool?",
-    "scan_duration": "int(1000,60000)?",
-    "scan_interval": "int(1000,30000)?",
+    "scan_duration": "int?",
+    "scan_interval": "int?",
     "target_device_name": "str?",
     "ble_scan_parameters": {
-      "duration": "int(10000,60000)?",
-      "interval": "int(50,200)?",
-      "window": "int(25,100)?",
+      "duration": "int?",
+      "interval": "int?",
+      "window": "int?",
       "active": "bool?"
     }
   }

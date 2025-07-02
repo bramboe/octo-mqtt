@@ -1,0 +1,56 @@
+#include <tunables/global>
+
+profile octo-mqtt flags=(attach_disconnected,mediate_deleted) {
+  #include <abstractions/base>
+  #include <abstractions/bash>
+  #include <abstractions/consoles>
+  #include <abstractions/nameservice>
+  #include <abstractions/ssl_certs>
+
+  # Allow read access to Home Assistant data
+  /data/** r,
+  /data/octo-mqtt/** rw,
+  /data/options.json rw,
+
+  # Allow access to Home Assistant API
+  /run/s6/services/hassio-supervisor/ r,
+  /run/s6/services/hassio-supervisor/env r,
+
+  # Allow network access for MQTT and ESPHome
+  network inet tcp,
+  network inet udp,
+
+  # Allow access to system information
+  /proc/cpuinfo r,
+  /proc/meminfo r,
+  /proc/uptime r,
+  /proc/loadavg r,
+
+  # Allow access to time
+  /etc/localtime r,
+  /etc/timezone r,
+
+  # Allow access to Node.js runtime
+  /usr/bin/node rix,
+  /usr/lib/node_modules/** r,
+
+  # Allow access to application files
+  /app/** r,
+  /app/dist/** r,
+  /app/node_modules/** r,
+
+  # Allow logging
+  /var/log/** w,
+  /dev/log w,
+
+  # Deny dangerous operations
+  deny /proc/sys/** w,
+  deny /sys/** w,
+  deny /dev/** w,
+  deny /boot/** r,
+  deny /etc/passwd w,
+  deny /etc/shadow w,
+  deny /etc/group w,
+  deny /root/** r,
+  deny /home/** r,
+} 

@@ -29,8 +29,8 @@ FROM node:18-alpine
 ENV LANG C.UTF-8
 ENV PORT=8099
 
-# Install s6-overlay and required utilities
-RUN apk add --no-cache bash curl jq s6-overlay coreutils && \
+# Install s6-overlay, AppArmor, and required utilities
+RUN apk add --no-cache bash curl jq s6-overlay coreutils apparmor apparmor-utils && \
     curl -J -L -o /tmp/bashio.tar.gz "https://github.com/hassio-addons/bashio/archive/v0.13.1.tar.gz" && \
     mkdir /tmp/bashio && \
     tar zxvf /tmp/bashio.tar.gz --strip 1 -C /tmp/bashio && \
@@ -48,8 +48,13 @@ COPY --from=builder /octo-mqtt/node_modules /octo-mqtt/node_modules
 COPY --from=builder /octo-mqtt/dist/ /octo-mqtt/dist/
 COPY webui /octo-mqtt/webui/
 
-# Copy s6 service files
+# Copy s6 service files and AppArmor profile
 COPY rootfs /
+
+# Load AppArmor profile
+RUN if [ -f /etc/apparmor.d/octo-mqtt ]; then \
+        apparmor_parser -r /etc/apparmor.d/octo-mqtt; \
+    fi
 
 ENTRYPOINT [ "/init" ]
 LABEL \
