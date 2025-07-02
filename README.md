@@ -159,7 +159,7 @@ This add-on enables Home Assistant to control Octo actuators (smart beds) via MQ
 - `enable_mac_filtering`, `enable_pin_filtering`: Enable/disable filtering
 - `scan_duration`, `scan_interval`: BLE scan timing
 - `target_device_name`: Optional BLE device name filter
-- `ble_scan_duration`, `ble_scan_interval`, `ble_scan_window`, `ble_scan_active`: Advanced BLE scan settings
+- `ble_scan_parameters`: Advanced BLE scan settings
 
 ## Example Configuration
 ```
@@ -182,10 +182,11 @@ enable_pin_filtering: true
 scan_duration: 30000
 scan_interval: 5000
 target_device_name: "RC2 Bed"
-ble_scan_duration: 30000
-ble_scan_interval: 100
-ble_scan_window: 50
-ble_scan_active: true
+ble_scan_parameters:
+  duration: 30000
+  interval: 100
+  window: 50
+  active: true
 ```
 
 ## Troubleshooting

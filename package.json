@@ -13,7 +13,7 @@
     "build:ci": "yarn clean && yarn build",
     "start": "ts-node -r tsconfig-paths/register src/index.ts",
     "dev": "nodemon",
-    "lint": "eslint src --ext .ts",
+    "lint": "eslint src",
     "prettier": "prettier --write \"src/**/**.{ts,js,json}\"",
     "test": "jest --watch",
     "test:ci": "jest",

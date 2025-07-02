@@ -32,19 +32,15 @@ export class BLEScanner {
       this.isScanning = true;
       this.scanStartTime = Date.now();
       
-      // Get scan duration from config if available
-      const config = getRootOptions();
-      const scanDuration = config.ble_scan_duration || this.SCAN_DURATION_MS;
-      
       // Set up scan timeout
       this.scanTimeout = setTimeout(() => {
         logInfo('[BLEScanner] Scan timeout reached');
         // Don't clear devices when timeout is reached - keep them for UI
         this.cleanupScanState(false);
-      }, scanDuration);
+      }, this.SCAN_DURATION_MS);
 
       // Start the actual scan
-      await this.esphomeConnection.startBleScan(scanDuration, (device) => {
+      await this.esphomeConnection.startBleScan(this.SCAN_DURATION_MS, (device) => {
         // Accept all devices that the ESPConnection considers RC2 devices
         // The filtering is now done in ESPConnection.ts with broader criteria
         this.discoveredDevices.set(device.address.toString(), device);

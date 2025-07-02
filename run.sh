@@ -1,33 +1,31 @@
 #!/usr/bin/env bashio
 
-export MQTTHOST=$(bashio::config "mqtt_host")
-export MQTTPORT=$(bashio::config "mqtt_port")
-export MQTTUSER=$(bashio::config "mqtt_user")
-export MQTTPASSWORD=$(bashio::config "mqtt_password")
-
 # Enable full error stack traces for debugging
 export NODE_OPTIONS="--trace-warnings --trace-uncaught"
 
 # Debug: Print all environment variables
 echo "=== Environment Variables ==="
-echo "MQTTHOST: ${MQTTHOST}"
-echo "MQTTPORT: ${MQTTPORT}"
-echo "MQTTUSER: ${MQTTUSER}"
-echo "MQTTPASSWORD: ${MQTTPASSWORD:0:3}***"
 echo "NODE_OPTIONS: ${NODE_OPTIONS}"
 echo "=============================="
 
-if [ $MQTTHOST = '<auto_detect>' ]; then
+# Get MQTT configuration with proper null handling
+MQTTHOST=$(bashio::config "mqtt_host")
+MQTTPORT=$(bashio::config "mqtt_port")
+MQTTUSER=$(bashio::config "mqtt_user")
+MQTTPASSWORD=$(bashio::config "mqtt_password")
+
+# Auto-detect MQTT settings if not configured
+if [ "$MQTTHOST" = "null" ] || [ -z "$MQTTHOST" ]; then
     if bashio::services.available 'mqtt'; then
         MQTTHOST=$(bashio::services mqtt "host")
-	if [ $MQTTHOST = 'localhost' ] || [ $MQTTHOST = '127.0.0.1' ]; then
-	    echo "Discovered invalid value for MQTT host: ${MQTTHOST}"
-	    echo "Overriding with default alias for Mosquitto MQTT addon"
-	    MQTTHOST="core-mosquitto"
-	fi
+        if [ "$MQTTHOST" = 'localhost' ] || [ "$MQTTHOST" = '127.0.0.1' ]; then
+            echo "Discovered invalid value for MQTT host: ${MQTTHOST}"
+            echo "Overriding with default alias for Mosquitto MQTT addon"
+            MQTTHOST="core-mosquitto"
+        fi
         echo "Using discovered MQTT Host: ${MQTTHOST}"
     else
-    	echo "No Home Assistant MQTT service found, using defaults"
+        echo "No Home Assistant MQTT service found, using defaults"
         MQTTHOST="172.30.32.1"
         echo "Using default MQTT Host: ${MQTTHOST}"
     fi
@@ -35,7 +33,7 @@ else
     echo "Using configured MQTT Host: ${MQTTHOST}"
 fi
 
-if [ $MQTTPORT = '<auto_detect>' ]; then
+if [ "$MQTTPORT" = "null" ] || [ -z "$MQTTPORT" ]; then
     if bashio::services.available 'mqtt'; then
         MQTTPORT=$(bashio::services mqtt "port")
         echo "Using discovered MQTT Port: ${MQTTPORT}"
@@ -47,7 +45,7 @@ else
     echo "Using configured MQTT Port: ${MQTTPORT}"
 fi
 
-if [ $MQTTUSER = '<auto_detect>' ]; then
+if [ "$MQTTUSER" = "null" ] || [ -z "$MQTTUSER" ]; then
     if bashio::services.available 'mqtt'; then
         MQTTUSER=$(bashio::services mqtt "username")
         echo "Using discovered MQTT User: ${MQTTUSER}"
@@ -59,7 +57,7 @@ else
     echo "Using configured MQTT User: ${MQTTUSER}"
 fi
 
-if [ $MQTTPASSWORD = '<auto_detect>' ]; then
+if [ "$MQTTPASSWORD" = "null" ] || [ -z "$MQTTPASSWORD" ]; then
     if bashio::services.available 'mqtt'; then
         MQTTPASSWORD=$(bashio::services mqtt "password")
         echo "Using discovered MQTT password: <hidden>"

@@ -23,37 +23,26 @@ ports_description:
 hassio_api: true
 hassio_role: default
 webui: http://[HOST]:[PORT:8099]
-ingress: true
-ingress_port: 8099
-panel_icon: mdi:bed
-panel_title: "Octo MQTT"
-auth_api: true
-protection: true
-privileged: []
-apparmor: true
 options:
-  mqtt_host: "<auto_detect>"
-  mqtt_port: "<auto_detect>"
-  mqtt_user: "<auto_detect>"
-  mqtt_password: "<auto_detect>"
-  bleProxies:
-    - host: "192.168.1.109"
-      port: 6053
-      password: ""
-  octoDevices:
-    - mac: "f6:21:dd:dd:6f:19"
-      friendlyName: "RC2 Bed"
-      pin: "1987"
+  mqtt_host: null
+  mqtt_port: null
+  mqtt_user: null
+  mqtt_password: null
+  bleProxies: []
+  octoDevices: []
   # Enhanced BLE filtering options
-  target_mac: "f6:21:dd:dd:6f:19"
-  target_pin: "1987"
+  target_mac: null
+  target_pin: null
   enable_mac_filtering: true
   enable_pin_filtering: true
-  target_device_name: "RC2 Bed"
-  ble_scan_duration: 30000
-  ble_scan_interval: 100
-  ble_scan_window: 50
-  ble_scan_active: true
+  scan_duration: 30000
+  scan_interval: 5000
+  target_device_name: null
+  ble_scan_parameters:
+    duration: 30000
+    interval: 100
+    window: 50
+    active: true
 schema:
   mqtt_host: str?
   mqtt_port: port?
@@ -74,8 +63,11 @@ schema:
   target_pin: match(^\d{4}$)?
   enable_mac_filtering: bool?
   enable_pin_filtering: bool?
+  scan_duration: int(1000,60000)?
+  scan_interval: int(1000,30000)?
   target_device_name: str?
-  ble_scan_duration: int(10000,60000)?
-  ble_scan_interval: int(50,200)?
-  ble_scan_window: int(25,100)?
-  ble_scan_active: bool? 
+  ble_scan_parameters:
+    duration: int(10000,60000)?
+    interval: int(50,200)?
+    window: int(25,100)?
+    active: bool? 
