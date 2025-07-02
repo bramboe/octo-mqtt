@@ -4,6 +4,12 @@
 # s6-overlay docs: https://github.com/just-containers/s6-overlay
 # ==============================================================================
 
+# Load AppArmor profile if available
+if [ -f /etc/apparmor.d/octo-mqtt ]; then
+    echo "Loading AppArmor profile..."
+    apparmor_parser -r /etc/apparmor.d/octo-mqtt || echo "Warning: Could not load AppArmor profile"
+fi
+
 # Create data directory if it doesn't exist
 if [ ! -d /data ]; then
     mkdir -p /data

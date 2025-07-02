@@ -51,11 +51,6 @@ COPY webui /octo-mqtt/webui/
 # Copy s6 service files and AppArmor profile
 COPY rootfs /
 
-# Load AppArmor profile
-RUN if [ -f /etc/apparmor.d/octo-mqtt ]; then \
-        apparmor_parser -r /etc/apparmor.d/octo-mqtt; \
-    fi
-
 ENTRYPOINT [ "/init" ]
 LABEL \
     io.hass.name="Octo MQTT" \
