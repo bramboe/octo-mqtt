@@ -38,8 +38,8 @@ if [ ! -f /data/options.json ]; then
       "host": "192.168.1.100",
       "port": 6053,
       "password": "",
-      "encryptionKey": null,
-      "expectedServerName": null
+      "encryptionKey": "",
+      "expectedServerName": ""
     }
   ],
   "target_mac": [
