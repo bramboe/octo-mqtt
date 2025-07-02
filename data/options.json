@@ -1,4 +1,8 @@
 {
+  "mqtt_host": "<auto_detect>",
+  "mqtt_port": "<auto_detect>",
+  "mqtt_user": "<auto_detect>",
+  "mqtt_password": "<auto_detect>",
   "bleProxies": [
     {
       "host": "192.168.1.100",
@@ -8,22 +12,9 @@
       "expectedServerName": null
     }
   ],
-  "octoDevices": [],
-  "mqtt_host": "<auto_detect>",
-  "mqtt_port": "<auto_detect>",
-  "mqtt_user": "<auto_detect>",
-  "mqtt_password": "<auto_detect>",
   "target_mac": [
     "AA:BB:CC:DD:EE:FF"
   ],
-  "target_pin": null,
-  "enable_mac_filtering": true,
-  "enable_pin_filtering": true,
   "scan_duration": 30000,
-  "scan_interval": 5000,
-  "target_device_name": null,
-  "ble_duration": 30000,
-  "ble_interval": 100,
-  "ble_window": 50,
-  "ble_active": true
+  "scan_interval": 5000
 }
