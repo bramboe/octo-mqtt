@@ -46,7 +46,7 @@ RUN chmod a+x run.sh
 
 COPY --from=builder /octo-mqtt/node_modules /octo-mqtt/node_modules
 COPY --from=builder /octo-mqtt/dist/ /octo-mqtt/dist/
-COPY octo-mqtt/webui /octo-mqtt/webui/
+COPY webui /octo-mqtt/webui/
 
 # Copy s6 service files and AppArmor profile
 COPY rootfs /
