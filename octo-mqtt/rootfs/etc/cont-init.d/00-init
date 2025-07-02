@@ -38,25 +38,15 @@ if [ ! -f /data/options.json ]; then
       "host": "192.168.1.100",
       "port": 6053,
       "password": "",
-      "encryptionKey": "",
-      "expectedServerName": ""
+      "encryptionKey": null,
+      "expectedServerName": null
     }
   ],
-  "octoDevices": [],
   "target_mac": [
-    "AA:BB:CC:DD:EE:FF",
-    "11:22:33:44:55:66"
+    "AA:BB:CC:DD:EE:FF"
   ],
-  "target_pin": null,
-  "enable_mac_filtering": true,
-  "enable_pin_filtering": true,
   "scan_duration": 30000,
-  "scan_interval": 5000,
-  "target_device_name": null,
-  "ble_duration": 30000,
-  "ble_interval": 100,
-  "ble_window": 50,
-  "ble_active": true
+  "scan_interval": 5000
 }
 EOF
 fi
