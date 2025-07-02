@@ -36,6 +36,13 @@ export function getRootOptions() {
       process.env.OCTO_TARGET_PIN = rootOptions.target_pin;
       logInfo('[Options] Set OCTO_TARGET_PIN:', rootOptions.target_pin);
     }
+    if (rootOptions.target_device_name) {
+      process.env.OCTO_TARGET_DEVICE_NAME = rootOptions.target_device_name;
+      logInfo('[Options] Set OCTO_TARGET_DEVICE_NAME:', rootOptions.target_device_name);
+    }
+    
+    // Debug: Log all configuration values
+    logInfo('[Options] Full configuration loaded:', JSON.stringify(rootOptions, null, 2));
     
     return rootOptions;
   } catch (error) {

@@ -379,6 +379,34 @@ export class ESPConnection extends EventEmitter implements IESPConnection {
       await primaryConnection.subscribeBluetoothAdvertisementService();
       logInfo('[ESPHome] Bluetooth advertisement service subscription completed');
       
+      // Test if we can receive any BLE advertisements by listening for a short time
+      logInfo('[ESPHome] Testing BLE advertisement reception...');
+      let advertisementReceived = false;
+      const testListener = (data: any) => {
+        advertisementReceived = true;
+        logInfo('[ESPHome] TEST: Received BLE advertisement during test!');
+        logInfo('[ESPHome] TEST: Advertisement data:', JSON.stringify(data, null, 2));
+      };
+      
+      primaryConnection.on('message.BluetoothLEAdvertisementResponse', testListener);
+      
+      // Wait 5 seconds to see if any advertisements are received
+      await new Promise(resolve => setTimeout(resolve, 5000));
+      
+      primaryConnection.off('message.BluetoothLEAdvertisementResponse', testListener);
+      
+      if (!advertisementReceived) {
+        logWarn('[ESPHome] WARNING: No BLE advertisements received during test!');
+        logWarn('[ESPHome] This indicates the ESPHome BLE proxy is not working correctly.');
+        logWarn('[ESPHome] Please check:');
+        logWarn('  1. ESPHome device has esp32_ble_tracker configured');
+        logWarn('  2. BLE proxy service is enabled in ESPHome');
+        logWarn('  3. ESPHome device is in range of BLE devices');
+        logWarn('  4. ESPHome device is not in deep sleep mode');
+      } else {
+        logInfo('[ESPHome] BLE advertisement test passed - ESPHome proxy is working!');
+      }
+      
       this.isProxyScanning = true;
       logInfo('[ESPHome] Scan started successfully. Waiting for RC2 devices...');
       logInfo('[ESPHome] If no devices are found, check:');
