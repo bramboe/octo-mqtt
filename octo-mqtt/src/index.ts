@@ -10,37 +10,123 @@ import { BLEController } from './BLE/BLEController';
 import { createServer } from 'http';
 import { WebSocketServer } from 'ws';
 import { BLEDeviceAdvertisement } from './BLE/BLEController';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 
 const app = express();
 const server = createServer(app);
+
+// Security: Rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+  message: 'Too many requests from this IP, please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Security: Apply rate limiting to all requests
+app.use(limiter);
+
+// Security: Helmet for security headers
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'"],
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'", "ws:", "wss:"],
+      fontSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      mediaSrc: ["'self'"],
+      frameSrc: ["'none'"],
+    },
+  },
+  hsts: {
+    maxAge: 31536000,
+    includeSubDomains: true,
+    preload: true
+  },
+  noSniff: true,
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+  xssFilter: true,
+  frameguard: { action: 'deny' }
+}));
+
+// Security: Additional security headers
+app.use((_req: express.Request, res: express.Response, next: express.NextFunction) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
+  next();
+});
+
 const wss = new WebSocketServer({ 
-  server
-  // Remove path restriction to allow connections on any path
+  server,
+  // Security: WebSocket specific security
+  perMessageDeflate: false, // Disable compression to prevent CRIME attacks
+  maxPayload: 1024 * 1024, // 1MB max payload
+  skipUTF8Validation: false // Enable UTF-8 validation
 });
 const PORT = process.env.PORT || 8099;
 
-logInfo('[Server] Express app created');
+logInfo('[Server] Express app created with security headers');
 logInfo('[Server] HTTP server created');
-logInfo('[Server] WebSocket server created');
+logInfo('[Server] WebSocket server created with security settings');
 logInfo('[Server] Port:', PORT);
 
 // Add WebSocket upgrade event handler for debugging
-wss.on('headers', (_headers, req) => {
+wss.on('headers', (_headers: string[], req: any) => {
   logInfo('[WebSocket] Headers event triggered');
   logInfo('[WebSocket] Request URL:', req.url);
   logInfo('[WebSocket] Request method:', req.method);
 });
 
-wss.on('error', (error) => {
+wss.on('error', (error: Error) => {
   logError('[WebSocket] Server error:', error);
 });
 
 // Middleware
-app.use(express.json());
-app.use(express.static('webui'));
+app.use(express.json({ limit: '1mb' })); // Limit JSON payload size
+app.use(express.urlencoded({ extended: true, limit: '1mb' })); // Limit URL-encoded payload size
+app.use(express.static('webui', {
+  // Security: Static file serving with security options
+  maxAge: '1h',
+  etag: true,
+  lastModified: true,
+  setHeaders: (res: express.Response, path: string) => {
+    // Set security headers for static files
+    if (path.endsWith('.js')) {
+      res.setHeader('Content-Type', 'application/javascript');
+    } else if (path.endsWith('.css')) {
+      res.setHeader('Content-Type', 'text/css');
+    }
+  }
+}));
+
+// Security: Input validation middleware
+const validateInput = (req: express.Request, _res: express.Response, next: express.NextFunction) => {
+  // Sanitize and validate input
+  if (req.body && typeof req.body === 'object') {
+    // Remove potentially dangerous properties
+    delete req.body.__proto__;
+    delete req.body.constructor;
+    
+    // Validate JSON structure
+    const sanitizedBody = JSON.parse(JSON.stringify(req.body));
+    req.body = sanitizedBody;
+  }
+  next();
+};
+
+app.use(validateInput);
 
 // Test endpoint to verify server is working
-app.get('/test', (_req, res) => {
+app.get('/test', (_req: express.Request, res: express.Response) => {
   res.json({ 
     message: 'Server is running',
     timestamp: new Date().toISOString(),
@@ -49,18 +135,29 @@ app.get('/test', (_req, res) => {
 });
 
 // WebSocket endpoint for explicit routing
-app.get('/ws', (_req, res) => {
+app.get('/ws', (_req: express.Request, res: express.Response) => {
   res.send('WebSocket endpoint - use WebSocket protocol to connect');
 });
 
 // Manual WebSocket upgrade handler for debugging
-app.get('/ws-debug', (_req, res) => {
+app.get('/ws-debug', (_req: express.Request, res: express.Response) => {
   logInfo('[HTTP] WebSocket debug endpoint accessed');
   res.json({
     message: 'WebSocket debug endpoint',
     timestamp: new Date().toISOString(),
     websocketPath: '/ws',
     websocketClients: wss.clients.size
+  });
+});
+
+// Security: Health check endpoint
+app.get('/health', (_req: express.Request, res: express.Response) => {
+  res.json({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    memory: process.memoryUsage(),
+    version: process.env.npm_package_version || '1.2.8'
   });
 });
 
@@ -72,13 +169,38 @@ let isInitialized = false;
 let isScanning = false;
 let discoveredDevices = new Map<string, BLEDeviceAdvertisement>();
 
+// Security: WebSocket connection validation
+const validateWebSocketConnection = (req: any) => {
+  // Validate origin if needed
+  const origin = req.headers.origin;
+  if (origin && !origin.includes('home-assistant.io') && !origin.includes('localhost')) {
+    return false;
+  }
+  return true;
+};
+
 // WebSocket connection handling
 wss.on('connection', (ws, req) => {
+  // Security: Validate WebSocket connection
+  if (!validateWebSocketConnection(req)) {
+    logWarn('[WebSocket] Invalid connection attempt from:', req.headers.origin);
+    ws.close(1008, 'Invalid origin');
+    return;
+  }
+
   logInfo('[WebSocket] New client connected');
   logInfo('[WebSocket] Client IP:', (ws as any)._socket?.remoteAddress);
   logInfo('[WebSocket] Request URL:', req.url);
   logInfo('[WebSocket] Request headers:', req.headers);
   logInfo('[WebSocket] Total clients connected:', wss.clients.size);
+  
+  // Security: Set connection timeout
+  const connectionTimeout = setTimeout(() => {
+    if (ws.readyState === 1) { // WebSocket.OPEN
+      logWarn('[WebSocket] Connection timeout, closing');
+      ws.close(1000, 'Connection timeout');
+    }
+  }, 30000); // 30 seconds timeout
   
   // Send initial status
   logInfo('[WebSocket] Sending initial status to client');
@@ -93,6 +215,17 @@ wss.on('connection', (ws, req) => {
   });
   
   ws.on('message', async (message) => {
+    // Security: Validate message size
+    const messageSize = Buffer.isBuffer(message) ? message.length : message.toString().length;
+    if (messageSize > 1024 * 1024) { // 1MB limit
+      logWarn('[WebSocket] Message too large, rejecting');
+      sendToClient(ws, {
+        type: 'error',
+        payload: { message: 'Message too large' }
+      });
+      return;
+    }
+
     logInfo('[WebSocket] Received message from client');
     logInfo('[WebSocket] Raw message:', message.toString());
     logInfo('[WebSocket] Message length:', message.toString().length);
@@ -101,6 +234,12 @@ wss.on('connection', (ws, req) => {
       const data = JSON.parse(message.toString());
       logInfo('[WebSocket] Parsed message:', data);
       logInfo('[WebSocket] Message type:', data.type);
+      
+      // Security: Validate message structure
+      if (!data.type || typeof data.type !== 'string') {
+        throw new Error('Invalid message structure');
+      }
+      
       await handleWebSocketMessage(ws, data);
     } catch (error) {
       logError('[WebSocket] Error handling message:', error);
@@ -113,11 +252,13 @@ wss.on('connection', (ws, req) => {
   });
   
   ws.on('close', () => {
+    clearTimeout(connectionTimeout);
     logInfo('[WebSocket] Client disconnected');
     logInfo('[WebSocket] Remaining clients:', wss.clients.size);
   });
   
   ws.on('error', (error) => {
+    clearTimeout(connectionTimeout);
     logError('[WebSocket] Client error:', error);
   });
 });
@@ -400,21 +541,6 @@ async function getConfiguredDevices(ws: any) {
     });
   }
 }
-
-// Health check endpoint
-app.get('/health', (_req, res) => {
-  const status = {
-    status: isInitialized ? 'healthy' : 'initializing',
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    bleControllerInitialized: bleController !== null,
-    mqttConnected: mqttConnection !== null,
-    esphomeConnected: esphomeConnection !== null,
-    isInitialized,
-    version: process.env.npm_package_version || '1.2.8'
-  };
-  res.json(status);
-});
 
 // Home Assistant addon info endpoint
 app.get('/api/addon-info', (_req, res) => {

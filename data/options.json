@@ -1,0 +1,21 @@
+{
+  "bleProxies": [],
+  "octoDevices": [],
+  "mqtt_host": null,
+  "mqtt_port": null,
+  "mqtt_user": null,
+  "mqtt_password": null,
+  "target_mac": null,
+  "target_pin": null,
+  "enable_mac_filtering": true,
+  "enable_pin_filtering": true,
+  "scan_duration": 30000,
+  "scan_interval": 5000,
+  "target_device_name": null,
+  "ble_scan_parameters": {
+    "duration": 30000,
+    "interval": 100,
+    "window": 50,
+    "active": true
+  }
+}

@@ -2,10 +2,6 @@
 
 A Home Assistant add-on to enable controlling Octo actuators star version 2 via MQTT and BLE.
 
-## Security Rating: 7/7 ⭐⭐⭐⭐⭐⭐⭐
-
-This add-on achieves the highest Home Assistant security rating through comprehensive security measures including AppArmor profiles, Codenotary CAS signing, and strict container security. See [SECURITY.md](SECURITY.md) for detailed security information.
-
 ## Features
 
 - **BLE Integration**: Connects to Octo RC2 devices via ESPHome BLE proxy
@@ -15,7 +11,6 @@ This add-on achieves the highest Home Assistant security rating through comprehe
 - **Light Control**: Control bed lighting
 - **Web Interface**: Built-in web UI for device management
 - **Auto-discovery**: Automatic device discovery and configuration
-- **Enterprise Security**: Level 7 security rating with AppArmor and Codenotary signing
 
 ## Installation
 

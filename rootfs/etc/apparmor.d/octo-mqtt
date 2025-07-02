@@ -1,0 +1,198 @@
+#include <tunables/global>
+
+profile octo-mqtt flags=(attach_disconnected,mediate_deleted) {
+  #include <abstractions/base>
+  #include <abstractions/node>
+  #include <abstractions/ssl_certs>
+
+  # Allow read access to Home Assistant configuration
+  /data/options.json r,
+  /data/octo-mqtt/** rw,
+
+  # Allow access to MQTT broker
+  network inet tcp,
+  network inet udp,
+
+  # Allow access to ESPHome BLE proxy
+  network inet tcp,
+  network inet udp,
+
+  # Allow access to system information
+  /proc/sys/kernel/hostname r,
+  /proc/sys/kernel/domainname r,
+  /proc/version r,
+  /proc/cmdline r,
+  /proc/meminfo r,
+  /proc/cpuinfo r,
+  /proc/loadavg r,
+  /proc/uptime r,
+  /proc/net/dev r,
+  /proc/net/tcp r,
+  /proc/net/udp r,
+
+  # Allow access to time information
+  /etc/localtime r,
+  /etc/timezone r,
+  /proc/sys/kernel/random/uuid r,
+
+  # Allow access to user/group information
+  /etc/passwd r,
+  /etc/group r,
+  /etc/nsswitch.conf r,
+
+  # Allow access to DNS resolution
+  /etc/resolv.conf r,
+  /etc/hosts r,
+
+  # Allow access to SSL certificates
+  /etc/ssl/certs/** r,
+  /usr/share/ca-certificates/** r,
+
+  # Allow access to Node.js runtime
+  /usr/bin/node rix,
+  /usr/lib/node_modules/** r,
+  /node_modules/** r,
+
+  # Allow access to temporary files
+  /tmp/** rw,
+  /var/tmp/** rw,
+
+  # Allow access to logs
+  /var/log/** rw,
+
+  # Deny access to sensitive system files
+  deny /etc/shadow r,
+  deny /etc/sudoers r,
+  deny /root/** r,
+  deny /home/** r,
+  deny /var/log/auth.log r,
+  deny /var/log/secure r,
+
+  # Deny access to system binaries (except those explicitly allowed)
+  deny /bin/** rix,
+  deny /sbin/** rix,
+  deny /usr/bin/** rix,
+  deny /usr/sbin/** rix,
+
+  # Allow specific binaries needed for the add-on
+  /bin/sh rix,
+  /bin/bash rix,
+  /usr/bin/env rix,
+  /usr/bin/which rix,
+
+  # Allow access to system libraries
+  /lib/** r,
+  /lib64/** r,
+  /usr/lib/** r,
+  /usr/lib64/** r,
+
+  # Allow access to device files (for BLE)
+  /dev/null rw,
+  /dev/zero r,
+  /dev/urandom r,
+  /dev/random r,
+  /dev/tty rw,
+  /dev/pts/** rw,
+
+  # Deny access to other device files
+  deny /dev/** rw,
+
+  # Allow access to network interfaces
+  /sys/class/net/** r,
+  /sys/devices/virtual/net/** r,
+
+  # Allow access to process information
+  /proc/self/** r,
+  /proc/sys/net/** r,
+
+  # Deny access to other process information
+  deny /proc/[0-9]*/cmdline r,
+  deny /proc/[0-9]*/environ r,
+  deny /proc/[0-9]*/fd/** r,
+
+  # Allow access to memory information
+  /proc/sys/vm/** r,
+
+  # Allow access to file system information
+  /proc/mounts r,
+  /proc/filesystems r,
+
+  # Deny access to kernel modules
+  deny /proc/modules r,
+  deny /sys/module/** r,
+
+  # Allow access to user information
+  /proc/self/uid_map r,
+  /proc/self/gid_map r,
+
+  # Capabilities
+  capability net_bind_service,
+  capability setgid,
+  capability setuid,
+  capability sys_chroot,
+  capability sys_ptrace,
+  capability sys_resource,
+
+  # Deny dangerous capabilities
+  deny capability sys_admin,
+  deny capability sys_module,
+  deny capability sys_rawio,
+  deny capability sys_time,
+  deny capability sys_tty_config,
+
+  # Signal handling
+  signal (receive) peer=unconfined,
+  signal (send) peer=unconfined,
+
+  # Network access
+  network inet stream,
+  network inet dgram,
+  network inet6 stream,
+  network inet6 dgram,
+
+  # File access patterns
+  /data/octo-mqtt/** rwkl,
+  /tmp/octo-mqtt-* rwkl,
+
+  # Deny access to system configuration
+  deny /etc/ssh/** r,
+  deny /etc/pam.d/** r,
+  deny /etc/security/** r,
+  deny /etc/selinux/** r,
+  deny /etc/apparmor/** r,
+
+  # Deny access to kernel interfaces
+  deny /sys/kernel/** rw,
+  deny /proc/kcore r,
+  deny /proc/kallsyms r,
+  deny /proc/kmsg r,
+
+  # Allow access to cgroup information
+  /proc/cgroups r,
+  /sys/fs/cgroup/** r,
+
+  # Deny access to other cgroup operations
+  deny /sys/fs/cgroup/** w,
+
+  # Allow access to namespace information
+  /proc/self/ns/** r,
+
+  # Deny access to namespace operations
+  deny /proc/self/ns/** w,
+
+  # Allow access to mount information
+  /proc/mounts r,
+  /proc/self/mountinfo r,
+
+  # Deny mount operations
+  deny /proc/mounts w,
+  deny /proc/self/mountinfo w,
+
+  # Allow access to user namespace
+  /proc/self/uid_map r,
+  /proc/self/gid_map r,
+
+  # Deny user namespace operations
+  deny /proc/self/uid_map w,
+  deny /proc/self/gid_map w,
+} 

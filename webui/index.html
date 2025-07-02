@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Octo MQTT Control Panel</title>
+  <link rel="stylesheet" href="static/style.css">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,400,500">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+</head>
+<body>
+  <div class="main-container">
+    <header>
+      <h1><i class="material-icons">bed</i> Octo MQTT Control Panel</h1>
+      <div class="tab-selector">
+        <button id="tab-controls" class="tab-button active">Controls</button>
+        <button id="tab-config" class="tab-button">Configuration</button>
+      </div>
+    </header>
+
+    <main>
+      <!-- Controls Tab -->
+      <section id="section-controls" class="tab-section active">
+        <div class="card">
+          <h2>Bed Position Controls</h2>
+          <div class="control-grid">
+            <div class="control-card">
+              <h3>Presets</h3>
+              <div class="button-group">
+                <button id="preset-flat" class="control-button"><i class="material-icons">weekend</i> Flat</button>
+                <button id="preset-zerog" class="control-button"><i class="material-icons">flight</i> Zero-G</button>
+                <button id="preset-tv" class="control-button"><i class="material-icons">tv</i> TV</button>
+                <button id="preset-reading" class="control-button"><i class="material-icons">menu_book</i> Reading</button>
+              </div>
+            </div>
+
+            <div class="control-card">
+              <h3>Head Controls</h3>
+              <div class="button-group">
+                <button id="head-up" class="control-button"><i class="material-icons">arrow_upward</i> Up</button>
+                <button id="head-stop" class="control-button"><i class="material-icons">stop</i> Stop</button>
+                <button id="head-down" class="control-button"><i class="material-icons">arrow_downward</i> Down</button>
+              </div>
+              <div class="slider-container">
+                <label for="head-position">Position: <span id="head-position-value">0%</span></label>
+                <input type="range" id="head-position" min="0" max="100" value="0" class="position-slider">
+              </div>
+            </div>
+
+            <div class="control-card">
+              <h3>Feet Controls</h3>
+              <div class="button-group">
+                <button id="feet-up" class="control-button"><i class="material-icons">arrow_upward</i> Up</button>
+                <button id="feet-stop" class="control-button"><i class="material-icons">stop</i> Stop</button>
+                <button id="feet-down" class="control-button"><i class="material-icons">arrow_downward</i> Down</button>
+              </div>
+              <div class="slider-container">
+                <label for="feet-position">Position: <span id="feet-position-value">0%</span></label>
+                <input type="range" id="feet-position" min="0" max="100" value="0" class="position-slider">
+              </div>
+            </div>
+
+            <div class="control-card">
+              <h3>Combined Controls</h3>
+              <div class="button-group">
+                <button id="both-up" class="control-button"><i class="material-icons">arrow_upward</i> Both Up</button>
+                <button id="both-stop" class="control-button"><i class="material-icons">stop</i> Stop All</button>
+                <button id="both-down" class="control-button"><i class="material-icons">arrow_downward</i> Both Down</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Underbed Light</h2>
+          <div class="switch-container">
+            <label class="switch">
+              <input type="checkbox" id="light-toggle">
+              <span class="switch-slider"></span>
+            </label>
+            <span class="switch-label">Light is <span id="light-status">OFF</span></span>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Status</h2>
+          <div class="status-container">
+            <div class="status-item">
+              <span class="status-label">Connection:</span>
+              <span id="connection-status" class="status-value connected">Connected</span>
+            </div>
+            <div class="status-item">
+              <span class="status-label">Head Position:</span>
+              <span id="head-position-status" class="status-value">0%</span>
+            </div>
+            <div class="status-item">
+              <span class="status-label">Feet Position:</span>
+              <span id="feet-position-status" class="status-value">0%</span>
+            </div>
+            <div class="status-item">
+              <span class="status-label">Head Travel Time:</span>
+              <span id="head-calibration-status" class="status-value">30.0s</span>
+            </div>
+            <div class="status-item">
+              <span class="status-label">Feet Travel Time:</span>
+              <span id="feet-calibration-status" class="status-value">30.0s</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Configuration Tab -->
+      <section id="section-config" class="tab-section">
+        <div class="card">
+          <h2>Add New Bed</h2>
+          <p class="info-text">
+            Discover and add new RC2 bed devices to your configuration.
+          </p>
+          <div class="discovery-container">
+            <button id="scan-beds" class="action-button"><i class="material-icons">search</i> Scan for Beds</button>
+            <div id="discovery-status" class="status-text">Press 'Scan for Beds' to begin discovery.</div>
+            
+            <div id="discovered-devices" class="devices-list" style="display: none;">
+              <h3>Discovered Devices</h3>
+              <div id="devices-container"></div>
+            </div>
+            
+            <!-- PIN Entry Dialog -->
+            <div id="pin-dialog" class="dialog" style="display: none;">
+              <div class="dialog-content">
+                <h3>Enter PIN</h3>
+                <p>Please enter the 4-digit PIN for your bed:</p>
+                <input type="text" id="pin-input" pattern="[0-9]{4}" maxlength="4" inputmode="numeric">
+                <div class="dialog-buttons">
+                  <button id="pin-cancel" class="cancel-button">Cancel</button>
+                  <button id="pin-submit" class="action-button">Add Bed</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Configured Devices</h2>
+          <p class="info-text">
+            Beds that are currently configured and available for control.
+          </p>
+          <div id="configured-devices-container">
+            <div id="configured-devices-loading">Loading configured devices...</div>
+            <div id="configured-devices-list" class="devices-list" style="display: none;">
+              <div id="configured-devices-items"></div>
+            </div>
+            <div id="configured-devices-empty" class="empty-state" style="display: none;">
+              <i class="material-icons">bed</i>
+              <p>No devices configured yet. Use "Add New Bed" above to add your first bed.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Calibration</h2>
+          <p class="info-text">
+            Calibration measures the time needed for motors to move from fully lowered to fully raised position. 
+            This helps with accurate position control.
+          </p>
+          <div class="control-grid">
+            <div class="control-card">
+              <h3>Head Calibration</h3>
+              <p>Current travel time: <span id="head-travel-time">30.0s</span></p>
+              <button id="calibrate-head" class="action-button"><i class="material-icons">straighten</i> Calibrate Head</button>
+              <div class="steps">
+                <p>Steps:</p>
+                <ol>
+                  <li>Press "Calibrate Head"</li>
+                  <li>Wait until head is fully lowered</li>
+                  <li>Head will start moving up</li>
+                  <li>Press "Stop" when head is fully raised</li>
+                </ol>
+              </div>
+            </div>
+
+            <div class="control-card">
+              <h3>Feet Calibration</h3>
+              <p>Current travel time: <span id="feet-travel-time">30.0s</span></p>
+              <button id="calibrate-feet" class="action-button"><i class="material-icons">straighten</i> Calibrate Feet</button>
+              <div class="steps">
+                <p>Steps:</p>
+                <ol>
+                  <li>Press "Calibrate Feet"</li>
+                  <li>Wait until feet are fully lowered</li>
+                  <li>Feet will start moving up</li>
+                  <li>Press "Stop" when feet are fully raised</li>
+                </ol>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Debug Information</h2>
+          <p class="info-text">
+            Debug tools to help troubleshoot connection issues.
+          </p>
+          <div class="debug-container">
+            <button id="test-connection" class="action-button"><i class="material-icons">wifi</i> Test WebSocket Connection</button>
+            <button id="check-status" class="action-button"><i class="material-icons">info</i> Check Connection Status</button>
+            <button id="test-urls" class="action-button"><i class="material-icons">link</i> Test Different URLs</button>
+            <div id="debug-output" class="debug-output"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Device Information</h2>
+          <div class="info-grid">
+            <div class="info-item">
+              <span class="info-label">Device Name:</span>
+              <span id="device-name" class="info-value">RC2</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Bluetooth Address:</span>
+              <span id="device-address" class="info-value">00:00:00:00:00:00</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Firmware Version:</span>
+              <span id="firmware-version" class="info-value">Unknown</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Connected via:</span>
+              <span id="proxy-info" class="info-value">ESPHome Proxy</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Add-on Information</h2>
+          <div class="info-grid">
+            <div class="info-item">
+              <span class="info-label">Version:</span>
+              <span id="addon-version" class="info-value">1.2.8</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Status:</span>
+              <span id="addon-status" class="info-value">Running</span>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <p>Octo MQTT Control Panel v1.2.8 | <a href="https://github.com/bramboe/octo-mqtt" target="_blank">GitHub</a></p>
+    </footer>
+  </div>
+
+  <script src="static/app.js"></script>
+</body>
+</html> 
