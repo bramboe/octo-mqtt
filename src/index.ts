@@ -170,6 +170,22 @@ async function handleWebSocketMessage(ws: any, data: any) {
       await getConfiguredDevices(ws);
       break;
       
+          case 'getAddonInfo':
+        sendToClient(ws, {
+          type: 'addonInfo',
+          payload: {
+            version: process.env.npm_package_version || '1.2.8',
+            status: 'Running',
+            uptime: process.uptime(),
+            memory: process.memoryUsage(),
+            platform: process.platform,
+            arch: process.arch,
+            nodeVersion: process.version,
+            buildTime: new Date().toISOString()
+          }
+        });
+        break;
+      
     default:
       logWarn('[WebSocket] Unknown message type:', data.type);
   }
@@ -395,7 +411,7 @@ app.get('/health', (_req, res) => {
     mqttConnected: mqttConnection !== null,
     esphomeConnected: esphomeConnection !== null,
     isInitialized,
-    version: process.env.npm_package_version || '1.2.7'
+    version: process.env.npm_package_version || '1.2.8'
   };
   res.json(status);
 });
@@ -404,7 +420,7 @@ app.get('/health', (_req, res) => {
 app.get('/api/addon-info', (_req, res) => {
   res.json({
     name: 'Octo MQTT',
-    version: process.env.npm_package_version || '1.2.7',
+    version: process.env.npm_package_version || '1.2.8',
     description: 'A Home Assistant add-on to enable controlling Octo actuators star version 2.',
     url: 'https://github.com/bramboe/octo-mqtt.git'
   });

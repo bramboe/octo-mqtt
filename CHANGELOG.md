@@ -1,4 +1,27 @@
-## v1.1.22
+# Changelog
+
+## v1.2.8
+
+### New Features
+- **Improved BLE Device Discovery**: Enhanced scanning to show all discovered BLE devices unfiltered
+- **Real-time Device Display**: Devices appear immediately in UI as they're discovered during scanning
+- **Enhanced Device Information**: Shows device name, MAC address, RSSI, and service UUIDs
+- **Better User Experience**: Real-time device count updates and improved visual feedback
+
+### Fixed
+- **BLE Scanning Logic**: Removed confusing filtering that prevented device discovery
+- **PIN Usage Clarification**: PIN is now correctly used only for connection keep-alive, not discovery filtering
+- **UI Responsiveness**: Discovered devices container shows immediately on first device found
+- **Configuration Issues**: Removed log_level from default config (not in schema)
+- **Version Consistency**: Updated all version references to 1.2.8
+
+### Technical Improvements
+- **Unfiltered Device Display**: All BLE devices in range are now shown for manual selection
+- **Enhanced Debugging**: Better logging for BLE advertisement processing
+- **Improved Styling**: Better visual hierarchy for device details and services
+- **Device Count Tracking**: Real-time updates showing discovered device count
+
+## v1.2.7
 
 **New Features**
 
