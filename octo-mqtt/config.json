@@ -56,18 +56,16 @@
     "scan_duration": 30000,
     "scan_interval": 5000,
     "target_device_name": null,
-    "ble_scan_parameters": {
-      "duration": 30000,
-      "interval": 100,
-      "window": 50,
-      "active": true
-    }
+    "ble_duration": 30000,
+    "ble_interval": 100,
+    "ble_window": 50,
+    "ble_active": true
   },
   "schema": {
     "mqtt_host": "str?",
-    "mqtt_port": "port?",
+    "mqtt_port": "str?",
     "mqtt_user": "str?",
-    "mqtt_password": "password?",
+    "mqtt_password": "str?",
     "bleProxies": [
       {
         "host": "str",
@@ -93,11 +91,9 @@
     "scan_duration": "int(1000,60000)?",
     "scan_interval": "int(1000,30000)?",
     "target_device_name": "str?",
-    "ble_scan_parameters": {
-      "duration": "int(10000,60000)?",
-      "interval": "int(50,200)?",
-      "window": "int(25,100)?",
-      "active": "bool?"
-    }
+    "ble_duration": "int(10000,60000)?",
+    "ble_interval": "int(50,200)?",
+    "ble_window": "int(25,100)?",
+    "ble_active": "bool?"
   }
 }
