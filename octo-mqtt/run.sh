@@ -103,9 +103,11 @@ if check_bashio_service "mqtt"; then
            '.mqtt_host = $host | .mqtt_port = $port | .mqtt_user = $user | .mqtt_password = $pass' \
            /data/options.json > /data/options.json.tmp && mv /data/options.json.tmp /data/options.json
         
-        # Set environment variables for Node.js to use
-        export MQTT_USERNAME="$MQTT_USER"
-        export MQTT_PASSWORD="$MQTT_PASS"
+        # Set environment variables for Node.js to use (only if bashio provided them)
+        if [ -n "$MQTT_USER" ]; then
+            export MQTT_USERNAME="$MQTT_USER"
+            export MQTT_PASSWORD="$MQTT_PASS"
+        fi
     else
         log_message "warning" "⚠️  MQTT service detected but could not get connection details"
     fi

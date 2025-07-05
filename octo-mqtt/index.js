@@ -84,21 +84,24 @@ function getMQTTConfig() {
     let username = process.env.MQTT_USERNAME || '';
     let password = process.env.MQTT_PASSWORD || '';
     
-    // If no credentials in env, try common Home Assistant defaults
+    // For Home Assistant, try anonymous connection first (most common)
     if (!username) {
-      username = 'addons';
-      password = 'addons';
-      log('🔑 Using Home Assistant addon default credentials: addons/addons');
+      log('🔑 Trying anonymous connection (Home Assistant default)');
+      return {
+        host: 'core-mosquitto',
+        port: 1883,
+        username: '',
+        password: ''
+      };
     } else {
       log('🔑 Using credentials from environment variables');
+      return {
+        host: 'core-mosquitto',
+        port: 1883,
+        username: username,
+        password: password
+      };
     }
-    
-    return {
-      host: 'core-mosquitto',
-      port: 1883,
-      username: username,
-      password: password
-    };
   } else {
     log('⚙️ Using configured MQTT settings');
     return {
@@ -110,7 +113,7 @@ function getMQTTConfig() {
   }
 }
 
-// Connect to MQTT
+// Connect to MQTT with fallback authentication
 async function connectToMQTT() {
   try {
     const config = getMQTTConfig();
@@ -156,7 +159,37 @@ async function connectToMQTT() {
       client.once('error', (error) => {
         clearTimeout(connectionTimeout);
         logError('MQTT Connect Error', error);
-        reject(error);
+        
+        // If authentication failed and we were using credentials, try anonymous
+        if (error.message && error.message.includes('Not authorized') && config.username) {
+          log('🔄 Authentication failed, trying anonymous connection...');
+          
+          const anonymousConfig = { ...mqttConfig };
+          delete anonymousConfig.username;
+          delete anonymousConfig.password;
+          
+          const anonymousClient = mqtt.connect(anonymousConfig);
+          
+          const anonTimeout = setTimeout(() => {
+            logError('Anonymous MQTT connection timeout', null);
+            anonymousClient.end(true);
+            reject(new Error('Anonymous connection timeout'));
+          }, 30000);
+          
+          anonymousClient.once('connect', () => {
+            clearTimeout(anonTimeout);
+            log('✅ MQTT Connected anonymously');
+            resolve(anonymousClient);
+          });
+          
+          anonymousClient.once('error', (anonError) => {
+            clearTimeout(anonTimeout);
+            logError('Anonymous MQTT connection also failed', anonError);
+            reject(anonError);
+          });
+        } else {
+          reject(error);
+        }
       });
     });
   } catch (error) {
