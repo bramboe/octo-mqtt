@@ -57,6 +57,9 @@ class OctoMQTTInterface {
     async refreshStatus() {
         try {
             const response = await fetch('/health');
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
             const data = await response.json();
             
             this.updateMQTTStatus(data.mqttConnected);
@@ -102,25 +105,23 @@ class OctoMQTTInterface {
         }
       });
       
+            if (!response.ok) {
+                const errorText = await response.text();
+                let errorData;
+                try {
+                    errorData = JSON.parse(errorText);
+                } catch (e) {
+                    throw new Error(`HTTP ${response.status}: ${errorText}`);
+                }
+                throw new Error(errorData.error || `HTTP ${response.status}`);
+            }
+            
             const data = await response.json();
             
-            if (response.ok) {
-                this.addLog(`Scan started successfully - Duration: ${data.scanDuration}ms`, 'success');
-                this.updateScanStatus(true);
-                this.scanStartTime = Date.now();
-                this.startScanProgress();
-            } else {
-                this.addLog(`Scan failed: ${data.error}`, 'error');
-                if (data.details) {
-                    this.addLog(`Details: ${data.details}`, 'error');
-                }
-                if (data.troubleshooting) {
-                    this.addLog('Troubleshooting:', 'warning');
-                    data.troubleshooting.forEach(item => {
-                        this.addLog(`- ${item}`, 'warning');
-                    });
-                }
-            }
+            this.addLog(`Scan started successfully - Duration: ${data.scanDuration}ms`, 'success');
+            this.updateScanStatus(true);
+            this.scanStartTime = Date.now();
+            this.startScanProgress();
             
         } catch (error) {
             this.addLog(`Error starting scan: ${error.message}`, 'error');
@@ -174,6 +175,9 @@ class OctoMQTTInterface {
     async updateScanStatus() {
     try {
       const response = await fetch('/scan/status');
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
             const data = await response.json();
       
             this.updateScanStatus(data.isScanning);
@@ -198,10 +202,10 @@ class OctoMQTTInterface {
             <div class="device-item">
       <div class="device-info">
                     <div class="device-name">${device.name || 'Unknown Device'}</div>
-                    <div class="device-mac">${device.mac || 'No MAC address'}</div>
+                    <div class="device-mac">${device.address || device.mac || 'No MAC address'}</div>
       </div>
                 <div class="device-actions">
-                    <button class="btn btn-success" onclick="octoInterface.addDevice('${device.mac}')">
+                    <button class="btn btn-success" onclick="octoInterface.addDevice('${device.address || device.mac}')">
                         ➕ Add Device
       </button>
                 </div>
