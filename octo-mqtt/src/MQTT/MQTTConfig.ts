@@ -22,35 +22,24 @@ const getMQTTConfig = () => {
     if (needsAutoDetect) {
       logInfo('[MQTT] Auto-detection required, using Home Assistant default MQTT settings');
       
-      // Use Home Assistant default MQTT settings
-      host = 'core-mosquitto';
+      // Use the exact same approach as smartbed-mqtt
+      host = 'localhost';
       port = 1883;
+      username = '';
+      password = '';
       
-      // Try to get credentials from environment variables (set by bashio)
-      username = (globalThis as any).process?.env?.MQTT_USERNAME || '';
-      password = (globalThis as any).process?.env?.MQTT_PASSWORD || '';
-      
-      // For Home Assistant, try anonymous connection first (most common)
-      if (!username) {
-        logInfo('[MQTT] Trying anonymous connection (Home Assistant default)');
-        username = '';
-        password = '';
-      } else {
-        logInfo('[MQTT] Using credentials from environment variables');
-      }
-      
-      logInfo('[MQTT] Using Home Assistant default MQTT broker: core-mosquitto:1883');
+      logInfo('[MQTT] Using localhost:1883 (smartbed-mqtt approach)');
     } else {
       // Use configured values
       logInfo('[MQTT] Using configured MQTT settings');
-      host = options.mqtt_host || 'core-mosquitto';
+      host = options.mqtt_host || 'localhost';
       port = parseInt(options.mqtt_port || '1883', 10);
       username = options.mqtt_user || '';
       password = options.mqtt_password || '';
     }
   } catch (error) {
     logError('[MQTT] Error reading configuration, using fallback:', error);
-    host = 'core-mosquitto';
+    host = 'localhost';
     port = 1883;
     username = '';
     password = '';
@@ -76,7 +65,7 @@ const getMQTTConfig = () => {
     rejectUnauthorized: false
   };
 
-  // Always add auth credentials if we have them
+  // Only add auth credentials if we have them
   if (username) {
     config.username = username;
     
