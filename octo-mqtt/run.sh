@@ -38,7 +38,7 @@ get_bashio_service_info() {
 }
 
 # Log startup with unique identifier
-log_message "info" "🚀 Starting Octo MQTT addon v2.0.8..."
+log_message "info" "🚀 Starting Octo MQTT addon v2.0.9..."
 log_message "info" "📅 Build: v2025.07.05.3"
 log_message "info" "⚡ Process ID: $$"
 
@@ -78,19 +78,35 @@ if [ ! -f "/data/options.json" ]; then
 EOF
 fi
 
-# Simple MQTT configuration - use Home Assistant default settings
-log_message "info" "🔧 Using Home Assistant MQTT configuration"
-log_message "info" "📝 This matches the smartbed-mqtt repository approach"
+# Get MQTT credentials from Home Assistant services
+log_message "info" "🔧 Attempting to get MQTT credentials from Home Assistant..."
 
-# Set default MQTT settings for Home Assistant
-export MQTT_HOST="core-mosquitto"
-export MQTT_PORT="1883"
-export MQTT_USER=""
-export MQTT_PASSWORD=""
-
-log_message "info" "📡 MQTT Host: $MQTT_HOST"
-log_message "info" "🔌 MQTT Port: $MQTT_PORT"
-log_message "info" "🔑 MQTT User: (anonymous)"
+# Try to get MQTT credentials using bashio
+if command -v bashio >/dev/null 2>&1 && bashio::services.available mqtt 2>/dev/null; then
+    log_message "info" "✅ MQTT service available, getting credentials..."
+    export MQTT_HOST=$(bashio::services mqtt "host" 2>/dev/null || echo "core-mosquitto")
+    export MQTT_PORT=$(bashio::services mqtt "port" 2>/dev/null || echo "1883")
+    export MQTT_USER=$(bashio::services mqtt "username" 2>/dev/null || echo "")
+    export MQTT_PASSWORD=$(bashio::services mqtt "password" 2>/dev/null || echo "")
+    
+    log_message "info" "📡 MQTT Host: $MQTT_HOST"
+    log_message "info" "🔌 MQTT Port: $MQTT_PORT"
+    log_message "info" "🔑 MQTT User: $MQTT_USER"
+    log_message "info" "🔐 MQTT Password: [hidden]"
+else
+    log_message "warn" "⚠️ MQTT service not available or bashio not working"
+    log_message "info" "📝 Using fallback configuration - user must provide credentials"
+    
+    # Set fallback values
+    export MQTT_HOST="core-mosquitto"
+    export MQTT_PORT="1883"
+    export MQTT_USER=""
+    export MQTT_PASSWORD=""
+    
+    log_message "info" "📡 MQTT Host: $MQTT_HOST (fallback)"
+    log_message "info" "🔌 MQTT Port: $MQTT_PORT (fallback)"
+    log_message "info" "🔑 MQTT User: (anonymous - will fail if auth required)"
+fi
 
 # Final startup message
 log_message "info" "🎯 Starting Node.js application..."

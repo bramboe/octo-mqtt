@@ -81,11 +81,18 @@ function getMQTTConfig() {
     log('🔍 Auto-detection required, using Home Assistant default MQTT settings');
     
     // Use environment variables if available, otherwise use defaults
+    const host = process.env.MQTT_HOST || 'core-mosquitto';
+    const port = parseInt(process.env.MQTT_PORT || '1883', 10);
+    const username = process.env.MQTT_USER || '';
+    const password = process.env.MQTT_PASSWORD || '';
+    
+    log(`🔧 MQTT Config: ${host}:${port} (${username ? 'authenticated' : 'anonymous'})`);
+    
     return {
-      host: process.env.MQTT_HOST || 'core-mosquitto',
-      port: parseInt(process.env.MQTT_PORT || '1883', 10),
-      username: process.env.MQTT_USER || '',
-      password: process.env.MQTT_PASSWORD || ''
+      host,
+      port,
+      username,
+      password
     };
   } else {
     log('⚙️ Using configured MQTT settings');
@@ -144,6 +151,15 @@ async function connectToMQTT() {
       client.once('error', (error) => {
         clearTimeout(connectionTimeout);
         logError('MQTT Connect Error', error);
+        
+        // Provide helpful error message for common issues
+        if (error.message && error.message.includes('Not authorized')) {
+          logError('🔐 MQTT Authentication failed. Please check your MQTT credentials in the addon configuration.');
+          logError('💡 You can set mqtt_user and mqtt_password in the addon options to fix this.');
+        } else if (error.message && error.message.includes('ECONNREFUSED')) {
+          logError('🔌 MQTT Connection refused. Please check if the MQTT broker is running.');
+        }
+        
         reject(error);
       });
     });
