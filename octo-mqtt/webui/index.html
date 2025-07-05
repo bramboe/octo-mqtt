@@ -18,11 +18,15 @@
             <div class="status-grid">
                 <div class="status-item">
                     <span class="label">MQTT Connection:</span>
-                    <span id="mqtt-status" class="status-indicator">Checking...</span>
+                    <span id="mqtt-status" class="status-indicator disconnected">Disconnected</span>
+                </div>
+                <div class="status-item">
+                    <span class="label">BLE Proxy Connection:</span>
+                    <span id="bleproxy-status" class="status-indicator disconnected">Disconnected</span>
                 </div>
                 <div class="status-item">
                     <span class="label">BLE Scanning:</span>
-                    <span id="scan-status" class="status-indicator">Idle</span>
+                    <span id="scan-status" class="status-indicator idle">Idle</span>
                 </div>
                 <div class="status-item">
                     <span class="label">Devices Found:</span>

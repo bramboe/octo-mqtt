@@ -36,6 +36,8 @@ class OctoMQTTInterface {
         
         // Logs element
         this.logsContainer = document.getElementById('logs');
+        
+        this.bleProxyStatus = document.getElementById('bleproxy-status');
     }
 
     bindEvents() {
@@ -56,7 +58,7 @@ class OctoMQTTInterface {
 
     async refreshStatus() {
         try {
-            const response = await fetch('/health');
+            const response = await fetch(apiUrl('/health'));
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
@@ -64,17 +66,25 @@ class OctoMQTTInterface {
             
             this.updateMQTTStatus(data.mqttConnected);
             this.updateScanStatus(data.isScanning);
-            this.addLog(`Status refreshed - MQTT: ${data.mqttConnected ? 'Connected' : 'Disconnected'}`);
+            this.updateBLEProxyStatus(data.bleProxyConnected || false);
+            this.addLog(`Status refreshed - MQTT: ${data.mqttConnected ? 'Connected' : 'Disconnected'} BLE Proxy: ${data.bleProxyConnected ? 'Connected' : 'Disconnected'}`);
             
         } catch (error) {
             this.addLog(`Error refreshing status: ${error.message}`, 'error');
             this.updateMQTTStatus(false);
+            this.updateBLEProxyStatus(false);
         }
     }
 
     updateMQTTStatus(connected) {
         this.mqttStatus.textContent = connected ? 'Connected' : 'Disconnected';
         this.mqttStatus.className = `status-indicator ${connected ? 'connected' : 'disconnected'}`;
+    }
+
+    updateBLEProxyStatus(connected) {
+        if (!this.bleProxyStatus) return;
+        this.bleProxyStatus.textContent = connected ? 'Connected' : 'Disconnected';
+        this.bleProxyStatus.className = `status-indicator ${connected ? 'connected' : 'disconnected'}`;
     }
 
     updateScanStatus(scanning) {
@@ -98,7 +108,7 @@ class OctoMQTTInterface {
         try {
             this.addLog('Starting BLE scan...', 'info');
             
-            const response = await fetch('/scan/start', {
+            const response = await fetch(apiUrl('/scan/start'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -174,7 +184,7 @@ class OctoMQTTInterface {
 
     async updateScanStatus() {
     try {
-      const response = await fetch('/scan/status');
+      const response = await fetch(apiUrl('/scan/status'));
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
@@ -217,7 +227,7 @@ class OctoMQTTInterface {
 
     async addDevice(mac) {
         this.addLog(`Adding device with MAC: ${mac}`, 'info');
-        // This would typically send a request to add the device to configuration
+        // TODO: Send request to backend to add device for MQTT control
         // For now, just log the action
         this.addLog(`Device ${mac} would be added to configuration`, 'info');
     }
@@ -280,4 +290,19 @@ window.addEventListener('beforeunload', () => {
     if (octoInterface) {
         octoInterface.destroy();
     }
-}); 
+});
+
+// Helper to get base path for API calls (Ingress compatibility)
+function getApiBasePath() {
+  // If running under Home Assistant Ingress, window.location.pathname will include /api/hassio_ingress/<token>/
+  const path = window.location.pathname;
+  const match = path.match(/\/api\/hassio_ingress\/[a-zA-Z0-9]+\//);
+  if (match) {
+    return match[0].replace(/\/$/, ''); // Remove trailing slash
+  }
+  return '';
+}
+
+function apiUrl(endpoint) {
+  return getApiBasePath() + endpoint;
+} 

@@ -5,7 +5,17 @@ const mqtt = require('mqtt');
 
 const app = express();
 app.use(express.json());
-app.use(express.static('webui'));
+app.use(express.static('webui', {
+  setHeaders: (res, path, stat) => {
+    log(`[STATIC] Served: ${path}`);
+  }
+}));
+
+// Log every incoming request
+app.use((req, res, next) => {
+  log(`[HTTP] ${req.method} ${req.originalUrl}`);
+  next();
+});
 
 // Logging
 const log = (msg) => console.log(`[OCTO-MQTT] ${new Date().toISOString()} - ${msg}`);
@@ -20,6 +30,7 @@ let scanStartTime = null;
 let scanTimeout = null;
 const SCAN_DURATION_MS = 30000;
 const discoveredDevices = new Map();
+let bleProxyConnected = false;
 
 // Get network interfaces for debugging
 function getNetworkInfo() {
@@ -220,7 +231,7 @@ function cleanupScanState() {
 
 // Enhanced BLE scanning endpoint
 app.post('/scan/start', async (req, res) => {
-  log('📡 Received scan start request');
+  log('📡 [API] Received scan start request');
 
   if (isScanning) {
     log('⚠️ Scan already in progress');
@@ -349,10 +360,13 @@ app.post('/scan/start', async (req, res) => {
         const scanResults = Array.from(discoveredDevicesDuringScan.values());
         log(`📡 BLE scan complete. Found ${scanResults.length} device(s).`);
         
+        bleProxyConnected = validConnections.length > 0;
+        
       } catch (err) {
         logError('Error during BLE scan', err);
       } finally {
         cleanupScanState();
+        bleProxyConnected = false;
       }
     }, 100); // Small delay to ensure response is sent first
 
@@ -364,32 +378,40 @@ app.post('/scan/start', async (req, res) => {
   } catch (error) {
     logError('Error starting scan', error);
     cleanupScanState();
+    bleProxyConnected = false;
     return res.status(500).json({ error: 'Failed to start scan', details: error instanceof Error ? error.message : String(error) });
   }
 });
 
 // Scan status endpoint
 app.get('/scan/status', (req, res) => {
-  return res.json({
+  log('📡 [API] /scan/status hit');
+  const result = {
     isScanning,
     scanTimeRemaining: isScanning && scanStartTime ? Math.max(0, SCAN_DURATION_MS - (Date.now() - scanStartTime)) : 0,
     devices: Array.from(discoveredDevices.values()),
-    mqttConnected: mqttClient ? mqttClient.connected : false
-  });
+    mqttConnected: mqttClient ? mqttClient.connected : false,
+    bleProxyConnected
+  };
+  log('📡 [API] /scan/status result:', result);
+  return res.json(result);
 });
 
 // Health check
 app.get('/health', (req, res) => {
-  log('💚 Health check hit');
-  return res.json({ 
+  log('💚 [API] /health hit');
+  const result = {
     mqttConnected: mqttClient ? mqttClient.connected : false,
-    isScanning
-  });
+    isScanning,
+    bleProxyConnected
+  };
+  log('💚 [API] /health result:', result);
+  return res.json(result);
 });
 
 // Debug endpoint
 app.get('/debug/access', (req, res) => {
-  log('🔍 Debug access info requested');
+  log('🔍 [API] /debug/access hit');
   const networkInfo = getNetworkInfo();
   
   res.json({
