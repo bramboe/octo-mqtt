@@ -1,6 +1,9 @@
 import { logInfo, logWarn, logError } from '@utils/logger';
 import { getRootOptions } from '@utils/options';
 
+// Type assertion for process.env to avoid TypeScript errors
+const env = process.env as any;
+
 // Function to get MQTT configuration with auto-detection
 const getMQTTConfig = () => {
   let host: string;
@@ -22,13 +25,24 @@ const getMQTTConfig = () => {
     if (needsAutoDetect) {
       logInfo('[MQTT] Auto-detection required, using Home Assistant default MQTT settings');
       
-      // Use core-mosquitto for Home Assistant add-on environment
-      host = 'core-mosquitto';
-      port = 1883;
-      username = '';
-      password = '';
-      
-      logInfo('[MQTT] Using core-mosquitto:1883 (Home Assistant MQTT broker)');
+      // Check if we have MQTT credentials from bashio
+      if (env.MQTT_HOST && env.MQTT_USER && env.MQTT_PASSWORD) {
+        logInfo('[MQTT] Using MQTT credentials from Home Assistant services');
+        host = env.MQTT_HOST;
+        port = parseInt(env.MQTT_PORT || '1883', 10);
+        username = env.MQTT_USER;
+        password = env.MQTT_PASSWORD;
+        
+        logInfo(`[MQTT] Using ${host}:${port} with authentication`);
+      } else {
+        logWarn('[MQTT] No MQTT credentials found, using fallback configuration');
+        host = 'core-mosquitto';
+        port = 1883;
+        username = '';
+        password = '';
+        
+        logInfo('[MQTT] Using core-mosquitto:1883 (anonymous connection)');
+      }
     } else {
       // Use configured values
       logInfo('[MQTT] Using configured MQTT settings');
