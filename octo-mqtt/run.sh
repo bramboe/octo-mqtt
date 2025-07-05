@@ -6,10 +6,10 @@ log_message() {
     local message=$2
     if command -v bashio >/dev/null 2>&1; then
         case $level in
-            "info") bashio::log.info "$message" ;;
-            "warning") bashio::log.warning "$message" ;;
-            "error") bashio::log.error "$message" ;;
-            *) echo "[$level] $message" ;;
+            "info") bashio::log.info "$message" 2>/dev/null || echo "[$(date '+%Y-%m-%d %H:%M:%S')] [INFO] $message" ;;
+            "warning") bashio::log.warning "$message" 2>/dev/null || echo "[$(date '+%Y-%m-%d %H:%M:%S')] [WARN] $message" ;;
+            "error") bashio::log.error "$message" 2>/dev/null || echo "[$(date '+%Y-%m-%d %H:%M:%S')] [ERROR] $message" ;;
+            *) echo "[$(date '+%Y-%m-%d %H:%M:%S')] [$level] $message" ;;
         esac
     else
         echo "[$(date '+%Y-%m-%d %H:%M:%S')] [$level] $message"
@@ -38,8 +38,8 @@ get_bashio_service_info() {
 }
 
 # Log startup with unique identifier
-log_message "info" "🚀 Starting Octo MQTT addon v2.0.2..."
-log_message "info" "📅 Build: v2025.07.05.1"
+log_message "info" "🚀 Starting Octo MQTT addon v2.0.3..."
+log_message "info" "📅 Build: v2025.07.05.2"
 log_message "info" "⚡ Process ID: $$"
 
 # Check if any Node.js processes are already running on port 8099
@@ -88,6 +88,7 @@ MQTT_USER=""
 MQTT_PASS=""
 
 # Method 1: Try bashio services
+log_message "info" "🔍 Method 1: Checking bashio MQTT service..."
 if check_bashio_service "mqtt"; then
     log_message "info" "✅ MQTT service is available via bashio"
     MQTT_HOST=$(get_bashio_service_info "mqtt" "host")
@@ -95,20 +96,24 @@ if check_bashio_service "mqtt"; then
     MQTT_USER=$(get_bashio_service_info "mqtt" "username")
     MQTT_PASS=$(get_bashio_service_info "mqtt" "password")
     
+    log_message "info" "📋 bashio results:"
+    log_message "info" "   Host: '$MQTT_HOST'"
+    log_message "info" "   Port: '$MQTT_PORT'"
+    log_message "info" "   User: '$MQTT_USER'"
+    log_message "info" "   Pass: [hidden]"
+    
     if [ -n "$MQTT_HOST" ] && [ -n "$MQTT_PORT" ]; then
-        log_message "info" "MQTT Host: $MQTT_HOST"
-        log_message "info" "MQTT Port: $MQTT_PORT"
-        if [ -n "$MQTT_USER" ]; then
-            log_message "info" "MQTT User: $MQTT_USER"
-        fi
+        log_message "info" "✅ bashio provided MQTT connection details"
     else
         log_message "warning" "⚠️  bashio MQTT service detected but could not get connection details"
     fi
+else
+    log_message "warning" "⚠️  bashio MQTT service not available"
 fi
 
 # Method 2: Try to read from Home Assistant configuration
 if [ -z "$MQTT_HOST" ] || [ -z "$MQTT_PORT" ]; then
-    log_message "info" "🔍 Trying to read MQTT configuration from Home Assistant..."
+    log_message "info" "🔍 Method 2: Reading MQTT configuration from Home Assistant..."
     
     # Try to read from configuration.yaml
     if [ -f "/config/configuration.yaml" ]; then
@@ -127,6 +132,8 @@ if [ -z "$MQTT_HOST" ] || [ -z "$MQTT_PORT" ]; then
             MQTT_PORT="$CONFIG_PORT"
             log_message "info" "📋 Found MQTT port in config: $MQTT_PORT"
         fi
+    else
+        log_message "info" "📄 configuration.yaml not found"
     fi
     
     # Try to read from secrets.yaml
@@ -145,6 +152,8 @@ if [ -z "$MQTT_HOST" ] || [ -z "$MQTT_PORT" ]; then
             MQTT_PASS="$SECRET_PASS"
             log_message "info" "🔐 Found MQTT password in secrets"
         fi
+    else
+        log_message "info" "🔐 secrets.yaml not found"
     fi
 fi
 
@@ -161,12 +170,13 @@ fi
 
 # Method 4: Try common MQTT credentials
 if [ -z "$MQTT_USER" ]; then
+    log_message "info" "🔍 Method 4: Testing common MQTT credentials..."
     # Try common Home Assistant MQTT credentials
     COMMON_CREDS=("mqtt:mqtt" "homeassistant:homeassistant" "admin:admin" "hass:hass")
     
     for cred in "${COMMON_CREDS[@]}"; do
         IFS=':' read -r user pass <<< "$cred"
-        log_message "info" "🔑 Trying common credentials: $user"
+        log_message "info" "🔑 Testing credential: $user"
         
         # Test connection with these credentials
         if command -v mosquitto_pub >/dev/null 2>&1; then
@@ -175,10 +185,22 @@ if [ -z "$MQTT_USER" ]; then
                 MQTT_PASS="$pass"
                 log_message "info" "✅ Found working MQTT credentials: $user"
                 break
+            else
+                log_message "info" "❌ Credential $user failed"
             fi
+        else
+            log_message "info" "⚠️  mosquitto_pub not available, skipping credential test"
+            break
         fi
     done
 fi
+
+# Final MQTT configuration summary
+log_message "info" "📋 Final MQTT configuration:"
+log_message "info" "   Host: $MQTT_HOST"
+log_message "info" "   Port: $MQTT_PORT"
+log_message "info" "   User: ${MQTT_USER:-'[none]'}"
+log_message "info" "   Pass: ${MQTT_PASS:+'[set]'}"
 
 # Update options.json with detected MQTT settings
 if [ -n "$MQTT_HOST" ] && [ -n "$MQTT_PORT" ]; then
