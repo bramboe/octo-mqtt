@@ -22,13 +22,13 @@ const getMQTTConfig = () => {
     if (needsAutoDetect) {
       logInfo('[MQTT] Auto-detection required, using Home Assistant default MQTT settings');
       
-      // Use the exact same approach as smartbed-mqtt
-      host = 'localhost';
+      // Use explicit IPv4 localhost to avoid IPv6 resolution issues
+      host = '127.0.0.1';
       port = 1883;
       username = '';
       password = '';
       
-      logInfo('[MQTT] Using localhost:1883 (smartbed-mqtt approach)');
+      logInfo('[MQTT] Using 127.0.0.1:1883 (IPv4 localhost)');
     } else {
       // Use configured values
       logInfo('[MQTT] Using configured MQTT settings');
@@ -39,7 +39,7 @@ const getMQTTConfig = () => {
     }
   } catch (error) {
     logError('[MQTT] Error reading configuration, using fallback:', error);
-    host = 'localhost';
+    host = '127.0.0.1';
     port = 1883;
     username = '';
     password = '';

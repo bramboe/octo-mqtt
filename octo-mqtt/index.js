@@ -80,9 +80,9 @@ function getMQTTConfig() {
   if (needsAutoDetect) {
     log('🔍 Auto-detection required, using Home Assistant default MQTT settings');
     
-    // Use the exact same approach as smartbed-mqtt
+    // Use explicit IPv4 localhost to avoid IPv6 resolution issues
     return {
-      host: 'localhost',
+      host: '127.0.0.1',
       port: 1883,
       username: '',
       password: ''
