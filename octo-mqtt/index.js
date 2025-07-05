@@ -1,16 +1,25 @@
 const express = require('express');
 const fs = require('fs');
 const os = require('os');
+const mqtt = require('mqtt');
 
 const app = express();
 app.use(express.json());
 app.use(express.static('webui'));
 
-// Ultra-simple logging
-const log = (msg) => console.log(`[ULTRA-SIMPLE] ${new Date().toISOString()} - ${msg}`);
+// Logging
+const log = (msg) => console.log(`[OCTO-MQTT] ${new Date().toISOString()} - ${msg}`);
+const logError = (msg, error) => console.error(`[OCTO-MQTT-ERROR] ${new Date().toISOString()} - ${msg}`, error);
 
-log('🔥 ULTRA-SIMPLE SERVER STARTING 🔥');
-log('✨ Back to basics - minimal working version');
+log('🚀 Starting Octo MQTT Addon...');
+
+// Global variables
+let mqttClient = null;
+let isScanning = false;
+let scanStartTime = null;
+let scanTimeout = null;
+const SCAN_DURATION_MS = 30000;
+const discoveredDevices = new Map();
 
 // Get network interfaces for debugging
 function getNetworkInfo() {
@@ -28,43 +37,279 @@ function getNetworkInfo() {
   return addresses;
 }
 
-// Basic scan endpoint - just return success immediately
-app.post('/scan/start', (req, res) => {
-  log('🎯 SCAN ENDPOINT HIT! This proves the server is reachable!');
+// Load configuration
+function getRootOptions() {
+  try {
+    const configPath = '/data/options.json';
+    if (fs.existsSync(configPath)) {
+      const configData = fs.readFileSync(configPath, 'utf8');
+      return JSON.parse(configData);
+    }
+  } catch (error) {
+    logError('Error loading options:', error);
+  }
   
-  res.json({ 
-    message: '✅ Scan endpoint reached successfully!',
-    timestamp: new Date().toISOString(),
-    note: 'This proves the server is working and reachable',
-    accessMethod: req.headers['x-ingress-path'] ? 'Home Assistant Ingress' : 'Direct Access'
-  });
+  // Default configuration
+  return {
+    mqtt_host: '<auto_detect>',
+    mqtt_port: '<auto_detect>',
+    mqtt_user: '<auto_detect>',
+    mqtt_password: '<auto_detect>',
+    bleProxies: [
+      {
+        host: "192.168.1.100",
+        port: 6053
+      }
+    ],
+    octoDevices: [],
+    webPort: 8099
+  };
+}
+
+// MQTT Configuration with auto-detection
+function getMQTTConfig() {
+  const options = getRootOptions();
+  
+  // Check if we need to auto-detect MQTT settings
+  const needsAutoDetect = 
+    options.mqtt_host === '<auto_detect>' || 
+    options.mqtt_port === '<auto_detect>' ||
+    options.mqtt_user === '<auto_detect>' ||
+    options.mqtt_password === '<auto_detect>';
+
+  if (needsAutoDetect) {
+    log('🔍 Auto-detection required, using Home Assistant default MQTT settings');
+    return {
+      host: 'core-mosquitto',
+      port: 1883,
+      username: '',
+      password: ''
+    };
+  } else {
+    log('⚙️ Using configured MQTT settings');
+    return {
+      host: options.mqtt_host || 'core-mosquitto',
+      port: parseInt(options.mqtt_port || '1883', 10),
+      username: options.mqtt_user || '',
+      password: options.mqtt_password || ''
+    };
+  }
+}
+
+// Connect to MQTT
+async function connectToMQTT() {
+  try {
+    const config = getMQTTConfig();
+    const clientId = `octo_mqtt_${Math.random().toString(16).substring(2, 10)}`;
+    
+    log(`🔌 Connecting to MQTT: ${config.host}:${config.port}`);
+    log(`🔑 Authentication: ${config.username ? 'Using credentials' : 'Anonymous'}`);
+    log(`🆔 Client ID: ${clientId}`);
+
+    const mqttConfig = {
+      protocol: 'mqtt',
+      host: config.host,
+      port: config.port,
+      clientId,
+      clean: true,
+      reconnectPeriod: 5000,
+      connectTimeout: 10000,
+      rejectUnauthorized: false
+    };
+
+    if (config.username) {
+      mqttConfig.username = config.username;
+      if (config.password) {
+        mqttConfig.password = config.password;
+      }
+    }
+
+    return new Promise((resolve, reject) => {
+      const client = mqtt.connect(mqttConfig);
+      
+      const connectionTimeout = setTimeout(() => {
+        logError('MQTT connection timeout after 30 seconds', null);
+        client.end(true);
+        reject(new Error('Connection timeout'));
+      }, 30000);
+      
+      client.once('connect', () => {
+        clearTimeout(connectionTimeout);
+        log('✅ MQTT Connected successfully');
+        resolve(client);
+      });
+      
+      client.once('error', (error) => {
+        clearTimeout(connectionTimeout);
+        logError('MQTT Connect Error', error);
+        reject(error);
+      });
+    });
+  } catch (error) {
+    logError('Failed to connect to MQTT', error);
+    throw error;
+  }
+}
+
+// Initialize the application
+async function initializeApp() {
+  try {
+    log('🔧 Initializing Octo MQTT addon...');
+    
+    // Load configuration
+    const config = getRootOptions();
+    log(`📋 Configuration loaded successfully`);
+    log(`🔌 MQTT Host: ${config.mqtt_host}`);
+    log(`🔌 MQTT Port: ${config.mqtt_port}`);
+    log(`📡 BLE Proxy count: ${config.bleProxies ? config.bleProxies.length : 0}`);
+    log(`🛏️ Octo device count: ${config.octoDevices ? config.octoDevices.length : 0}`);
+    
+    // Connect to MQTT
+    log('🔌 Connecting to MQTT...');
+    mqttClient = await connectToMQTT();
+    
+    // Set up MQTT event handlers
+    mqttClient.on('error', (error) => {
+      logError('MQTT Error', error);
+    });
+    
+    mqttClient.on('close', () => {
+      log('🔌 MQTT connection closed');
+    });
+    
+    mqttClient.on('reconnect', () => {
+      log('🔄 MQTT reconnecting...');
+    });
+    
+    log('✅ Octo MQTT addon initialized successfully');
+    
+  } catch (error) {
+    logError('Error during initialization', error);
+    throw error;
+  }
+}
+
+// Cleanup scan state
+function cleanupScanState() {
+  isScanning = false;
+  scanStartTime = null;
+  if (scanTimeout) {
+    clearTimeout(scanTimeout);
+    scanTimeout = null;
+  }
+  discoveredDevices.clear();
+}
+
+// Enhanced BLE scanning endpoint
+app.post('/scan/start', async (req, res) => {
+  log('📡 Received scan start request');
+  
+  if (isScanning) {
+    log('⚠️ Scan already in progress');
+    res.status(400).json({ error: 'Scan already in progress' });
+    return;
+  }
+
+  try {
+    const config = getRootOptions();
+    const bleProxies = config.bleProxies || [];
+    
+    if (bleProxies.length === 0) {
+      res.status(500).json({ 
+        error: 'No BLE proxies configured',
+        details: 'You need to configure at least one ESPHome BLE proxy in the addon configuration to scan for devices.',
+        troubleshooting: [
+          'Add your ESPHome BLE proxy device to the addon configuration',
+          'Ensure the IP address and port are correct',
+          'Restart the addon after updating the configuration'
+        ]
+      });
+      return;
+    }
+
+    // Check for placeholder IP addresses
+    const hasPlaceholders = bleProxies.some((proxy) => 
+      !proxy.host || 
+      proxy.host === 'YOUR_ESP32_IP_ADDRESS' || 
+      proxy.host.includes('PLACEHOLDER') ||
+      proxy.host.includes('EXAMPLE')
+    );
+
+    if (hasPlaceholders) {
+      res.status(500).json({ 
+        error: 'Invalid BLE proxy configuration',
+        details: 'One or more BLE proxies have placeholder IP addresses. Please update your configuration with the actual IP addresses of your ESPHome devices.',
+        troubleshooting: [
+          'Find your ESPHome device IP address in your router admin panel',
+          'Update the addon configuration with the correct IP address',
+          'Restart the addon after making changes'
+        ],
+        currentConfiguration: bleProxies
+      });
+      return;
+    }
+
+    // Start scan simulation (since we don't have actual ESPHome connection yet)
+    cleanupScanState();
+    isScanning = true;
+    scanStartTime = Date.now();
+    
+    log('📡 Starting BLE scan simulation...');
+    
+    // Set up scan timeout
+    scanTimeout = setTimeout(() => {
+      log('⏰ Scan timeout reached');
+      cleanupScanState();
+    }, SCAN_DURATION_MS);
+
+    res.json({ 
+      message: 'Scan started',
+      scanDuration: SCAN_DURATION_MS,
+      proxiesConfigured: bleProxies.length,
+      mqttConnected: mqttClient ? mqttClient.connected : false
+    });
+
+  } catch (error) {
+    logError('Error starting scan', error);
+    cleanupScanState();
+    res.status(500).json({ 
+      error: 'Failed to start scan',
+      details: error instanceof Error ? error.message : String(error)
+    });
+  }
 });
 
-// Basic status endpoint
+// Scan status endpoint
 app.get('/scan/status', (req, res) => {
-  log('📊 STATUS ENDPOINT HIT!');
   res.json({
-    isScanning: false,
-    message: 'Status endpoint working',
-    timestamp: new Date().toISOString()
+    isScanning,
+    scanTimeRemaining: isScanning && scanStartTime ? Math.max(0, SCAN_DURATION_MS - (Date.now() - scanStartTime)) : 0,
+    devices: Array.from(discoveredDevices.values()),
+    mqttConnected: mqttClient ? mqttClient.connected : false
   });
 });
 
 // Health check
 app.get('/health', (req, res) => {
-  log('💚 HEALTH CHECK HIT!');
-  res.json({ status: 'healthy', timestamp: new Date().toISOString() });
+  log('💚 Health check hit');
+  res.json({ 
+    status: 'healthy', 
+    timestamp: new Date().toISOString(),
+    mqttConnected: mqttClient ? mqttClient.connected : false,
+    isScanning
+  });
 });
 
-// Debug endpoint to show access methods
+// Debug endpoint
 app.get('/debug/access', (req, res) => {
-  log('🔍 DEBUG ACCESS INFO REQUESTED');
+  log('🔍 Debug access info requested');
   const networkInfo = getNetworkInfo();
   
   res.json({
-    serverStatus: 'ULTRA-SIMPLE SERVER RUNNING',
+    serverStatus: 'OCTO MQTT SERVER RUNNING',
     port: 8099,
     networkInterfaces: networkInfo,
+    mqttConnected: mqttClient ? mqttClient.connected : false,
     accessMethods: {
       directAccess: networkInfo.map(info => {
         const ip = info.split(': ')[1];
@@ -81,30 +326,12 @@ app.get('/debug/access', (req, res) => {
   });
 });
 
-// Debug what requests we're getting
-app.use((req, res, next) => {
-  log(`📨 Request: ${req.method} ${req.url}`);
-  log(`📍 Headers: ${JSON.stringify(req.headers, null, 2)}`);
-  next();
-});
-
-// Catch-all for debugging
-app.use('*', (req, res) => {
-  log(`❌ 404 - Unknown route: ${req.method} ${req.originalUrl}`);
-  res.status(404).json({ 
-    error: 'Route not found',
-    method: req.method,
-    path: req.originalUrl,
-    availableRoutes: ['POST /scan/start', 'GET /scan/status', 'GET /health', 'GET /debug/access']
-  });
-});
-
 // Start server
 const port = 8099;
-log(`🚀 Starting ultra-simple server on port ${port}...`);
+log(`🚀 Starting Octo MQTT server on port ${port}...`);
 
-const server = app.listen(port, '0.0.0.0', () => {
-  log(`✅ ULTRA-SIMPLE SERVER LISTENING ON PORT ${port}`);
+const server = app.listen(port, '0.0.0.0', async () => {
+  log(`✅ OCTO MQTT SERVER LISTENING ON PORT ${port}`);
   log(`🌐 Binding to: 0.0.0.0:${port} (all interfaces)`);
   
   const networkInfo = getNetworkInfo();
@@ -125,13 +352,21 @@ const server = app.listen(port, '0.0.0.0', () => {
   });
   
   log(`📡 Endpoints: POST /scan/start, GET /scan/status, GET /health, GET /debug/access`);
+  
+  // Initialize the application after server is running
+  try {
+    await initializeApp();
+  } catch (error) {
+    logError('Failed to initialize application', error);
+    process.exit(1);
+  }
 });
 
 server.on('error', (error) => {
-  log(`❌ SERVER ERROR: ${error.message}`);
+  logError('Server error', error);
   if (error.code === 'EADDRINUSE') {
     log(`🔥 PORT ${port} IS IN USE - Another server is running!`);
   }
 });
 
-log('🎉 ULTRA-SIMPLE SERVER SETUP COMPLETE!'); 
+log('🎉 OCTO MQTT SERVER SETUP COMPLETE!'); 

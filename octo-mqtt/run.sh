@@ -26,26 +26,35 @@ if [ ! -f "/data/options.json" ]; then
     bashio::log.info "Creating default config..."
     cat > /data/options.json << 'EOF'
 {
-  "mqtt": {
-    "host": "core-mosquitto",
-    "port": 1883,
-    "username": "",
-    "password": ""
-  },
+  "mqtt_host": "<auto_detect>",
+  "mqtt_port": "<auto_detect>",
+  "mqtt_user": "<auto_detect>",
+  "mqtt_password": "<auto_detect>",
   "bleProxies": [
     {
       "host": "192.168.1.100",
       "port": 6053
     }
   ],
-  "octoDevices": [],
-  "webPort": 8099
+  "octoDevices": []
 }
 EOF
 fi
 
+# Check MQTT service availability
+bashio::log.info "Checking MQTT service availability..."
+if bashio::services.available "mqtt"; then
+    bashio::log.info "✅ MQTT service is available"
+    MQTT_HOST=$(bashio::services.mqtt "host")
+    MQTT_PORT=$(bashio::services.mqtt "port")
+    bashio::log.info "MQTT Host: $MQTT_HOST"
+    bashio::log.info "MQTT Port: $MQTT_PORT"
+else
+    bashio::log.warning "⚠️  MQTT service not available - will use fallback configuration"
+fi
+
 # Final startup message
-bashio::log.info "🎯 Starting Node.js application (SIMPLIFIED VERSION)..."
+bashio::log.info "🎯 Starting Node.js application..."
 
 # Start Node.js app with proper error handling
 exec node index.js
