@@ -435,9 +435,28 @@ app.get('/debug/access', (req, res) => {
   });
 });
 
+// Root endpoint for server reachability
+app.get('/', (req, res) => {
+  log('[API] / root endpoint hit');
+  res.json({ status: 'ok', message: 'Octo MQTT server is running', cwd: process.cwd() });
+});
+
+// Debug ping endpoint
+app.get('/debug/ping', (req, res) => {
+  log('[API] /debug/ping endpoint hit');
+  res.json({ status: 'pong', time: new Date().toISOString() });
+});
+
 // Start server
 const port = 8099;
 log(`🚀 Starting Octo MQTT server on port ${port}...`);
+log(`[DEBUG] Current working directory: ${process.cwd()}`);
+try {
+  const files = require('fs').readdirSync(process.cwd());
+  log(`[DEBUG] Files in working directory: ${files.join(', ')}`);
+} catch (e) {
+  log(`[DEBUG] Could not list files in working directory: ${e.message}`);
+}
 
 const server = app.listen(port, '0.0.0.0', async () => {
   log(`✅ OCTO MQTT SERVER LISTENING ON PORT ${port}`);
