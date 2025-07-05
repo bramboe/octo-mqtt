@@ -25,24 +25,13 @@ const getMQTTConfig = () => {
     if (needsAutoDetect) {
       logInfo('[MQTT] Auto-detection required, using Home Assistant default MQTT settings');
       
-      // Check if we have MQTT credentials from bashio
-      if (env.MQTT_HOST && env.MQTT_USER && env.MQTT_PASSWORD) {
-        logInfo('[MQTT] Using MQTT credentials from Home Assistant services');
-        host = env.MQTT_HOST;
-        port = parseInt(env.MQTT_PORT || '1883', 10);
-        username = env.MQTT_USER;
-        password = env.MQTT_PASSWORD;
-        
-        logInfo(`[MQTT] Using ${host}:${port} with authentication`);
-      } else {
-        logWarn('[MQTT] No MQTT credentials found, using fallback configuration');
-        host = 'core-mosquitto';
-        port = 1883;
-        username = '';
-        password = '';
-        
-        logInfo('[MQTT] Using core-mosquitto:1883 (anonymous connection)');
-      }
+      // Use environment variables if available, otherwise use defaults
+      host = env.MQTT_HOST || 'core-mosquitto';
+      port = parseInt(env.MQTT_PORT || '1883', 10);
+      username = env.MQTT_USER || '';
+      password = env.MQTT_PASSWORD || '';
+      
+      logInfo(`[MQTT] Using ${host}:${port} (${username ? 'authenticated' : 'anonymous'} connection)`);
     } else {
       // Use configured values
       logInfo('[MQTT] Using configured MQTT settings');

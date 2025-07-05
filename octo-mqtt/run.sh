@@ -38,7 +38,7 @@ get_bashio_service_info() {
 }
 
 # Log startup with unique identifier
-log_message "info" "🚀 Starting Octo MQTT addon v2.0.7..."
+log_message "info" "🚀 Starting Octo MQTT addon v2.0.8..."
 log_message "info" "📅 Build: v2025.07.05.3"
 log_message "info" "⚡ Process ID: $$"
 
@@ -78,30 +78,19 @@ if [ ! -f "/data/options.json" ]; then
 EOF
 fi
 
-# Get MQTT credentials from Home Assistant services
-if bashio::services.available mqtt; then
-    log_message "info" "🔧 Using Home Assistant MQTT service credentials"
-    MQTT_HOST=$(bashio::services mqtt "host")
-    MQTT_USER=$(bashio::services mqtt "username")
-    MQTT_PASSWORD=$(bashio::services mqtt "password")
-    MQTT_PORT=$(bashio::services mqtt "port")
-    
-    log_message "info" "📡 MQTT Host: $MQTT_HOST"
-    log_message "info" "🔑 MQTT User: $MQTT_USER"
-    log_message "info" "🔌 MQTT Port: $MQTT_PORT"
-    
-    # Export for Node.js to use
-    export MQTT_HOST
-    export MQTT_USER
-    export MQTT_PASSWORD
-    export MQTT_PORT
-else
-    log_message "warn" "⚠️ MQTT service not available, using fallback configuration"
-    export MQTT_HOST="core-mosquitto"
-    export MQTT_USER=""
-    export MQTT_PASSWORD=""
-    export MQTT_PORT="1883"
-fi
+# Simple MQTT configuration - use Home Assistant default settings
+log_message "info" "🔧 Using Home Assistant MQTT configuration"
+log_message "info" "📝 This matches the smartbed-mqtt repository approach"
+
+# Set default MQTT settings for Home Assistant
+export MQTT_HOST="core-mosquitto"
+export MQTT_PORT="1883"
+export MQTT_USER=""
+export MQTT_PASSWORD=""
+
+log_message "info" "📡 MQTT Host: $MQTT_HOST"
+log_message "info" "🔌 MQTT Port: $MQTT_PORT"
+log_message "info" "🔑 MQTT User: (anonymous)"
 
 # Final startup message
 log_message "info" "🎯 Starting Node.js application..."
