@@ -80,9 +80,9 @@ function getMQTTConfig() {
   if (needsAutoDetect) {
     log('🔍 Auto-detection required, using Home Assistant default MQTT settings');
     
-    // Use explicit IPv4 localhost to avoid IPv6 resolution issues
+    // Use core-mosquitto for Home Assistant add-on environment
     return {
-      host: '127.0.0.1',
+      host: 'core-mosquitto',
       port: 1883,
       username: '',
       password: ''

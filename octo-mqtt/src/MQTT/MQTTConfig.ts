@@ -22,13 +22,13 @@ const getMQTTConfig = () => {
     if (needsAutoDetect) {
       logInfo('[MQTT] Auto-detection required, using Home Assistant default MQTT settings');
       
-      // Use explicit IPv4 localhost to avoid IPv6 resolution issues
-      host = '127.0.0.1';
+      // Use core-mosquitto for Home Assistant add-on environment
+      host = 'core-mosquitto';
       port = 1883;
       username = '';
       password = '';
       
-      logInfo('[MQTT] Using 127.0.0.1:1883 (IPv4 localhost)');
+      logInfo('[MQTT] Using core-mosquitto:1883 (Home Assistant MQTT broker)');
     } else {
       // Use configured values
       logInfo('[MQTT] Using configured MQTT settings');
@@ -39,7 +39,7 @@ const getMQTTConfig = () => {
     }
   } catch (error) {
     logError('[MQTT] Error reading configuration, using fallback:', error);
-    host = '127.0.0.1';
+    host = 'core-mosquitto';
     port = 1883;
     username = '';
     password = '';

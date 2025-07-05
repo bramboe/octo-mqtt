@@ -78,9 +78,9 @@ if [ ! -f "/data/options.json" ]; then
 EOF
 fi
 
-# Simple MQTT configuration - using IPv4 localhost to avoid IPv6 issues
-log_message "info" "🔧 Using simple MQTT configuration (127.0.0.1:1883)"
-log_message "info" "📝 Using explicit IPv4 to avoid IPv6 resolution problems"
+# Simple MQTT configuration - using Home Assistant MQTT broker
+log_message "info" "🔧 Using Home Assistant MQTT configuration (core-mosquitto:1883)"
+log_message "info" "📝 This connects to the Home Assistant MQTT broker service"
 
 # Final startup message
 log_message "info" "🎯 Starting Node.js application..."
