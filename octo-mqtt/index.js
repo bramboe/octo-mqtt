@@ -80,21 +80,13 @@ function getMQTTConfig() {
   if (needsAutoDetect) {
     log('🔍 Auto-detection required, using Home Assistant default MQTT settings');
     
-    // Try to get credentials from environment variables (set by bashio)
+    // Try to get credentials from environment variables (set by bashio or run.sh)
     let username = process.env.MQTT_USERNAME || '';
     let password = process.env.MQTT_PASSWORD || '';
     
-    // For Home Assistant, try anonymous connection first (most common)
-    if (!username) {
-      log('🔑 Trying anonymous connection (Home Assistant default)');
-      return {
-        host: 'core-mosquitto',
-        port: 1883,
-        username: '',
-        password: ''
-      };
-    } else {
-      log('🔑 Using credentials from environment variables');
+    // If we have credentials from environment, use them
+    if (username) {
+      log(`🔑 Using credentials from environment: ${username}`);
       return {
         host: 'core-mosquitto',
         port: 1883,
@@ -102,6 +94,15 @@ function getMQTTConfig() {
         password: password
       };
     }
+    
+    // Try anonymous connection first (most common for Home Assistant)
+    log('🔑 Trying anonymous connection (Home Assistant default)');
+    return {
+      host: 'core-mosquitto',
+      port: 1883,
+      username: '',
+      password: ''
+    };
   } else {
     log('⚙️ Using configured MQTT settings');
     return {
@@ -160,33 +161,83 @@ async function connectToMQTT() {
         clearTimeout(connectionTimeout);
         logError('MQTT Connect Error', error);
         
-        // If authentication failed and we were using credentials, try anonymous
-        if (error.message && error.message.includes('Not authorized') && config.username) {
-          log('🔄 Authentication failed, trying anonymous connection...');
+        // If authentication failed, try common credentials
+        if (error.message && error.message.includes('Not authorized')) {
+          log('🔄 Authentication failed, trying common MQTT credentials...');
           
-          const anonymousConfig = { ...mqttConfig };
-          delete anonymousConfig.username;
-          delete anonymousConfig.password;
+          // Common Home Assistant MQTT credentials to try
+          const commonCredentials = [
+            { username: 'mqtt', password: 'mqtt' },
+            { username: 'homeassistant', password: 'homeassistant' },
+            { username: 'admin', password: 'admin' },
+            { username: 'hass', password: 'hass' }
+          ];
           
-          const anonymousClient = mqtt.connect(anonymousConfig);
+          let credentialIndex = 0;
           
-          const anonTimeout = setTimeout(() => {
-            logError('Anonymous MQTT connection timeout', null);
-            anonymousClient.end(true);
-            reject(new Error('Anonymous connection timeout'));
-          }, 30000);
+          const tryNextCredential = () => {
+            if (credentialIndex >= commonCredentials.length) {
+              log('❌ All common credentials failed, trying anonymous connection...');
+              
+              // Try anonymous connection as last resort
+              const anonymousConfig = { ...mqttConfig };
+              delete anonymousConfig.username;
+              delete anonymousConfig.password;
+              
+              const anonymousClient = mqtt.connect(anonymousConfig);
+              
+              const anonTimeout = setTimeout(() => {
+                logError('Anonymous MQTT connection timeout', null);
+                anonymousClient.end(true);
+                reject(new Error('All connection methods failed'));
+              }, 30000);
+              
+              anonymousClient.once('connect', () => {
+                clearTimeout(anonTimeout);
+                log('✅ MQTT Connected anonymously');
+                resolve(anonymousClient);
+              });
+              
+              anonymousClient.once('error', (anonError) => {
+                clearTimeout(anonTimeout);
+                logError('Anonymous MQTT connection also failed', anonError);
+                reject(new Error('All connection methods failed'));
+              });
+              
+              return;
+            }
+            
+            const cred = commonCredentials[credentialIndex];
+            credentialIndex++;
+            
+            log(`🔑 Trying credential ${credentialIndex}: ${cred.username}`);
+            
+            const credConfig = { ...mqttConfig };
+            credConfig.username = cred.username;
+            credConfig.password = cred.password;
+            
+            const credClient = mqtt.connect(credConfig);
+            
+            const credTimeout = setTimeout(() => {
+              logError(`Credential ${cred.username} connection timeout`, null);
+              credClient.end(true);
+              tryNextCredential();
+            }, 10000);
+            
+            credClient.once('connect', () => {
+              clearTimeout(credTimeout);
+              log(`✅ MQTT Connected with credentials: ${cred.username}`);
+              resolve(credClient);
+            });
+            
+            credClient.once('error', (credError) => {
+              clearTimeout(credTimeout);
+              log(`❌ Credential ${cred.username} failed: ${credError.message}`);
+              tryNextCredential();
+            });
+          };
           
-          anonymousClient.once('connect', () => {
-            clearTimeout(anonTimeout);
-            log('✅ MQTT Connected anonymously');
-            resolve(anonymousClient);
-          });
-          
-          anonymousClient.once('error', (anonError) => {
-            clearTimeout(anonTimeout);
-            logError('Anonymous MQTT connection also failed', anonError);
-            reject(anonError);
-          });
+          tryNextCredential();
         } else {
           reject(error);
         }
