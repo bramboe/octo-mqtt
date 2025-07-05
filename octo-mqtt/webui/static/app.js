@@ -85,7 +85,7 @@ class OctoMQTTInterface {
         if (scanning) {
             this.scanProgress.style.display = 'block';
             this.startScanProgress();
-        } else {
+      } else {
             this.scanProgress.style.display = 'none';
             this.stopScanProgress();
         }
@@ -96,12 +96,12 @@ class OctoMQTTInterface {
             this.addLog('Starting BLE scan...', 'info');
             
             const response = await fetch('/scan/start', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            });
-            
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
             const data = await response.json();
             
             if (response.ok) {
@@ -172,18 +172,18 @@ class OctoMQTTInterface {
     }
 
     async updateScanStatus() {
-        try {
-            const response = await fetch('/scan/status');
+    try {
+      const response = await fetch('/scan/status');
             const data = await response.json();
-            
+      
             this.updateScanStatus(data.isScanning);
             this.deviceCount.textContent = data.devices ? data.devices.length : 0;
-            
+      
             if (data.devices && data.devices.length > 0) {
                 this.updateDevicesList(data.devices);
-            }
-            
-        } catch (error) {
+      }
+      
+    } catch (error) {
             this.addLog(`Error updating scan status: ${error.message}`, 'error');
         }
     }
@@ -191,19 +191,19 @@ class OctoMQTTInterface {
     updateDevicesList(devices) {
         if (!devices || devices.length === 0) {
             this.devicesList.innerHTML = '<p class="no-devices">No devices discovered yet. Start a scan to find Octo beds.</p>';
-            return;
-        }
-        
+      return;
+    }
+    
         const devicesHtml = devices.map(device => `
             <div class="device-item">
-                <div class="device-info">
+      <div class="device-info">
                     <div class="device-name">${device.name || 'Unknown Device'}</div>
                     <div class="device-mac">${device.mac || 'No MAC address'}</div>
-                </div>
+      </div>
                 <div class="device-actions">
                     <button class="btn btn-success" onclick="octoInterface.addDevice('${device.mac}')">
                         ➕ Add Device
-                    </button>
+      </button>
                 </div>
             </div>
         `).join('');
@@ -247,8 +247,8 @@ class OctoMQTTInterface {
                 this.proxyCount.textContent = '1 configured';
                 this.octoCount.textContent = '0 devices';
             }, 1000);
-            
-        } catch (error) {
+      
+    } catch (error) {
             this.addLog(`Error loading configuration: ${error.message}`, 'error');
         }
     }

@@ -1,3 +1,27 @@
+## v2.1.0
+
+**New Features**
+
+- (BLE) Real ESPHome BLE proxy scanning instead of simulation
+- (BLE) Direct integration with @2colors/esphome-native-api
+- (API) All endpoints now return proper JSON responses
+- (API) Improved error handling and logging for BLE operations
+
+**Bug Fixes**
+
+- (BLE) Fixed /scan/start endpoint to use actual ESPHome connections
+- (BLE) Fixed /scan/status endpoint to return consistent JSON format
+- (API) Fixed "The string did not match the expected pattern" errors in web UI
+- (Docker) Removed dependency on TypeScript compilation for runtime
+- (HomeAssistant) Improved standalone operation on Raspberry Pi installations
+
+**Technical Improvements**
+
+- (Code) Replaced TypeScript imports with direct JavaScript implementation
+- (Code) Enhanced BLE device discovery with proper connection management
+- (Code) Added comprehensive error handling for ESPHome proxy connections
+- (Code) Improved logging for debugging BLE operations
+
 ## v1.1.22
 
 **New Features**

@@ -38,8 +38,8 @@ get_bashio_service_info() {
 }
 
 # Log startup with unique identifier
-log_message "info" "🚀 Starting Octo MQTT addon v2.0.9..."
-log_message "info" "📅 Build: v2025.07.05.3"
+log_message "info" "🚀 Starting Octo MQTT addon v2.1.0..."
+log_message "info" "📅 Build: v2025.01.15.1"
 log_message "info" "⚡ Process ID: $$"
 
 # Check if any Node.js processes are already running on port 8099

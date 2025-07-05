@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 
 // Simple test script to verify BLE functionality
-const { logInfo, logError } = require('./dist/tsc/Utils/logger');
+const logInfo = (msg) => console.log(`[INFO] ${msg}`);
+const logError = (msg, error) => console.error(`[ERROR] ${msg}`, error);
 
 async function testBLE() {
   try {
