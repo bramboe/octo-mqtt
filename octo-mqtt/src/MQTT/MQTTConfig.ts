@@ -25,8 +25,19 @@ const getMQTTConfig = () => {
       // Use Home Assistant default MQTT settings
       host = 'core-mosquitto';
       port = 1883;
-      username = '';
-      password = '';
+      
+      // Try to get credentials from environment variables (set by bashio)
+      username = (globalThis as any).process?.env?.MQTT_USERNAME || '';
+      password = (globalThis as any).process?.env?.MQTT_PASSWORD || '';
+      
+      // If no credentials in env, try common Home Assistant defaults
+      if (!username) {
+        username = 'addons';
+        password = 'addons';
+        logInfo('[MQTT] Using Home Assistant addon default credentials: addons/addons');
+      } else {
+        logInfo('[MQTT] Using credentials from environment variables');
+      }
       
       logInfo('[MQTT] Using Home Assistant default MQTT broker: core-mosquitto:1883');
     } else {
@@ -41,8 +52,8 @@ const getMQTTConfig = () => {
     logError('[MQTT] Error reading configuration, using fallback:', error);
     host = 'core-mosquitto';
     port = 1883;
-    username = '';
-    password = '';
+    username = 'addons';
+    password = 'addons';
   }
 
   // Generate a unique client ID to avoid connection conflicts
@@ -65,7 +76,7 @@ const getMQTTConfig = () => {
     rejectUnauthorized: false
   };
 
-  // Only add auth if username is provided
+  // Always add auth credentials if we have them
   if (username) {
     config.username = username;
     

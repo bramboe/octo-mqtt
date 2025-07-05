@@ -79,11 +79,25 @@ function getMQTTConfig() {
 
   if (needsAutoDetect) {
     log('🔍 Auto-detection required, using Home Assistant default MQTT settings');
+    
+    // Try to get credentials from environment variables (set by bashio)
+    let username = process.env.MQTT_USERNAME || '';
+    let password = process.env.MQTT_PASSWORD || '';
+    
+    // If no credentials in env, try common Home Assistant defaults
+    if (!username) {
+      username = 'addons';
+      password = 'addons';
+      log('🔑 Using Home Assistant addon default credentials: addons/addons');
+    } else {
+      log('🔑 Using credentials from environment variables');
+    }
+    
     return {
       host: 'core-mosquitto',
       port: 1883,
-      username: '',
-      password: ''
+      username: username,
+      password: password
     };
   } else {
     log('⚙️ Using configured MQTT settings');
