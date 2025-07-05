@@ -1,14 +1,10 @@
 {
   "extends": "./tsconfig.json",
-  "exclude": [
-    "node_modules",
-    "test",
-    "dist",
-    "**/*spec.ts",
-    "**/*test.ts"
-  ],
   "compilerOptions": {
-    "sourceMap": false,
-    "inlineSourceMap": false
-  }
+    // Disable unused warnings for the build
+    "noUnusedLocals": false,
+    "noUnusedParameters": false
+  },
+  // Exclude tests files from being built, but keep them in the main project for linting
+  "exclude": ["**/*.test.ts", "**/__mock__"]
 }

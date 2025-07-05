@@ -1,5 +1,5 @@
-import { IDeviceData } from '../IDeviceData';
-import { IMQTTConnection } from '../../MQTT/IMQTTConnection';
+import { IDeviceData } from '@ha/IDeviceData';
+import { IMQTTConnection } from '@mqtt/IMQTTConnection';
 import { ComponentType } from './ComponentTypeWithState';
 import { Entity, EntityConfig } from './Entity';
 import { IStateful } from './IStateful';
@@ -51,4 +51,4 @@ export class StatefulEntity<T> extends Entity implements IStateful<T> {
       this.mqtt.publish(this.stateTopic, message);
     }, 250);
   }
-} 
+}

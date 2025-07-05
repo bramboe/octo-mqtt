@@ -1,5 +1,5 @@
-import { IMQTTConnection } from '../MQTT/IMQTTConnection';
-import { logError } from '../Utils/logger';
+import { IMQTTConnection } from '@mqtt/IMQTTConnection';
+import { logError } from '@utils/logger';
 import { IDeviceData } from './IDeviceData';
 import { EntityConfig } from './base/Entity';
 import { StatefulEntity } from './base/StatefulEntity';
@@ -9,25 +9,24 @@ export type SelectConfig = {
 };
 export class Select extends StatefulEntity<string> {
   private commandTopic: string;
-  private readonly options: string[];
+  private options: string[];
 
   constructor(
     mqtt: IMQTTConnection,
     deviceData: IDeviceData,
-    entityConfig: EntityConfig,
-    options: string[],
-    onChange: (value: string) => Promise<void | string>
+    { options, ...config }: SelectConfig & EntityConfig,
+    onChange: (state: string) => Promise<void | string>
   ) {
-    super(mqtt, deviceData, entityConfig, 'select');
+    super(mqtt, deviceData, config, 'select');
     this.commandTopic = `${this.baseTopic}/command`;
     this.options = options;
 
     mqtt.subscribe(this.commandTopic);
-    mqtt.on(this.commandTopic, async (message: string) => {
+    mqtt.on(this.commandTopic, async (message) => {
       if (!this.options.includes(message)) return;
       try {
         const result = await onChange(message);
-        this.setState(result !== undefined ? result : message);
+        this.setState(result !== undefined ? result as string : message);
       } catch (err) {
         logError(err);
       }

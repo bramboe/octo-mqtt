@@ -1,20 +1,18 @@
-import { IMQTTConnection } from '../MQTT/IMQTTConnection';
-import { IESPConnection } from '../ESPHome/IESPConnection';
-import { getDevices } from './options';
-import { buildDictionary } from '../Utils/buildDictionary';
-import { logInfo, logError, logWarn } from '../Utils/logger';
-import { BLEController } from '../BLE/BLEController';
-import { setupDeviceInfoSensor } from '../BLE/setupDeviceInfoSensor';
-import { buildMQTTDeviceData } from '../Common/buildMQTTDeviceData';
+import { IMQTTConnection } from '@mqtt/IMQTTConnection';
+import { buildDictionary } from '@utils/buildDictionary';
+import { Deferred } from '@utils/deferred';
+import { logError, logInfo, logWarn } from '@utils/logger';
+import { BLEController } from 'BLE/BLEController';
+import { setupDeviceInfoSensor } from 'BLE/setupDeviceInfoSensor';
+import { buildMQTTDeviceData } from 'Common/buildMQTTDeviceData';
+import { IESPConnection } from 'ESPHome/IESPConnection';
 import { calculateChecksum } from './calculateChecksum';
 import { extractFeatureValuePairFromData } from './extractFeaturesFromData';
 import { extractPacketFromMessage } from './extractPacketFromMessage';
+import { getDevices } from './options';
 import { setupLightSwitch } from './setupLightSwitch';
 import { setupMotorEntities } from './setupMotorEntities';
-import { Deferred } from '../Utils/deferred';
-import { byte } from '../Utils/byte';
-import { OctoDevice } from './options';
-import { BLEDeviceAdvertisement } from '../BLE/BLEController';
+import { byte } from '@utils/byte';
 
 export type Command = {
   command: number[];
@@ -40,153 +38,21 @@ const buildComplexCommand = ({ command, data }: Command) => {
 // Add a timeout for feature requests - time to wait for features before moving on
 const FEATURE_REQUEST_TIMEOUT_MS = 15000; // 15 seconds
 
-// Add keep-alive interval for maintaining BLE connections
-const KEEP_ALIVE_INTERVAL_MS = 30000; // 30 seconds (matching ESPHome config)
+// Add maximum retry attempts
+const MAX_FEATURE_REQUEST_ATTEMPTS = 3;
 
 export const octo = async (mqtt: IMQTTConnection, esphome: IESPConnection) => {
   const devices = getDevices();
   if (!devices.length) return logInfo('[Octo] No devices configured');
 
-  // Build device map using either mac or name as key
-  const devicesMap = buildDictionary<OctoDevice, OctoDevice>(devices, (device: OctoDevice) => {
-    const key = device.mac || device.name || '';
-    return { key: key.toLowerCase(), value: device };
-  });
-  
-  const deviceIdentifiers = Object.keys(devicesMap);
-  if (deviceIdentifiers.length !== devices.length) return logError('[Octo] Duplicate identifier detected in configuration');
-  
-  logInfo(`[Octo] Looking for devices with identifiers: ${deviceIdentifiers.join(', ')}`);
-  
-  // Add more detailed logging for device discovery
-  logInfo(`[Octo] Starting device discovery with ${deviceIdentifiers.length} identifier(s)`);
-  logInfo(`[Octo] Device identifiers: ${JSON.stringify(deviceIdentifiers)}`);
-  
-  const bleDevices = await esphome.getBLEDevices(deviceIdentifiers);
-  
-  logInfo(`[Octo] Device discovery completed. Found ${bleDevices.length} device(s)`);
-  bleDevices.forEach((device, index) => {
-    logInfo(`[Octo] Device ${index + 1}: ${device.name} (${device.mac})`);
-  });
-  
-  // Set up keep-alive mechanism for BLE connections
-  const keepAliveInterval = setInterval(() => {
-    if (bleDevices.length > 0) {
-      logInfo('[Octo] Sending keep-alive to maintain BLE connections...');
-      // Send a simple keep-alive command to each connected device
-      bleDevices.forEach(async (device) => {
-        try {
-          // Remove unused variable keepAliveCmd
-          // const keepAliveCmd = [0x40, 0x20, 0x43, 0x00, 0x04, 0x00, 0x02, 0x03, 0x04, 0x05, 0x40];
-          logInfo(`[Octo] Keep-alive sent to ${device.name}`);
-        } catch (error) {
-          logWarn(`[Octo] Keep-alive failed for ${device.name}:`, error);
-        }
-      });
-    }
-  }, KEEP_ALIVE_INTERVAL_MS);
-  
-  // Clean up keep-alive interval on process exit
-  process.on('SIGINT', () => {
-    clearInterval(keepAliveInterval);
-    logInfo('[Octo] Keep-alive mechanism stopped');
-  });
-  
-  process.on('SIGTERM', () => {
-    clearInterval(keepAliveInterval);
-    logInfo('[Octo] Keep-alive mechanism stopped');
-  });
-  
-  // If no devices found by name, try enhanced scan with MAC/PIN filtering
-  if (bleDevices.length === 0) {
-    logWarn('[Octo] No devices found by name, trying enhanced scan with MAC/PIN filtering...');
-    
-    // Get scan duration from configuration
-    const scanDuration = process.env.OCTO_SCAN_DURATION ? parseInt(process.env.OCTO_SCAN_DURATION) : 15000;
-    logInfo(`[Octo] Starting enhanced scan for ${scanDuration}ms with MAC/PIN filtering...`);
-    
-    // Start a scan to look for RC2 devices with enhanced filtering
-    const discoveredDevices: BLEDeviceAdvertisement[] = [];
-    await esphome.startBleScan(scanDuration, (device) => {
-      logInfo(`[Octo] Found target device during enhanced scan: ${device.name} (${device.address})`);
-      
-      // The enhanced filtering is now handled in ESPConnection.ts
-      // This callback will only be called for devices that pass the MAC/PIN filter
-      discoveredDevices.push(device);
-    });
-    
-    if (discoveredDevices.length > 0) {
-      logInfo(`[Octo] Found ${discoveredDevices.length} target device(s) during enhanced scan`);
-      
-      // Try to connect to the first target device found
-      const firstDevice = discoveredDevices[0];
-      logInfo(`[Octo] Attempting to connect to target device: ${firstDevice.name} (${firstDevice.address})`);
-      
-      // Create a mock device for connection attempt
-      const mockDevice = {
-        name: firstDevice.name,
-        mac: firstDevice.address.toString(16).padStart(12, '0'),
-        address: firstDevice.address,
-        connect: async () => {
-          logInfo(`[Octo] Mock connection to ${firstDevice.name}`);
-        },
-        disconnect: async () => {
-          logInfo(`[Octo] Mock disconnection from ${firstDevice.name}`);
-        },
-        getCharacteristic: async () => {
-          return { handle: 0x0B };
-        },
-        getDeviceInfo: async () => {
-          return { name: firstDevice.name, mac: firstDevice.address.toString(16) };
-        }
-      };
-      
-      // Add to bleDevices array for processing
-      bleDevices.push(mockDevice as any);
-    } else {
-      logWarn('[Octo] No target devices found during enhanced scan');
-      logWarn('[Octo] Check your MAC/PIN configuration and ensure the ESPHome BLE proxy is working');
-      
-      // Try a debug scan to see ALL devices without filtering
-      logWarn('[Octo] Starting debug scan to see ALL available BLE devices...');
-      const allDevices: BLEDeviceAdvertisement[] = [];
-      
-      // Temporarily disable filtering by clearing environment variables
-      const originalTargetMac = process.env.OCTO_TARGET_MAC;
-      const originalTargetPin = process.env.OCTO_TARGET_PIN;
-      delete process.env.OCTO_TARGET_MAC;
-      delete process.env.OCTO_TARGET_PIN;
-      
-      await esphome.startBleScan(10000, (device) => {
-        const macStr = device.address.toString(16).padStart(12, '0');
-        const macWithColons = macStr.match(/.{2}/g)?.join(':') || '';
-        logInfo(`[Octo DEBUG] Found ANY device: ${device.name || 'Unknown'} (MAC: ${macWithColons}, RSSI: ${device.rssi})`);
-        allDevices.push(device);
-      });
-      
-      // Restore environment variables
-      if (originalTargetMac) process.env.OCTO_TARGET_MAC = originalTargetMac;
-      if (originalTargetPin) process.env.OCTO_TARGET_PIN = originalTargetPin;
-      
-      logInfo(`[Octo DEBUG] Debug scan completed. Found ${allDevices.length} total devices.`);
-      if (allDevices.length === 0) {
-        logWarn('[Octo DEBUG] No BLE devices found at all. Possible issues:');
-        logWarn('[Octo DEBUG] 1. ESPHome BLE proxy is not scanning properly');
-        logWarn('[Octo DEBUG] 2. No BLE devices are in range');
-        logWarn('[Octo DEBUG] 3. ESPHome BLE proxy configuration issue');
-        logWarn('[Octo DEBUG] 4. Your Octo bed is not advertising');
-      }
-    }
-  }
-
+  const devicesMap = buildDictionary(devices, (device) => ({ key: device.name.toLowerCase(), value: device }));
+  const deviceNames = Object.keys(devicesMap);
+  if (deviceNames.length !== devices.length) return logError('[Octo] Duplicate name detected in configuration');
+  const bleDevices = await esphome.getBLEDevices(deviceNames);
   for (const bleDevice of bleDevices) {
-    const { name, mac, address, connect, disconnect, getCharacteristic } = bleDevice;
+    const { name, mac, address, connect, disconnect, getCharacteristic, getDeviceInfo } = bleDevice;
     const { pin, ...device } = devicesMap[mac] || devicesMap[name.toLowerCase()];
-    const deviceData = buildMQTTDeviceData({ 
-      ...device, 
-      name: device.name || device.mac || 'Unknown Device',
-      address 
-    }, 'Octo');
+    const deviceData = buildMQTTDeviceData({ ...device, address }, 'Octo');
     await connect();
 
     const characteristic = await getCharacteristic(
@@ -194,10 +60,14 @@ export const octo = async (mqtt: IMQTTConnection, esphome: IESPConnection) => {
       '0000ffe1-0000-1000-8000-00805f9b34fb'
     );
     if (!characteristic) {
+      logWarn(`[Octo] Could not find required characteristic for device ${name}`);
       await disconnect();
       continue;
     }
 
+    logInfo(`[Octo] Found characteristic with handle: ${characteristic.handle}`);
+
+    // Create the BLE controller
     const controller = new BLEController(
       deviceData,
       bleDevice,
@@ -205,67 +75,140 @@ export const octo = async (mqtt: IMQTTConnection, esphome: IESPConnection) => {
       (command: number[] | Command) => buildComplexCommand(Array.isArray(command) ? { command: command } : command),
       {
         feedback: characteristic.handle,
-      }
+      },
+      pin
     );
 
+    // Set up feature detection
     const featureState = { hasLight: false, lightState: false, hasPin: false, pinLock: false };
-    const allFeaturesReturned = new Deferred<void>();
+    let currentAttempt = 0;
+    let featuresReceived = false;
 
-    const loadFeatures = (message: Uint8Array) => {
-      const packet = extractPacketFromMessage(message);
-      if (!packet) return;
-      const { command, data } = packet;
-      if (command[0] == 0x21 && command[1] == 0x71) {
-        // features
-        const featureValue = extractFeatureValuePairFromData(data);
-        if (featureValue == null) return;
-
-        const { feature, value } = featureValue;
-        switch (feature) {
-          case 0x3:
-            featureState.hasPin = value[0] == 0x1;
-            featureState.pinLock = value[1] !== 0x1;
-            return;
-          case 0x102:
-            featureState.hasLight = true;
-            featureState.lightState = value[0] == 0x1;
-            return;
-          case 0xffffff:
-            return allFeaturesReturned.resolve();
+    // Function to request features and wait with retry logic
+    const requestFeatures = async () => {
+      currentAttempt++;
+      
+      logInfo(`[Octo] Requesting features for device ${name} (attempt ${currentAttempt}/${MAX_FEATURE_REQUEST_ATTEMPTS})`);
+      
+      const allFeaturesReturned = new Deferred<void>();
+      
+      // Add timeout for feature request
+      const featureRequestTimeout = setTimeout(() => {
+        if (!featuresReceived) {
+          logWarn(`[Octo] Timeout waiting for features from device ${name}, attempt ${currentAttempt}/${MAX_FEATURE_REQUEST_ATTEMPTS}`);
+          allFeaturesReturned.resolve();
         }
+      }, FEATURE_REQUEST_TIMEOUT_MS);
+
+      const loadFeatures = (message: Uint8Array) => {
+        logInfo(`[Octo] Received data from device: ${Array.from(message).map(b => b.toString(16)).join(' ')}`);
+        
+        const packet = extractPacketFromMessage(message);
+        if (!packet) {
+          logWarn(`[Octo] Failed to extract packet from message`);
+          return;
+        }
+        
+        const { command, data } = packet;
+        logInfo(`[Octo] Extracted packet - command: ${command.map(b => b.toString(16)).join(' ')}, data length: ${data.length}`);
+        
+        if (command[0] == 0x21 && command[1] == 0x71) {
+          // features
+          logInfo(`[Octo] Received feature data: ${JSON.stringify(Array.from(data))}`);
+          const featureValue = extractFeatureValuePairFromData(data);
+          if (featureValue == null) {
+            logWarn(`[Octo] Failed to extract feature value from data`);
+            return;
+          }
+
+          featuresReceived = true;
+          const { feature, value } = featureValue;
+          logInfo(`[Octo] Parsed feature: ${feature.toString(16)}, value: ${JSON.stringify(Array.from(value))}`);
+          
+          switch (feature) {
+            case 0x3:
+              featureState.hasPin = value[0] == 0x1;
+              featureState.pinLock = value[1] !== 0x1;
+              logInfo(`[Octo] Has PIN: ${featureState.hasPin}, PIN locked: ${featureState.pinLock}`);
+              return;
+            case 0x102:
+              featureState.hasLight = true;
+              featureState.lightState = value[0] == 0x1;
+              logInfo(`[Octo] Has light: ${featureState.hasLight}, light state: ${featureState.lightState}`);
+              return;
+            case 0xffffff:
+              logInfo(`[Octo] End of features marker received`);
+              clearTimeout(featureRequestTimeout);
+              return allFeaturesReturned.resolve();
+          }
+        } else {
+          logInfo(`[Octo] Received non-feature packet with command: ${command.map(b => b.toString(16)).join(' ')}`);
+        }
+      };
+      
+      controller.on('feedback', loadFeatures);
+
+      try {
+        // Send the feature request command
+        await controller.writeCommand([0x20, 0x71]);
+        await allFeaturesReturned;
+      } catch (error) {
+        logError(`[Octo] Error requesting features: ${error}`);
+      } finally {
+        clearTimeout(featureRequestTimeout);
+        controller.off('feedback', loadFeatures);
+      }
+
+      // If we didn't receive any features and haven't reached max attempts, try again
+      if (!featuresReceived && currentAttempt < MAX_FEATURE_REQUEST_ATTEMPTS) {
+        logInfo(`[Octo] Retrying feature request for device ${name}`);
+        return requestFeatures();
+      }
+      
+      // If we tried max attempts and still didn't get features, continue with defaults
+      if (!featuresReceived) {
+        logWarn(`[Octo] Failed to get features after ${MAX_FEATURE_REQUEST_ATTEMPTS} attempts, continuing with defaults`);
       }
     };
-    controller.on('feedback', loadFeatures);
 
-    logInfo('[Octo] Requesting features for device:', name);
-    controller.writeCommand([0x21, 0x71]);
+    // Request features
+    await requestFeatures();
 
-    try {
-      await Promise.race([
-        allFeaturesReturned,
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Feature request timeout')), FEATURE_REQUEST_TIMEOUT_MS))
-      ]);
-      logInfo('[Octo] Features loaded successfully for device:', name);
-    } catch (error) {
-      logWarn('[Octo] Feature request failed or timed out for device:', name, error);
-      // Continue anyway - we'll work with what we have
+    // Handle PIN if needed
+    if (featureState.hasPin && featureState.pinLock) {
+      if (pin?.length !== 4) {
+        logError('[Octo] 4 Digit Numeric Pin Required But Not Provided');
+        await disconnect();
+        continue;
+      }
+      logInfo('[Octo] Sending PIN to unlock device');
+      try {
+        // Set PIN for keep-alive
+        controller.setPin(pin);
+        
+        // Send initial PIN command
+        await controller.writeCommand({ command: [0x20, 0x43], data: pin.split('').map((c) => parseInt(c)) });
+        logInfo('[Octo] PIN sent successfully, device unlocked');
+      } catch (error) {
+        logError(`[Octo] Error sending PIN: ${error}`);
+        await disconnect();
+        continue;
+      }
     }
 
-    controller.off('feedback', loadFeatures);
+    logInfo('[Octo] Setting up entities for device:', name);
+    const deviceInfo = await getDeviceInfo();
+    if (deviceInfo) setupDeviceInfoSensor(mqtt, controller, deviceInfo);
 
     if (featureState.hasLight) {
       setupLightSwitch(mqtt, controller, featureState.lightState);
     }
-
-    setupMotorEntities(mqtt, controller);
-
-    if (featureState.hasPin && featureState.pinLock && pin) {
-      logInfo('[Octo] Device is PIN locked, attempting to unlock with PIN:', pin);
-      controller.writeCommand([0x21, 0x72, ...pin.split('').map(Number)]);
-    }
-
-    setupDeviceInfoSensor(mqtt, controller, mac, device.friendlyName, 'RC2', 'Ergomotion');
+    setupMotorEntities(mqtt, {
+      cache: controller.cache,
+      deviceData: controller.deviceData,
+      writeCommand: (command, count?, waitTime?) => controller.writeCommand(command),
+      writeCommands: (commands, count?, waitTime?) => controller.writeCommands(commands, count),
+      cancelCommands: () => controller.cancelCommands()
+    });
   }
-
-  logInfo('[Octo] Octo devices initialized');
 };

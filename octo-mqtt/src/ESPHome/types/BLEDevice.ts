@@ -1,5 +1,5 @@
 import { Connection } from '@2colors/esphome-native-api';
-import { logInfo, logWarn } from '../../Utils/logger';
+import { logInfo, logError, logWarn } from '@utils/logger';
 import { IBLEDevice } from './IBLEDevice';
 import { EventEmitter } from 'events';
 
@@ -14,7 +14,7 @@ function isEventEmitter(obj: any): obj is EventEmitter {
 }
 
 export class BLEDevice implements IBLEDevice {
-  private _connected = false;
+  private connected = false;
   private pendingReads = new Map<number, NodeJS.Timeout>();
   public mac: string;
   private emitter: EventEmitter | null = null;
@@ -32,20 +32,16 @@ export class BLEDevice implements IBLEDevice {
   public get address() {
     return this.advertisement.address;
   }
-
-  public get isConnected() {
-    return this._connected;
-  }
   
   connect = async () => {
     const { addressType } = this.advertisement;
     await this.connection.connectBluetoothDeviceService(this.address, addressType);
-    this._connected = true;
+    this.connected = true;
   };
 
   disconnect = async () => {
     this.cleanup();
-    this._connected = false;
+    this.connected = false;
     await this.connection.disconnectBluetoothDeviceService(this.address);
   };
 
@@ -161,7 +157,7 @@ export class BLEDevice implements IBLEDevice {
   // Add cleanup method
   cleanup = () => {
     // Clear all pending read timeouts
-    for (const [_handle, timeoutId] of this.pendingReads.entries()) {
+    for (const [handle, timeoutId] of this.pendingReads.entries()) {
       clearTimeout(timeoutId);
       if (this.emitter) {
         this.emitter.removeAllListeners('message.BluetoothGATTReadResponse');

@@ -1,16 +1,13 @@
-import { EventEmitter } from 'events';
-import { BLEDeviceAdvertisement } from '../BLE/BLEController';
 import { IBLEDevice } from './types/IBLEDevice';
+import { BLEDeviceAdvertisement } from '../BLE/BLEController'; // Import for type usage
 
-export interface IESPConnection extends EventEmitter {
+export interface IESPConnection {
+  getBLEDevices(deviceNames: string[]): Promise<IBLEDevice[]>;
   reconnect(): Promise<void>;
   disconnect(): void;
-  getBLEDevices(deviceNames: string[], nameMapper?: (name: string) => string): Promise<IBLEDevice[]>;
   startBleScan(
     durationMs: number,
     onDeviceDiscoveredDuringScan: (device: BLEDeviceAdvertisement) => void
   ): Promise<BLEDeviceAdvertisement[]>;
-  stopBleScan?(): Promise<void>;
-  hasActiveConnections(): boolean;
-  waitForConnection(maxWaitTime?: number): Promise<boolean>;
-} 
+  stopBleScan(): Promise<void>;
+}

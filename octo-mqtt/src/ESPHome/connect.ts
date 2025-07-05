@@ -1,17 +1,14 @@
 import { Connection } from '@2colors/esphome-native-api';
-import { logError, logInfo, logWarn } from '../Utils/logger';
+import { logError, logInfo, logWarn } from '@utils/logger';
 
-export const connect = (connection: Connection, retryCount = 0): Promise<Connection> => {
-  const maxRetries = 3;
-  const retryDelay = 2000; // 2 seconds between retries
-  
+export const connect = (connection: Connection) => {
   return new Promise<Connection>((resolve, reject) => {
-    logInfo(`[ESPHome] Attempting to connect to ${connection.host}:${connection.port} (attempt ${retryCount + 1}/${maxRetries + 1})`);
+    logInfo(`[ESPHome] Attempting to connect to ${connection.host}:${connection.port}`);
     
     const timeout = setTimeout(() => {
       logWarn(`[ESPHome] Connection timeout for ${connection.host}:${connection.port}`);
       reject(new Error(`Connection timeout for ${connection.host}:${connection.port}`));
-    }, 20000); // Increased timeout to 20 seconds
+    }, 10000); // 10 second timeout
     
     const errorHandler = (error: any) => {
       clearTimeout(timeout);
@@ -20,16 +17,6 @@ export const connect = (connection: Connection, retryCount = 0): Promise<Connect
       if (error.code) {
         logError(`[ESPHome] Error code: ${error.code}`);
       }
-      
-      // Retry on EHOSTUNREACH errors (device might be starting up)
-      if (error.code === 'EHOSTUNREACH' && retryCount < maxRetries) {
-        logWarn(`[ESPHome] Host unreachable, retrying in ${retryDelay}ms... (${retryCount + 1}/${maxRetries})`);
-        setTimeout(() => {
-          connect(connection, retryCount + 1).then(resolve).catch(reject);
-        }, retryDelay);
-        return;
-      }
-      
       reject(error);
     };
     
@@ -39,33 +26,45 @@ export const connect = (connection: Connection, retryCount = 0): Promise<Connect
       connection.off('error', errorHandler);
       
       try {
-        const deviceInfo = await connection.deviceInfoService();
+      // TODO: Fix next two lines after new version of esphome-native-api is released
+      const deviceInfo = await connection.deviceInfoService();
         logInfo('[ESPHome] Device info retrieved:', JSON.stringify(deviceInfo));
-        const bluetoothProxyFeatureFlags = (deviceInfo as any)?.bluetoothProxyFeatureFlags;
+      const { bluetoothProxyFeatureFlags } = deviceInfo as any;
         
-        if (!bluetoothProxyFeatureFlags) {
+      if (!bluetoothProxyFeatureFlags) {
           logWarn(`[ESPHome] No Bluetooth proxy features detected on ${connection.host}`);
           return reject(new Error(`No Bluetooth proxy features on ${connection.host}`));
-        }
+      }
         
-        logInfo(`[ESPHome] Successfully connected to ${connection.host} with BLE proxy features`);
-        resolve(connection);
+      resolve(connection);
       } catch (error) {
         logError('[ESPHome] Error getting device info:', error);
         reject(error);
       }
     });
-
-    connection.once('error', errorHandler);
     
-    // Explicitly start the connection
-    try {
-      logInfo(`[ESPHome] Starting connection to ${connection.host}:${connection.port}`);
-      connection.connect();
-    } catch (error) {
-      clearTimeout(timeout);
-      logError('[ESPHome] Connection start error:', error);
-      reject(error);
-    }
+    const doConnect = (handler: (error: any) => void) => {
+      try {
+        connection.once('error', handler);
+        logInfo(`[ESPHome] Initiating connection to ${connection.host}:${connection.port}`);
+        connection.connect();
+        connection.off('error', handler);
+        connection.once('error', errorHandler);
+      } catch (err) {
+        clearTimeout(timeout);
+        logError('[ESPHome] Exception during connection attempt:', err);
+        errorHandler(err);
+      }
+    };
+    
+    const retryHandler = (error: any) => {
+      logWarn('[ESPHome] Failed Connecting (will retry once):', error);
+      if (error.code) {
+        logWarn(`[ESPHome] First attempt error code: ${error.code}`);
+      }
+      doConnect(errorHandler);
+    };
+    
+    doConnect(retryHandler);
   });
-}; 
+};

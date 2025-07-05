@@ -1,4 +1,4 @@
-import { IMQTTConnection } from '../MQTT/IMQTTConnection';
+import { IMQTTConnection } from '@mqtt/IMQTTConnection';
 import { IDeviceData } from './IDeviceData';
 import { Sensor } from './Sensor';
 import { EntityConfig } from './base/Entity';
@@ -7,9 +7,8 @@ export type JsonSensorConfig = {
   valueField?: string;
 };
 
-export class JsonSensor extends Sensor {
+export class JsonSensor<T> extends Sensor<T> {
   private valueField: string;
-
   constructor(
     mqtt: IMQTTConnection,
     deviceData: IDeviceData,
@@ -19,7 +18,7 @@ export class JsonSensor extends Sensor {
     this.valueField = valueField;
   }
 
-  protected mapState(state: any): any {
+  mapState(state: T | undefined): any {
     return state === undefined ? {} : state;
   }
 

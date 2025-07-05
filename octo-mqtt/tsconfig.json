@@ -20,9 +20,15 @@
     "allowSyntheticDefaultImports": true,
     "experimentalDecorators": true,
     "sourceMap": true,
-    "outDir": "./dist",
-    "types": ["node"],
-    "lib": ["ES2021"]
+    "outDir": "./dist/tsc/",
+    "types": ["node", "jest"],
+    "lib": ["ES2021"],
+    "baseUrl": "./src",
+    "paths": {
+      "@ha/*": ["HomeAssistant/*"],
+      "@mqtt/*": ["MQTT/*"],
+      "@utils/*": ["Utils/*"]
+    }
   },
   "include": ["src/**/*.ts"],
   "exclude": ["node_modules"],

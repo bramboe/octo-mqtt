@@ -1,7 +1,7 @@
-import { IMQTTConnection } from '../../MQTT/IMQTTConnection';
-import { Dictionary } from '../../Utils/Dictionary';
-import { safeId } from '../../Utils/safeId';
-import { seconds } from '../../Utils/seconds';
+import { IMQTTConnection } from '@mqtt/IMQTTConnection';
+import { Dictionary } from '@utils/Dictionary';
+import { safeId } from '@utils/safeId';
+import { seconds } from '@utils/seconds';
 import { IDeviceData } from '../IDeviceData';
 import { ComponentType as EntityWithStateComponentType } from './ComponentTypeWithState';
 import { IAvailable } from './IAvailable';
@@ -74,4 +74,4 @@ export class Entity implements IAvailable {
   private sendAvailability(availability: string) {
     setTimeout(() => this.mqtt.publish(this.availabilityTopic, availability), 500);
   }
-} 
+}

@@ -5,4 +5,4 @@ export interface IMQTTConnection {
   publish(topic: string, message: any): void;
   subscribe(topic: string): void;
   disconnect(): Promise<void>;
-} 
+}

@@ -1,12 +1,12 @@
-import { IMQTTConnection } from '../MQTT/IMQTTConnection';
-import { Switch } from '../HomeAssistant/Switch';
-import { buildEntityConfig } from '../Common/buildEntityConfig';
-import { IController } from '../Common/IController';
-import { Command } from '../BLE/BLEController';
-import { logInfo, logError } from '../Utils/logger';
+import { IMQTTConnection } from '@mqtt/IMQTTConnection';
+import { Switch } from '@ha/Switch';
+import { buildEntityConfig } from 'Common/buildEntityConfig';
+import { IController } from 'Common/IController';
+import { Command } from './octo';
+import { logInfo, logError } from '@utils/logger';
 import { extractFeatureValuePairFromData } from './extractFeaturesFromData';
 import { extractPacketFromMessage } from './extractPacketFromMessage';
-import { IEventSource } from '../Common/IEventSource';
+import { IEventSource } from 'Common/IEventSource';
 
 interface LightCache {
   lightSwitch?: Switch;
@@ -39,7 +39,7 @@ export const setupLightSwitch = (
         mqtt,
         controller.deviceData,
         buildEntityConfig('UnderBedLights', { icon: 'mdi:lightbulb' }),
-        async (state: boolean) => {
+        async (state) => {
           logInfo(`[Octo] Light switch ${state ? 'ON' : 'OFF'} command received`);
           try {
             // Use the exact command format from ESPHome
@@ -64,7 +64,7 @@ export const setupLightSwitch = (
       logInfo(`[Octo] Light switch created with initial state: ${initialState}`);
     }
 
-    controller.on('feedback', (message: Uint8Array) => {
+    controller.on('feedback', (message) => {
     const packet = extractPacketFromMessage(message);
     if (!packet) return;
     const { command, data } = packet;
@@ -81,4 +81,4 @@ export const setupLightSwitch = (
   } catch (error) {
     logError(`[Octo] Error setting up light switch: ${error}`);
   }
-}; 
+};

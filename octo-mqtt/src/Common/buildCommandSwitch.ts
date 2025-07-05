@@ -1,7 +1,7 @@
-import { Switch } from '../HomeAssistant/Switch';
-import { IMQTTConnection } from '../MQTT/IMQTTConnection';
-import { StringsKey, getString } from '../Utils/getString';
-import { logError } from '../Utils/logger';
+import { Switch } from '@ha/Switch';
+import { IMQTTConnection } from '@mqtt/IMQTTConnection';
+import { StringsKey, getString } from '@utils/getString';
+import { logError } from '@utils/logger';
 import { IController } from './IController';
 import { buildEntityConfig } from './buildEntityConfig';
 

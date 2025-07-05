@@ -1,1 +1,1 @@
-export const seconds = (numSeconds: number) => numSeconds * 1000; 
+export const seconds = (numSeconds: number) => numSeconds * 1000;

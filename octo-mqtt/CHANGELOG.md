@@ -1,27 +1,4 @@
-# Changelog
-
-## v1.2.8
-
-### New Features
-- **Improved BLE Device Discovery**: Enhanced scanning to show all discovered BLE devices unfiltered
-- **Real-time Device Display**: Devices appear immediately in UI as they're discovered during scanning
-- **Enhanced Device Information**: Shows device name, MAC address, RSSI, and service UUIDs
-- **Better User Experience**: Real-time device count updates and improved visual feedback
-
-### Fixed
-- **BLE Scanning Logic**: Removed confusing filtering that prevented device discovery
-- **PIN Usage Clarification**: PIN is now correctly used only for connection keep-alive, not discovery filtering
-- **UI Responsiveness**: Discovered devices container shows immediately on first device found
-- **Configuration Issues**: Removed log_level from default config (not in schema)
-- **Version Consistency**: Updated all version references to 1.2.8
-
-### Technical Improvements
-- **Unfiltered Device Display**: All BLE devices in range are now shown for manual selection
-- **Enhanced Debugging**: Better logging for BLE advertisement processing
-- **Improved Styling**: Better visual hierarchy for device details and services
-- **Device Count Tracking**: Real-time updates showing discovered device count
-
-## v1.2.7
+## v1.1.22
 
 **New Features**
 
@@ -375,40 +352,3 @@
 **Bugs Fixed**
 
 - Sleeptracker API not returning manufacturer details, which caused HA to fail to add the devices
-
-## v1.2.1
-
-### Fixed
-- Fixed device information display in UI
-- Improved device info handling and display
-- Fixed build issues with TypeScript compilation
-
-## v1.2.0
-
-**New Features**
-- Improved BLE device connection handling
-- Enhanced WebSocket communication for device status
-- Added proper ingress support for Home Assistant UI
-- Fixed version inconsistencies
-
-**Bug Fixes**
-- Fixed ingress connection issues
-- Improved error handling for device connections
-- Enhanced WebSocket reconnection logic
-
-## v1.2.7
-
-### Fixed
-- Fixed MAC address conversion for BLE device discovery
-- Added partial MAC prefix matching for more flexible device discovery
-- Enhanced BLE advertisement processing and logging
-- Improved device discovery reliability with fallback scanning logic
-- Fixed version inconsistencies across all configuration files
-
-## v1.2.2
-
-### Fixed
-- Fixed TypeScript compilation errors and cleaned up imports
-- Updated path aliases for better module resolution
-- Removed unused imports and interfaces
-- Fixed logger imports to include all required functions

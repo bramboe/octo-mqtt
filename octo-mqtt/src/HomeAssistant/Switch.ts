@@ -1,5 +1,5 @@
-import { IMQTTConnection } from '../MQTT/IMQTTConnection';
-import { logError } from '../Utils/logger';
+import { IMQTTConnection } from '@mqtt/IMQTTConnection';
+import { logError } from '@utils/logger';
 import { IDeviceData } from './IDeviceData';
 import { EntityConfig } from './base/Entity';
 import { StatefulEntity } from './base/StatefulEntity';
@@ -40,4 +40,4 @@ export class Switch extends StatefulEntity<boolean> {
       command_topic: this.commandTopic,
     };
   }
-} 
+}

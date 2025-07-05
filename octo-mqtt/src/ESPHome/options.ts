@@ -1,4 +1,4 @@
-import { getRootOptions } from '../Utils/options';
+import { getRootOptions } from '@utils/options';
 
 export interface BLEProxy {
   host: string;
@@ -16,4 +16,4 @@ export const getProxies = () => {
     return proxies as BLEProxy[];
   }
   return [];
-}; 
+};

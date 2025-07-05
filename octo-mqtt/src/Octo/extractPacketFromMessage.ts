@@ -1,4 +1,4 @@
-import { logWarn } from '../Utils/logger';
+import { logWarn } from '@utils/logger';
 import { calculateChecksum } from './calculateChecksum';
 
 export const extractPacketFromMessage = (message: Uint8Array) => {
@@ -58,4 +58,4 @@ export const extractPacketFromMessage = (message: Uint8Array) => {
     logWarn(`[Octo] Error extracting packet: ${error}`);
     return null;
   }
-}; 
+};

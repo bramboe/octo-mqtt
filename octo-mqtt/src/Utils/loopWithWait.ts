@@ -1,4 +1,4 @@
-import { wait } from './wait';
+import { wait } from '@utils/wait';
 
 export const loopWithWait = async <TItem>(items: TItem[], body: (item: TItem) => Promise<void>, delay: number = 50) => {
   let itemsLeft = items.length;

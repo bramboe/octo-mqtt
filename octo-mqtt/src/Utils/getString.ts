@@ -1,4 +1,4 @@
-import Strings from '../Strings/en';
+import Strings from 'Strings/en';
 import { Dictionary } from './Dictionary';
 let strings: Dictionary<string> = {};
 
@@ -9,4 +9,4 @@ export const loadStrings = async (language = 'en') => {
 
 export type StringsKey = keyof typeof Strings;
 
-export const getString = (key: StringsKey) => strings[key] || key; 
+export const getString = (key: StringsKey) => strings[key] || key;

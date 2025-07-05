@@ -1,4 +1,4 @@
-import { StringsKey, getString } from '../Utils/getString';
+import { StringsKey, getString } from '@utils/getString';
 
 export const buildEntityConfig = (
   key: StringsKey,
@@ -9,4 +9,4 @@ export const buildEntityConfig = (
     description: getString(key),
     ...(additionalConfig || {}),
   };
-}; 
+};

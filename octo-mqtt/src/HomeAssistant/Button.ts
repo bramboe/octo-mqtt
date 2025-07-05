@@ -1,5 +1,5 @@
-import { IMQTTConnection } from '../MQTT/IMQTTConnection';
-import { logError } from '../Utils/logger';
+import { IMQTTConnection } from '@mqtt/IMQTTConnection';
+import { logError } from '@utils/logger';
 import { IDeviceData } from './IDeviceData';
 import { Entity, EntityConfig } from './base/Entity';
 
@@ -31,4 +31,4 @@ export class Button extends Entity {
       command_topic: this.commandTopic,
     };
   }
-} 
+}

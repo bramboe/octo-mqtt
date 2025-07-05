@@ -1,60 +1,55 @@
-FROM node:18-alpine AS builder
-
-RUN apk --no-cache add git
-
-# Add a build argument that can be changed to bust cache - use timestamp for uniqueness
-ARG CACHEBUST=default
-ENV CACHEBUST_ENV=${CACHEBUST}
-
-COPY package.json /octo-mqtt/
-COPY package-lock.json /octo-mqtt/
-WORKDIR /octo-mqtt
-
-RUN npm ci --legacy-peer-deps
-
-# Force fresh copy of source code with timestamp-based cache busting
-COPY tsconfig.build.json /octo-mqtt/
-COPY tsconfig.json /octo-mqtt/
-COPY --chown=node:node src /octo-mqtt/src/
-
-# Add cache bust info to ensure source changes are detected
-RUN echo "Cache bust: ${CACHEBUST_ENV}" > /octo-mqtt/build_info.txt && \
-    echo "Build timestamp: $(date)" >> /octo-mqtt/build_info.txt
-
-RUN npm run build:ci
-
 FROM node:18-alpine
 
-# Add env
-ENV LANG C.UTF-8
-ENV PORT=8099
+# Force rebuild by changing this version number
+ENV BUILD_VERSION=v2025.05.24.1
 
-# Install s6-overlay, AppArmor, and required utilities
-RUN apk add --no-cache bash curl jq s6-overlay coreutils apparmor apparmor-utils && \
-    curl -J -L -o /tmp/bashio.tar.gz "https://github.com/hassio-addons/bashio/archive/v0.13.1.tar.gz" && \
+# Install system dependencies
+RUN apk add --no-cache bash curl jq
+
+# Install bashio for Home Assistant integration
+RUN curl -J -L -o /tmp/bashio.tar.gz "https://github.com/hassio-addons/bashio/archive/v0.13.1.tar.gz" && \
     mkdir /tmp/bashio && \
     tar zxvf /tmp/bashio.tar.gz --strip 1 -C /tmp/bashio && \
     mv /tmp/bashio/lib /usr/lib/bashio && \
-    ln -s /usr/lib/bashio/bashio /usr/bin/bashio
+    ln -s /usr/lib/bashio/bashio /usr/bin/bashio && \
+    rm -rf /tmp/bashio.tar.gz /tmp/bashio
 
-# Set shell
-SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+# Set working directory
+WORKDIR /app
 
-WORKDIR /octo-mqtt
-COPY run.sh /octo-mqtt/
-RUN chmod a+x run.sh
+# Copy package file and install dependencies
+COPY package-simple.json package.json
+RUN npm install --production
 
-COPY --from=builder /octo-mqtt/node_modules /octo-mqtt/node_modules
-COPY --from=builder /octo-mqtt/dist/ /octo-mqtt/dist/
-COPY webui /octo-mqtt/webui/
+# Copy application files
+COPY index.js ./
+COPY webui ./webui/
 
-# Copy s6 service files and AppArmor profile
-COPY rootfs /
+# Copy run script and make it executable
+COPY run.sh ./run.sh
+RUN chmod +x ./run.sh && ls -la ./run.sh
 
-ENTRYPOINT [ "/init" ]
+# Set environment
+ENV NODE_ENV=production
+
+# Expose port
+EXPOSE 8099
+
+# Debug: Show what files we have
+RUN echo "=== FILES IN /app ===" && ls -la /app/ && \
+    echo "=== CONTENT OF index.js FIRST 10 LINES ===" && head -10 /app/index.js && \
+    echo "=== CONTENT OF run.sh FIRST 10 LINES ===" && head -10 /app/run.sh
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s \
+  CMD curl -f http://localhost:8099/health || exit 1
+
+# Start the application  
+ENTRYPOINT ["/bin/bash", "/app/run.sh"]
+
 LABEL \
-    io.hass.name="Octo MQTT" \
-    io.hass.description="A Home Assistant add-on to enable controlling Octo actuators star version 2." \
+    io.hass.name="Octo Integration via MQTT" \
+    io.hass.description="Home Assistant Community Add-on for Octo actuators star version 2 (Simplified JavaScript version)" \
     io.hass.type="addon" \
-    io.hass.version="1.2.8" \
+    io.hass.version="2.0.0" \
     maintainer="Bram Boersma <bram.boersma@gmail.com>"

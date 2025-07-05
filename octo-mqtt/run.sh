@@ -1,88 +1,51 @@
-#!/usr/bin/env bashio
+#!/usr/bin/with-contenv bashio
 
-# Enable full error stack traces for debugging
-export NODE_OPTIONS="--trace-warnings --trace-uncaught"
+# Log startup with unique identifier
+bashio::log.info "🚀 Starting Octo MQTT addon v2.0.0..."
+bashio::log.info "📅 Build: v2025.05.24.1"
+bashio::log.info "⚡ Process ID: $$"
 
-# Debug: Print all environment variables
-echo "=== Environment Variables ==="
-echo "NODE_OPTIONS: ${NODE_OPTIONS}"
-echo "=============================="
-
-# Get MQTT configuration with proper null handling
-MQTTHOST=$(bashio::config "mqtt_host")
-MQTTPORT=$(bashio::config "mqtt_port")
-MQTTUSER=$(bashio::config "mqtt_user")
-MQTTPASSWORD=$(bashio::config "mqtt_password")
-
-# Auto-detect MQTT settings if not configured
-if [ "$MQTTHOST" = "null" ] || [ -z "$MQTTHOST" ]; then
-    if bashio::services.available 'mqtt'; then
-        MQTTHOST=$(bashio::services mqtt "host")
-        if [ "$MQTTHOST" = 'localhost' ] || [ "$MQTTHOST" = '127.0.0.1' ]; then
-            echo "Discovered invalid value for MQTT host: ${MQTTHOST}"
-            echo "Overriding with default alias for Mosquitto MQTT addon"
-            MQTTHOST="core-mosquitto"
-        fi
-        echo "Using discovered MQTT Host: ${MQTTHOST}"
-    else
-        echo "No Home Assistant MQTT service found, using defaults"
-        MQTTHOST="172.30.32.1"
-        echo "Using default MQTT Host: ${MQTTHOST}"
-    fi
-else
-    echo "Using configured MQTT Host: ${MQTTHOST}"
+# Check if any Node.js processes are already running on port 8099
+if netstat -tulpn 2>/dev/null | grep -q ':8099 '; then
+    bashio::log.warning "⚠️  Port 8099 already in use! Killing existing processes..."
+    pkill -f "node.*index.js" || true
+    sleep 2
 fi
 
-if [ "$MQTTPORT" = "null" ] || [ -z "$MQTTPORT" ]; then
-    if bashio::services.available 'mqtt'; then
-        MQTTPORT=$(bashio::services mqtt "port")
-        echo "Using discovered MQTT Port: ${MQTTPORT}"
-    else
-        MQTTPORT="1883"
-        echo "Using default MQTT Port: ${MQTTPORT}"
-    fi
-else
-    echo "Using configured MQTT Port: ${MQTTPORT}"
+# Create data directory
+mkdir -p /data
+
+# Log debug info
+bashio::log.info "Working directory: $(pwd)"
+bashio::log.info "Node version: $(node --version)"
+bashio::log.info "Files:"
+ls -la
+
+# Create default config if needed
+if [ ! -f "/data/options.json" ]; then
+    bashio::log.info "Creating default config..."
+    cat > /data/options.json << 'EOF'
+{
+  "mqtt": {
+    "host": "core-mosquitto",
+    "port": 1883,
+    "username": "",
+    "password": ""
+  },
+  "bleProxies": [
+    {
+      "host": "192.168.1.100",
+      "port": 6053
+    }
+  ],
+  "octoDevices": [],
+  "webPort": 8099
+}
+EOF
 fi
 
-if [ "$MQTTUSER" = "null" ] || [ -z "$MQTTUSER" ]; then
-    if bashio::services.available 'mqtt'; then
-        MQTTUSER=$(bashio::services mqtt "username")
-        echo "Using discovered MQTT User: ${MQTTUSER}"
-    else
-        MQTTUSER=""
-        echo "Using anonymous MQTT connection"
-    fi
-else
-    echo "Using configured MQTT User: ${MQTTUSER}"
-fi
+# Final startup message
+bashio::log.info "🎯 Starting Node.js application (SIMPLIFIED VERSION)..."
 
-if [ "$MQTTPASSWORD" = "null" ] || [ -z "$MQTTPASSWORD" ]; then
-    if bashio::services.available 'mqtt'; then
-        MQTTPASSWORD=$(bashio::services mqtt "password")
-        echo "Using discovered MQTT password: <hidden>"
-    else
-        MQTTPASSWORD=""
-    fi
-else
-    echo "Using configured MQTT password: <hidden>"
-fi
-
-# Debug info
-echo "Starting Octo-MQTT with the following configuration:"
-echo "- MQTT Host: ${MQTTHOST}"
-echo "- MQTT Port: ${MQTTPORT}"
-echo "- BLE Proxy count: $(bashio::config 'bleProxies | length')"
-echo "- Octo device count: $(bashio::config 'octoDevices | length')"
-
-echo "Contents of /octo-mqtt/dist before starting Node.js:" 
-ls -l /octo-mqtt/dist
-
-# Export the final values for Node.js
-export MQTTHOST
-export MQTTPORT
-export MQTTUSER
-export MQTTPASSWORD
-
-# Run without debugger for better stability
-node dist/index.js
+# Start Node.js app with proper error handling
+exec node index.js

@@ -1,7 +1,7 @@
-import { IDeviceData } from '../HomeAssistant/IDeviceData';
-import { safeId } from '../Utils/safeId';
+import { IDeviceData } from '@ha/IDeviceData';
+import { safeId } from '@utils/safeId';
 
-export type Device = { friendlyName: string; name: string; address: number | string };
+type Device = { friendlyName: string; name: string; address: number | string };
 
 export const buildMQTTDeviceData = ({ friendlyName, name, address }: Device, manufacturer: string): IDeviceData => {
   return {
@@ -13,4 +13,4 @@ export const buildMQTTDeviceData = ({ friendlyName, name, address }: Device, man
       mdl: name,
     },
   };
-}; 
+};

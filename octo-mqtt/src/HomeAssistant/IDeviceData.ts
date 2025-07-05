@@ -1,11 +1,11 @@
 export interface IDeviceData {
   deviceTopic: string;
-  device: {
-    ids: string[];
-    name: string;
-    mf: string;
-    mdl: string;
-    sw_version?: string;
-  };
-  firmwareVersion?: string;
-} 
+  device: IDevice;
+}
+
+interface IDevice {
+  ids: string[];
+  name: string;
+  mf: string;
+  mdl: string;
+}

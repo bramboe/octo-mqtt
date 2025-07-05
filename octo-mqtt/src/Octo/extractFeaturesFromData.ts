@@ -1,4 +1,4 @@
-import { logWarn } from '../Utils/logger';
+import { logWarn } from '@utils/logger';
 
 export const extractFeatureValuePairFromData = (data: number[]) => {
   try {
@@ -34,4 +34,4 @@ export const extractFeatureValuePairFromData = (data: number[]) => {
     logWarn(`[Octo] Error extracting feature data: ${error}`);
     return null;
   }
-}; 
+};

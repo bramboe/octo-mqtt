@@ -408,32 +408,15 @@ footer a:hover {
 .device-info {
   display: flex;
   flex-direction: column;
-  flex: 1;
 }
 
 .device-name {
   font-weight: 500;
-  margin-bottom: 0.25rem;
 }
 
 .device-mac {
   font-size: 0.8rem;
   color: #666;
-  margin-bottom: 0.25rem;
-}
-
-.device-details {
-  font-size: 0.8rem;
-  color: #666;
-  margin-bottom: 0.25rem;
-}
-
-.device-services {
-  font-size: 0.75rem;
-  color: #888;
-  font-style: italic;
-  word-break: break-all;
-  margin-top: 0.25rem;
 }
 
 .dialog {
@@ -503,30 +486,4 @@ footer a:hover {
 
 .scanning {
   animation: scanning 2s infinite;
-}
-
-.debug-container {
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-}
-
-.debug-output {
-  background-color: #f8f9fa;
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  padding: 15px;
-  font-family: 'Courier New', monospace;
-  font-size: 12px;
-  max-height: 200px;
-  overflow-y: auto;
-}
-
-.debug-output h4 {
-  margin-bottom: 10px;
-  color: var(--primary-dark);
-}
-
-.debug-output p {
-  margin-bottom: 5px;
 } 

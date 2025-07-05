@@ -1,4 +1,4 @@
-import { logError, logInfo } from '../Utils/logger';
+import { logError, logInfo } from '@utils/logger';
 import EventEmitter from 'events';
 import { MqttClient } from 'mqtt';
 import { IMQTTConnection } from './IMQTTConnection';

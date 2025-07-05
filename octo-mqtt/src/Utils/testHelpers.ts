@@ -1,4 +1,4 @@
-import { IDeviceData } from '../HomeAssistant/IDeviceData';
+import { IDeviceData } from '@ha/IDeviceData';
 
 export const testDevice: IDeviceData = {
   deviceTopic: 'device_topic',
@@ -10,4 +10,4 @@ export const testDevice: IDeviceData = {
   },
 };
 
-// export const mocked = <T>(func: T): T & jest.MockedFunction<any> => func as any;
+export const mocked = <T>(func: T): T & jest.MockedFunction<any> => func as any;

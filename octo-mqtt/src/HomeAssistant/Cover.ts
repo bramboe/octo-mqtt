@@ -1,7 +1,7 @@
-import { IMQTTConnection } from '../MQTT/IMQTTConnection';
+import { IMQTTConnection } from '@mqtt/IMQTTConnection';
 import { IDeviceData } from './IDeviceData';
 import { Entity, EntityConfig } from './base/Entity';
-import { logInfo, logError } from '../Utils/logger';
+import { logInfo, logError } from '@utils/logger';
 
 export class Cover extends Entity {
   private commandTopic: string;
@@ -70,4 +70,4 @@ export class Cover extends Entity {
       position_template: "{{ value }}",
     };
   }
-} 
+}

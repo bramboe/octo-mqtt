@@ -1,20 +1,18 @@
 {
-  "mqtt_host": "<auto_detect>",
-  "mqtt_port": "<auto_detect>",
-  "mqtt_user": "<auto_detect>",
-  "mqtt_password": "<auto_detect>",
+  "mqtt": {
+    "host": "192.168.1.2",
+    "port": 1883,
+    "username": "mqtt",
+    "password": "mqtt"
+  },
   "bleProxies": [
     {
-      "host": "192.168.1.100",
-      "port": 6053,
-      "password": "",
-      "encryptionKey": "",
-      "expectedServerName": ""
+      "host": "YOUR_ESP32_IP_ADDRESS", 
+      "port": 6052,
+      "name": "BLE Proxy",
+      "enabled": false
     }
   ],
-  "target_mac": [
-    "AA:BB:CC:DD:EE:FF"
-  ],
-  "scan_duration": 30000,
-  "scan_interval": 5000
+  "octoDevices": [],
+  "webPort": 8099
 }
