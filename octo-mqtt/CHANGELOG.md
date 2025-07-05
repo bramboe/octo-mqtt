@@ -1,3 +1,20 @@
+## v2.1.1
+
+**Bug Fixes**
+
+- (API) Fixed /health endpoint to return exact format frontend expects
+- (API) Fixed /scan/start endpoint to return scanDuration immediately
+- (Frontend) Added proper error handling for JSON parsing errors
+- (Frontend) Fixed device.address vs device.mac field mapping
+- (Frontend) Improved error messages and HTTP status handling
+- (BLE) Moved BLE scan execution to background to prevent blocking responses
+
+**Technical Improvements**
+
+- (Code) Resolved "The string did not match the expected pattern" errors
+- (Code) Enhanced frontend-backend API compatibility
+- (Code) Improved error reporting with specific HTTP status codes
+
 ## v2.1.0
 
 **New Features**
