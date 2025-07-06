@@ -1,45 +1,22 @@
 // Octo MQTT Web Interface
-class OctoMQTTInterface {
+class BLEScannerApp {
     constructor() {
-        this.isScanning = false;
-        this.scanStartTime = null;
-        this.scanDuration = 30000; // 30 seconds
-        this.updateInterval = null;
-        this.statusInterval = null;
-        
-        this.initializeElements();
-        this.bindEvents();
-        this.startStatusUpdates();
-        this.addLog('Web interface initialized');
-    }
-
-    initializeElements() {
-        // Status elements
-        this.mqttStatus = document.getElementById('mqtt-status');
-        this.scanStatus = document.getElementById('scan-status');
-        this.deviceCount = document.getElementById('device-count');
-        
-        // Control elements
         this.startScanBtn = document.getElementById('start-scan');
         this.stopScanBtn = document.getElementById('stop-scan');
         this.refreshStatusBtn = document.getElementById('refresh-status');
-        
-        // Scan elements
-        this.scanProgress = document.getElementById('scan-progress');
-        this.progressFill = document.getElementById('progress-fill');
-        this.scanTime = document.getElementById('scan-time');
-        this.devicesList = document.getElementById('devices-list');
-        
-        // Config elements
-        this.proxyCount = document.getElementById('proxy-count');
-        this.octoCount = document.getElementById('octo-count');
-        
-        // Logs element
-        this.logsContainer = document.getElementById('logs');
-        
-        this.bleProxyStatus = document.getElementById('bleproxy-status');
         this.testBLEProxyBtn = document.getElementById('test-ble-proxy');
+        this.bleProxyStatus = document.getElementById('bleproxy-status');
+        this.scanStatus = document.getElementById('scan-status');
+        this.deviceCount = document.getElementById('device-count');
         this.bleProxyDiagnostics = document.getElementById('bleproxy-diagnostics');
+        this.deviceList = document.getElementById('device-list');
+        this.logContainer = document.getElementById('log-container');
+        
+        this.bindEvents();
+        this.refreshStatus();
+        
+        // Auto-refresh status every 5 seconds
+        setInterval(() => this.refreshStatus(), 5000);
     }
 
     bindEvents() {
@@ -49,265 +26,196 @@ class OctoMQTTInterface {
         this.testBLEProxyBtn.addEventListener('click', () => this.testBLEProxy());
     }
 
-    async startStatusUpdates() {
-        // Update status immediately
-        await this.refreshStatus();
-        
-        // Then update every 5 seconds
-        this.statusInterval = setInterval(() => {
-            this.refreshStatus();
-        }, 5000);
-    }
-
-    async refreshStatus() {
-        try {
-            const response = await fetch(apiUrl('/health'));
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-            const data = await response.json();
-            
-            this.updateScanStatus(data.isScanning);
-            this.updateBLEProxyStatus(data.bleProxyConnected || false);
-            this.addLog(`Status refreshed - BLE Proxy: ${data.bleProxyConnected ? 'Connected' : 'Disconnected'}`);
-            
-        } catch (error) {
-            this.addLog(`Error refreshing status: ${error.message}`, 'error');
-            this.updateBLEProxyStatus(false);
-        }
-    }
-
-    updateBLEProxyStatus(connected) {
-        if (!this.bleProxyStatus) return;
-        this.bleProxyStatus.textContent = connected ? 'Connected' : 'Disconnected';
-        this.bleProxyStatus.className = `status-indicator ${connected ? 'connected' : 'disconnected'}`;
-        if (!connected) {
-            this.bleProxyDiagnostics.innerHTML = '<span class="diagnostic-result error">BLE proxy is disconnected. Please check your ESPHome BLE proxy and network settings.</span>';
-        }
-    }
-
-    updateScanStatus(scanning) {
-        this.isScanning = scanning;
-        this.scanStatus.textContent = scanning ? 'Scanning...' : 'Idle';
-        this.scanStatus.className = `status-indicator ${scanning ? 'scanning' : 'idle'}`;
-        
-        this.startScanBtn.disabled = scanning;
-        this.stopScanBtn.disabled = !scanning;
-        
-        if (scanning) {
-            this.scanProgress.style.display = 'block';
-            this.startScanProgress();
-      } else {
-            this.scanProgress.style.display = 'none';
-            this.stopScanProgress();
-        }
-    }
-
     async startScan() {
         try {
-            this.addLog('Starting BLE scan...', 'info');
+            this.addLog('🚀 Starting BLE scan...');
+            this.startScanBtn.disabled = true;
+            this.stopScanBtn.disabled = false;
             
-            const response = await fetch(apiUrl('/scan/start'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-      
-            if (!response.ok) {
-                const errorText = await response.text();
-                let errorData;
-                try {
-                    errorData = JSON.parse(errorText);
-                } catch (e) {
-                    throw new Error(`HTTP ${response.status}: ${errorText}`);
-                }
-                throw new Error(errorData.error || `HTTP ${response.status}`);
-            }
+            const response = await fetch('/scan/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
             
             const data = await response.json();
             
-            this.addLog(`Scan started successfully - Duration: ${data.scanDuration}ms`, 'success');
-            this.updateScanStatus(true);
-            this.scanStartTime = Date.now();
-            this.startScanProgress();
-            
+            if (response.ok) {
+                this.addLog(`✅ ${data.message}`, 'success');
+                this.updateScanStatus(true);
+            } else {
+                this.addLog(`❌ ${data.error}: ${data.details || ''}`, 'error');
+                if (data.troubleshooting) {
+                    this.addLog('💡 Troubleshooting:', 'info');
+                    data.troubleshooting.forEach((tip) => {
+                        this.addLog(`   • ${tip}`, 'info');
+                    });
+                }
+            }
         } catch (error) {
-            this.addLog(`Error starting scan: ${error.message}`, 'error');
+            this.addLog(`❌ Error starting scan: ${error.message}`, 'error');
+        } finally {
+            this.startScanBtn.disabled = false;
         }
     }
 
     async stopScan() {
         try {
-            this.addLog('Stopping BLE scan...', 'info');
-            this.updateScanStatus(false);
-            this.stopScanProgress();
-        } catch (error) {
-            this.addLog(`Error stopping scan: ${error.message}`, 'error');
-        }
-    }
-
-    startScanProgress() {
-        if (this.updateInterval) {
-            clearInterval(this.updateInterval);
-        }
-        
-        this.updateInterval = setInterval(() => {
-            this.updateScanProgress();
-        }, 100);
-    }
-
-    stopScanProgress() {
-        if (this.updateInterval) {
-            clearInterval(this.updateInterval);
-            this.updateInterval = null;
-        }
-    }
-
-    updateScanProgress() {
-        if (!this.scanStartTime) return;
-        
-        const elapsed = Date.now() - this.scanStartTime;
-        const remaining = Math.max(0, this.scanDuration - elapsed);
-        const progress = Math.min(100, (elapsed / this.scanDuration) * 100);
-        
-        this.progressFill.style.width = `${progress}%`;
-        this.scanTime.textContent = `Time remaining: ${Math.ceil(remaining / 1000)}s`;
-        
-        if (remaining <= 0) {
-            this.stopScanProgress();
-            this.updateScanStatus(false);
-            this.addLog('Scan completed', 'info');
-        }
-    }
-
-    async updateScanStatus() {
-    try {
-      const response = await fetch(apiUrl('/scan/status'));
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-            const data = await response.json();
-      
-            this.updateScanStatus(data.isScanning);
-            this.deviceCount.textContent = data.devices ? data.devices.length : 0;
-      
-            if (data.devices && data.devices.length > 0) {
-                this.updateDevicesList(data.devices);
-      }
-      
-    } catch (error) {
-            this.addLog(`Error updating scan status: ${error.message}`, 'error');
-        }
-    }
-
-    updateDevicesList(devices) {
-        if (!devices || devices.length === 0) {
-            this.devicesList.innerHTML = '<p class="no-devices">No devices discovered yet. Start a scan to find Octo beds.</p>';
-      return;
-    }
-    
-        const devicesHtml = devices.map(device => `
-            <div class="device-item">
-      <div class="device-info">
-                    <div class="device-name">${device.name || 'Unknown Device'}</div>
-                    <div class="device-mac">${device.address || device.mac || 'No MAC address'}</div>
-      </div>
-                <div class="device-actions">
-                    <button class="btn btn-success" onclick="octoInterface.addDevice('${device.address || device.mac}')">
-                        ➕ Add Device
-      </button>
-                </div>
-            </div>
-        `).join('');
-        
-        this.devicesList.innerHTML = devicesHtml;
-    }
-
-    async addDevice(mac) {
-        this.addLog(`Adding device with MAC: ${mac}`, 'info');
-        // TODO: Send request to backend to add device for MQTT control
-        // For now, just log the action
-        this.addLog(`Device ${mac} would be added to configuration`, 'info');
-    }
-
-    addLog(message, type = 'info') {
-        const timestamp = new Date().toLocaleTimeString();
-        const logEntry = document.createElement('div');
-        logEntry.className = `log-entry ${type}`;
-        logEntry.textContent = `[${timestamp}] ${message}`;
-        
-        this.logsContainer.appendChild(logEntry);
-        
-        // Keep only the last 50 log entries
-        while (this.logsContainer.children.length > 50) {
-            this.logsContainer.removeChild(this.logsContainer.firstChild);
-        }
-        
-        // Auto-scroll to bottom
-        this.logsContainer.scrollTop = this.logsContainer.scrollHeight;
-    }
-
-    async loadConfiguration() {
-        try {
-            // This would typically load configuration from the server
-            // For now, use placeholder values
-            this.proxyCount.textContent = 'Loading...';
-            this.octoCount.textContent = 'Loading...';
+            this.addLog('⏹️ Stopping BLE scan...');
             
-            // Simulate loading configuration
-            setTimeout(() => {
-                this.proxyCount.textContent = '1 configured';
-                this.octoCount.textContent = '0 devices';
-            }, 1000);
-      
-    } catch (error) {
-            this.addLog(`Error loading configuration: ${error.message}`, 'error');
+            const response = await fetch('/scan/stop', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                this.addLog(`✅ ${data.message}`, 'success');
+                this.updateScanStatus(false);
+            } else {
+                this.addLog(`❌ ${data.error}`, 'error');
+            }
+        } catch (error) {
+            this.addLog(`❌ Error stopping scan: ${error.message}`, 'error');
+        } finally {
+            this.stopScanBtn.disabled = true;
+        }
+    }
+
+    async refreshStatus() {
+        try {
+            const response = await fetch('/scan/status');
+            const data = await response.json();
+            
+            this.updateScanStatus(data.isScanning);
+            this.updateDeviceCount(data.deviceCount);
+            this.updateDeviceList(data.discoveredDevices);
+            
+        } catch (error) {
+            this.addLog(`❌ Error refreshing status: ${error.message}`, 'error');
         }
     }
 
     async testBLEProxy() {
-        this.bleProxyDiagnostics.innerHTML = 'Testing BLE proxy...';
+        this.bleProxyDiagnostics.innerHTML = '<div class="loading">🧪 Testing BLE proxy connections...</div>';
+        
         try {
-            const response = await fetch(apiUrl('/debug/ble-proxy'));
+            const response = await fetch('/debug/ble-proxy');
             const data = await response.json();
+            
             if (data.results && data.results.length > 0) {
-                this.bleProxyDiagnostics.innerHTML = data.results.map(r =>
-                    `<div class="diagnostic-result ${r.status}">
-                        <b>${r.host}:${r.port}</b> - ${r.status === 'connected' ? '✅ Connected' : '❌ Error: ' + r.error}
-                    </div>`
-                ).join('');
+                const resultsHtml = data.results.map((result) => {
+                    const statusIcon = result.status === 'connected' ? '✅' : '❌';
+                    const statusClass = result.status === 'connected' ? 'success' : 'error';
+                    return `
+                        <div class="diagnostic-result ${statusClass}">
+                            <strong>${result.host}:${result.port}</strong> 
+                            ${statusIcon} ${result.status === 'connected' ? 'Connected' : `Error: ${result.error}`}
+                        </div>
+                    `;
+                }).join('');
+                
+                this.bleProxyDiagnostics.innerHTML = resultsHtml;
             } else {
-                this.bleProxyDiagnostics.innerHTML = 'No BLE proxies configured.';
+                this.bleProxyDiagnostics.innerHTML = '<div class="diagnostic-result error">No BLE proxies configured</div>';
             }
         } catch (error) {
-            this.bleProxyDiagnostics.innerHTML = `Error testing BLE proxy: ${error.message}`;
+            this.bleProxyDiagnostics.innerHTML = `<div class="diagnostic-result error">Error testing BLE proxy: ${error.message}</div>`;
         }
     }
 
-    destroy() {
-        if (this.statusInterval) {
-            clearInterval(this.statusInterval);
+    updateScanStatus(isScanning) {
+        if (!this.scanStatus) return;
+        
+        this.scanStatus.textContent = isScanning ? 'Scanning...' : 'Idle';
+        this.scanStatus.className = `status-indicator ${isScanning ? 'scanning' : 'idle'}`;
+        
+        this.startScanBtn.disabled = isScanning;
+        this.stopScanBtn.disabled = !isScanning;
+    }
+
+    updateDeviceCount(count) {
+        if (!this.deviceCount) return;
+        this.deviceCount.textContent = count.toString();
+    }
+
+    updateDeviceList(devices) {
+        if (!this.deviceList) return;
+        
+        if (devices.length === 0) {
+            this.deviceList.innerHTML = '<div class="no-devices">No devices discovered yet. Start a scan to find BLE devices.</div>';
+            return;
         }
-        if (this.updateInterval) {
-            clearInterval(this.updateInterval);
+        
+        const devicesHtml = devices.map(device => `
+            <div class="device-item">
+                <div class="device-info">
+                    <div class="device-name">${device.name || 'Unknown Device'}</div>
+                    <div class="device-address">${device.address}</div>
+                    <div class="device-rssi">RSSI: ${device.rssi} dBm</div>
+                    ${device.service_uuids && device.service_uuids.length > 0 ? 
+                        `<div class="device-services">Services: ${device.service_uuids.join(', ')}</div>` : ''}
+                </div>
+                <div class="device-actions">
+                    <button class="btn btn-primary btn-sm" onclick="app.addDevice('${device.name || 'Unknown Device'}', '${device.address}')">
+                        ➕ Add Device
+                    </button>
+                </div>
+            </div>
+        `).join('');
+        
+        this.deviceList.innerHTML = devicesHtml;
+    }
+
+    async addDevice(name, address) {
+        try {
+            const friendlyName = prompt(`Enter a friendly name for ${name}:`, name);
+            if (!friendlyName) return;
+            
+            const response = await fetch('/devices/add', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: name,
+                    address: address,
+                    friendlyName: friendlyName
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                this.addLog(`✅ Device added: ${friendlyName} (${address})`, 'success');
+                this.refreshStatus(); // Refresh to update device list
+            } else {
+                this.addLog(`❌ ${data.error}`, 'error');
+            }
+        } catch (error) {
+            this.addLog(`❌ Error adding device: ${error.message}`, 'error');
+        }
+    }
+
+    addLog(message, type = 'info') {
+        if (!this.logContainer) return;
+        
+        const timestamp = new Date().toLocaleTimeString();
+        const logEntry = document.createElement('div');
+        logEntry.className = `log-entry log-${type}`;
+        logEntry.innerHTML = `<span class="log-time">[${timestamp}]</span> ${message}`;
+        
+        this.logContainer.appendChild(logEntry);
+        this.logContainer.scrollTop = this.logContainer.scrollHeight;
+        
+        // Keep only last 50 log entries
+        while (this.logContainer.children.length > 50) {
+            this.logContainer.removeChild(this.logContainer.firstChild);
         }
     }
 }
 
-// Initialize the interface when the page loads
-let octoInterface;
-
+// Initialize app when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
-    octoInterface = new OctoMQTTInterface();
-    octoInterface.loadConfiguration();
-});
-
-// Clean up when the page unloads
-window.addEventListener('beforeunload', () => {
-    if (octoInterface) {
-        octoInterface.destroy();
-    }
+    window.app = new BLEScannerApp();
 });
 
 // Helper to get base path for API calls (Ingress compatibility)

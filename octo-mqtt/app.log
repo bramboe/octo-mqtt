@@ -76,3 +76,21 @@ info [2025-05-24T09:18:29.486Z] [RC2DeviceManager] Device manager disposed
 error [2025-05-24T09:18:29.486Z] Exit code: 2
 warn [2025-05-24T09:18:29.488Z] Shutting down Octo-MQTT...
 info [2025-05-24T09:18:29.488Z] [RC2DeviceManager] Device manager disposed
+2025-07-06T06:52:31.799Z [INFO] 🔧 Initializing Octo MQTT BLE Scanner... 
+2025-07-06T06:52:31.808Z [INFO] 📁 Serving static files from: webui/ 
+2025-07-06T06:52:31.813Z [INFO] ⚙️  Configuration loaded: 1 BLE proxies configured 
+2025-07-06T06:52:31.821Z [INFO] 🚀 Server started on port 8099 
+2025-07-06T06:52:31.827Z [INFO] 📱 Web interface: http://localhost:8099 
+2025-07-06T06:52:31.832Z [INFO] 💡 BLE scanning and device management ready 
+2025-07-06T06:52:31.836Z [INFO] 📋 Available API endpoints: 
+2025-07-06T06:52:31.841Z [INFO]    POST /scan/start - Start BLE device scan 
+2025-07-06T06:52:31.845Z [INFO]    POST /scan/stop - Stop BLE device scan 
+2025-07-06T06:52:31.849Z [INFO]    GET  /scan/status - Get scan status 
+2025-07-06T06:52:31.860Z [INFO]    GET  /debug/ble-proxy - Get BLE proxy diagnostics 
+2025-07-06T06:52:31.868Z [INFO]    POST /devices/add - Add device to MQTT 
+2025-07-06T06:52:31.872Z [INFO]    GET  /devices/configured - Get configured devices 
+2025-07-06T06:52:31.876Z [INFO]    GET  /health - Health check 
+2025-07-06T06:55:58.082Z [INFO] 🧪 BLE proxy diagnostics requested 
+2025-07-06T06:55:58.084Z [INFO] 🔍 Testing BLE proxy: YOUR_ESP32_IP_ADDRESS:6052 
+2025-07-06T06:55:58.171Z [ERROR] ❌ BLE proxy error: YOUR_ESP32_IP_ADDRESS:6052 - getaddrinfo ENOTFOUND YOUR_ESP32_IP_ADDRESS 
+2025-07-06T06:55:58.195Z [INFO] 🧪 BLE proxy diagnostics completed: {"results":[{"host":"YOUR_ESP32_IP_ADDRESS","port":6052,"status":"error","error":"getaddrinfo ENOTFOUND YOUR_ESP32_IP_ADDRESS"}],"timestamp":"2025-07-06T06:55:58.195Z"}
