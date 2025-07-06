@@ -480,3 +480,7 @@
 ## [2.6.2] - Diagnostics & Logging
 - Add explicit backend logging for every API call, BLE proxy connection, and scanner lifecycle.
 - Diagnose backend/frontend and BLE proxy connection issues.
+
+## [2.6.3] - Build Fix
+- Dockerfile uses --legacy-peer-deps for npm ci to work around devDependency conflicts during build.
+- Ensures successful add-on build in Home Assistant.

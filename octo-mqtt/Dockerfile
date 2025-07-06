@@ -19,7 +19,7 @@ WORKDIR /app
 
 # Install all dependencies (including dev) for build
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN npm ci --legacy-peer-deps
 
 # Copy all source code and build
 COPY . .
@@ -32,7 +32,7 @@ WORKDIR /app
 
 # Install only production dependencies
 COPY package.json package-lock.json ./
-RUN npm ci --omit=dev
+RUN npm ci --omit=dev --legacy-peer-deps
 
 # Copy built output and webui from build stage
 COPY --from=build /app/dist/tsc ./dist/tsc
