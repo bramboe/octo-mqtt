@@ -9,8 +9,8 @@ class BLEScannerApp {
         this.scanStatus = document.getElementById('scan-status');
         this.deviceCount = document.getElementById('device-count');
         this.bleProxyDiagnostics = document.getElementById('bleproxy-diagnostics');
-        this.deviceList = document.getElementById('device-list');
-        this.logContainer = document.getElementById('log-container');
+        this.deviceList = document.getElementById('devices-list');
+        this.logContainer = document.getElementById('logs');
         
         this.bindEvents();
         this.refreshStatus();
@@ -88,8 +88,11 @@ class BLEScannerApp {
             const data = await response.json();
             
             this.updateScanStatus(data.isScanning);
-            this.updateDeviceCount(data.deviceCount);
-            this.updateDeviceList(data.discoveredDevices);
+            this.updateDeviceCount(data.deviceCount || 0);
+            this.updateDeviceList(data.devices || []);
+            
+            // Also update BLE proxy status
+            this.updateBLEProxyStatus();
             
         } catch (error) {
             this.addLog(`❌ Error refreshing status: ${error.message}`, 'error');
@@ -103,21 +106,21 @@ class BLEScannerApp {
             const response = await fetch('/debug/ble-proxy');
             const data = await response.json();
             
-            if (data.results && data.results.length > 0) {
-                const resultsHtml = data.results.map((result) => {
-                    const statusIcon = result.status === 'connected' ? '✅' : '❌';
-                    const statusClass = result.status === 'connected' ? 'success' : 'error';
-                    return `
-                        <div class="diagnostic-result ${statusClass}">
-                            <strong>${result.host}:${result.port}</strong> 
-                            ${statusIcon} ${result.status === 'connected' ? 'Connected' : `Error: ${result.error}`}
-                        </div>
-                    `;
-                }).join('');
-                
-                this.bleProxyDiagnostics.innerHTML = resultsHtml;
+            if (data.status === 'connected') {
+                const statusIcon = '✅';
+                const statusClass = 'success';
+                this.bleProxyDiagnostics.innerHTML = `
+                    <div class="diagnostic-result ${statusClass}">
+                        <strong>BLE Proxy Status:</strong> 
+                        ${statusIcon} Connected (${data.proxies} proxy${data.proxies !== 1 ? 'ies' : ''})
+                    </div>
+                `;
             } else {
-                this.bleProxyDiagnostics.innerHTML = '<div class="diagnostic-result error">No BLE proxies configured</div>';
+                this.bleProxyDiagnostics.innerHTML = `
+                    <div class="diagnostic-result error">
+                        ❌ BLE Proxy Status: ${data.error || 'Disconnected'}
+                    </div>
+                `;
             }
         } catch (error) {
             this.bleProxyDiagnostics.innerHTML = `<div class="diagnostic-result error">Error testing BLE proxy: ${error.message}</div>`;
@@ -137,6 +140,26 @@ class BLEScannerApp {
     updateDeviceCount(count) {
         if (!this.deviceCount) return;
         this.deviceCount.textContent = count.toString();
+    }
+
+    async updateBLEProxyStatus() {
+        if (!this.bleProxyStatus) return;
+        
+        try {
+            const response = await fetch('/debug/ble-proxy');
+            const data = await response.json();
+            
+            if (data.status === 'connected') {
+                this.bleProxyStatus.textContent = 'Connected';
+                this.bleProxyStatus.className = 'status-indicator connected';
+            } else {
+                this.bleProxyStatus.textContent = 'Disconnected';
+                this.bleProxyStatus.className = 'status-indicator disconnected';
+            }
+        } catch (error) {
+            this.bleProxyStatus.textContent = 'Error';
+            this.bleProxyStatus.className = 'status-indicator error';
+        }
     }
 
     updateDeviceList(devices) {
