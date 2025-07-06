@@ -187,7 +187,7 @@ export class ESPConnection implements IESPConnection {
       this.isProxyScanning = true;
       logInfo('[ESPHome] Scan started successfully. Waiting for RC2 devices...');
 
-      return new Promise((resolve, reject) => {
+      return new Promise((resolve) => {
         this.scanTimeoutId = setTimeout(async () => {
           const devices = Array.from(discoveredDevicesDuringScan.values());
           logInfo(`[ESPHome] Scan completed. Found ${devices.length} RC2 device(s).`);

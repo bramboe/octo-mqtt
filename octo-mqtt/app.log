@@ -46,3 +46,11 @@
 2025-07-06T08:00:35.073Z [INFO] 🔌 Connecting to ESPHome BLE proxy... 
 2025-07-06T08:00:35.281Z [INFO] ✅ Connected to 1 ESPHome BLE proxy(ies) 
 2025-07-06T08:00:39.639Z [INFO] 🧪 BLE proxy diagnostics requested 
+2025-07-06T09:07:45.768Z [INFO] Production path failed, trying local path: ./data/options.json 
+2025-07-06T09:07:45.778Z [INFO] Successfully loaded options from ./data/options.json 
+2025-07-06T09:07:45.787Z [INFO] 🔧 Initializing Octo MQTT BLE Scanner... 
+2025-07-06T09:07:45.790Z [INFO] 📁 Serving static files from: webui/ 
+2025-07-06T09:07:45.795Z [INFO] 🚀 Server started on port 8099 
+2025-07-06T09:07:45.798Z [INFO] 🔌 Connecting to ESPHome BLE proxy... 
+2025-07-06T09:07:46.366Z [INFO] ✅ Connected to 1 ESPHome BLE proxy(ies) 
+2025-07-06T09:08:05.643Z [INFO] 🧪 BLE proxy diagnostics requested 

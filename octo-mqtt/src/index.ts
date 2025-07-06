@@ -1,7 +1,6 @@
 /// <reference types="node" />
 import express, { Request, Response } from 'express';
 import * as fs from 'fs';
-import net from 'net';
 import { connectToESPHome } from './ESPHome/connectToESPHome';
 import { BLEScanner } from './Scanner/BLEScanner';
 import { IESPConnection } from './ESPHome/IESPConnection';
@@ -70,7 +69,6 @@ function getRootOptions() {
 let espConnection: IESPConnection & EventEmitter | null = null;
 let bleScanner: BLEScanner | null = null;
 let isScanning = false;
-let scanDevices: any[] = [];
 let scanStartTime: number | null = null;
 let scanTimeout: NodeJS.Timeout | null = null;
 const SCAN_DURATION_MS = 30000;
@@ -109,7 +107,6 @@ app.post('/scan/start', async (_req: Request, res: Response): Promise<void> => {
 
   try {
     isScanning = true;
-    scanDevices = [];
     scanStartTime = Date.now();
     logWithTimestamp('INFO', '🚀 Starting real BLE scan...');
     await bleScanner.startScan();
