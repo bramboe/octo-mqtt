@@ -298,4 +298,46 @@ function getApiBasePath() {
 
 function apiUrl(endpoint) {
   return getApiBasePath() + endpoint;
-} 
+}
+
+// Add diagnostics panel
+function addDiagnosticsPanel() {
+  let diag = document.getElementById('diagnostics-panel');
+  if (!diag) {
+    diag = document.createElement('div');
+    diag.id = 'diagnostics-panel';
+    diag.style = 'background:#222;color:#fff;padding:10px;margin:10px 0;font-size:12px;max-height:200px;overflow:auto;border-radius:6px;';
+    diag.innerHTML = '<b>Frontend Diagnostics:</b><br>';
+    document.body.insertBefore(diag, document.body.firstChild);
+  }
+  return diag;
+}
+function logDiag(msg) {
+  const diag = addDiagnosticsPanel();
+  diag.innerHTML += msg + '<br>';
+  diag.scrollTop = diag.scrollHeight;
+  console.log('[DIAG]', msg);
+}
+// Patch fetch to log all API calls
+const origFetch = window.fetch;
+window.fetch = async function(...args) {
+  logDiag(`API CALL: ${args[0]} ${args[1]?.method || 'GET'} ${args[1]?.body || ''}`);
+  try {
+    const resp = await origFetch.apply(this, args);
+    logDiag(`API RESP: ${args[0]} status=${resp.status}`);
+    let body = '';
+    try { body = JSON.stringify(await resp.clone().json()); } catch {}
+    logDiag(`API BODY: ${body}`);
+    return resp;
+  } catch (e) {
+    logDiag(`API ERROR: ${args[0]} ${e}`);
+    throw e;
+  }
+};
+// Add global error handler
+window.addEventListener('error', function(e) {
+  logDiag('JS ERROR: ' + e.message);
+});
+window.addEventListener('unhandledrejection', function(e) {
+  logDiag('Promise ERROR: ' + (e.reason && e.reason.message));
+}); 
