@@ -39,11 +39,21 @@ const logWithTimestamp = (level: string, message: string, ...args: any[]) => {
 // Simple options loading
 function getRootOptions() {
   try {
-    const configPath = '/data/options.json';
-    if (fs.existsSync(configPath)) {
-      const configData = fs.readFileSync(configPath, 'utf8');
-      return JSON.parse(configData);
+    // Try production path first (/data/options.json)
+    let configPath = '/data/options.json';
+    let configData: string;
+    
+    try {
+      configData = fs.readFileSync(configPath, 'utf8');
+    } catch (err) {
+      // If production path fails, try local development path
+      configPath = './data/options.json';
+      logWithTimestamp('INFO', `Production path failed, trying local path: ${configPath}`);
+      configData = fs.readFileSync(configPath, 'utf8');
     }
+    
+    logWithTimestamp('INFO', `Successfully loaded options from ${configPath}`);
+    return JSON.parse(configData);
   } catch (error) {
     logWithTimestamp('ERROR', 'Error loading options:', error);
   }
