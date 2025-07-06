@@ -1,5 +1,7 @@
+/// <reference types="node" />
 import express, { Request, Response } from 'express';
 import * as fs from 'fs';
+import net from 'net';
 
 const app = express();
 app.use(express.json());
@@ -62,7 +64,7 @@ function cleanupScanState() {
 }
 
 // Enhanced BLE scanning endpoint with better error handling
-app.post('/scan/start', async (req: Request, res: Response): Promise<void> => {
+app.post('/scan/start', async (_req: Request, res: Response): Promise<void> => {
   logInfo('[BLE] Received scan start request');
   
   if (isScanning) {
@@ -141,7 +143,7 @@ app.post('/scan/start', async (req: Request, res: Response): Promise<void> => {
 });
 
 // Scan status endpoint
-app.get('/scan/status', (req: Request, res: Response) => {
+app.get('/scan/status', (_req: Request, res: Response) => {
   res.json({
     isScanning,
     scanTimeRemaining: isScanning && scanStartTime ? Math.max(0, SCAN_DURATION_MS - (Date.now() - scanStartTime)) : 0,
@@ -150,7 +152,7 @@ app.get('/scan/status', (req: Request, res: Response) => {
 });
 
 // Configuration management endpoints
-app.get('/api/config/ble-proxies', (req: Request, res: Response) => {
+app.get('/api/config/ble-proxies', (_req: Request, res: Response) => {
   try {
     const config = getRootOptions();
     const bleProxies = config.bleProxies || [];
@@ -219,7 +221,7 @@ app.post('/api/config/ble-proxies', async (req: Request, res: Response): Promise
 });
 
 // Device management endpoints (simplified)
-app.get('/devices/configured', (req: Request, res: Response) => {
+app.get('/devices/configured', (_req: Request, res: Response) => {
   try {
     const config = getRootOptions();
     res.json({ devices: config.octoDevices || [] });
@@ -230,12 +232,53 @@ app.get('/devices/configured', (req: Request, res: Response) => {
 });
 
 // Health check endpoint
-app.get('/health', (req: Request, res: Response) => {
+app.get('/health', (_req: Request, res: Response) => {
   res.json({
     status: 'healthy',
     timestamp: new Date().toISOString(),
     uptime: process.uptime()
   });
+});
+
+// BLE Proxy diagnostics endpoint
+app.get('/debug/ble-proxy', async (_req: Request, res: Response) => {
+  const config = getRootOptions();
+  const bleProxies = config.bleProxies || [];
+  if (!Array.isArray(bleProxies) || bleProxies.length === 0) {
+    return res.json({ results: [], error: 'No BLE proxies configured' });
+  }
+  const results = await Promise.all(bleProxies.map(async (proxy: any) => {
+    if (!proxy.host || !proxy.port) {
+      return { host: proxy.host, port: proxy.port, status: 'invalid', error: 'Missing host or port' };
+    }
+    return new Promise((resolve) => {
+      const socket = new net.Socket();
+      let resolved = false;
+      socket.setTimeout(3000);
+      socket.on('connect', () => {
+        resolved = true;
+        socket.destroy();
+        resolve({ host: proxy.host, port: proxy.port, status: 'connected' });
+      });
+      socket.on('timeout', () => {
+        if (!resolved) {
+          resolved = true;
+          socket.destroy();
+          resolve({ host: proxy.host, port: proxy.port, status: 'timeout', error: 'Connection timed out' });
+        }
+      });
+      socket.on('error', (err) => {
+        if (!resolved) {
+          resolved = true;
+          socket.destroy();
+          resolve({ host: proxy.host, port: proxy.port, status: 'error', error: err.message });
+        }
+      });
+      socket.connect(proxy.port, proxy.host);
+    });
+  }));
+  res.json({ results });
+  return;
 });
 
 // Add a catch-all route for debugging
@@ -251,7 +294,8 @@ app.use('*', (req: Request, res: Response) => {
       'GET /api/config/ble-proxies',
       'POST /api/config/ble-proxies',
       'GET /devices/configured',
-      'GET /health'
+      'GET /health',
+      'GET /debug/ble-proxy'
     ]
   });
 });
@@ -277,4 +321,5 @@ app.listen(port, () => {
   logInfo('   POST /api/config/ble-proxies - Update BLE proxy configuration');
   logInfo('   GET  /devices/configured - Get configured devices');
   logInfo('   GET  /health - Health check');
+  logInfo('   GET  /debug/ble-proxy - Get BLE proxy diagnostics');
 }); 

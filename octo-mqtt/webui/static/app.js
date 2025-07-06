@@ -38,12 +38,15 @@ class OctoMQTTInterface {
         this.logsContainer = document.getElementById('logs');
         
         this.bleProxyStatus = document.getElementById('bleproxy-status');
+        this.testBLEProxyBtn = document.getElementById('test-ble-proxy');
+        this.bleProxyDiagnostics = document.getElementById('bleproxy-diagnostics');
     }
 
     bindEvents() {
         this.startScanBtn.addEventListener('click', () => this.startScan());
         this.stopScanBtn.addEventListener('click', () => this.stopScan());
         this.refreshStatusBtn.addEventListener('click', () => this.refreshStatus());
+        this.testBLEProxyBtn.addEventListener('click', () => this.testBLEProxy());
     }
 
     async startStatusUpdates() {
@@ -64,27 +67,23 @@ class OctoMQTTInterface {
             }
             const data = await response.json();
             
-            this.updateMQTTStatus(data.mqttConnected);
             this.updateScanStatus(data.isScanning);
             this.updateBLEProxyStatus(data.bleProxyConnected || false);
-            this.addLog(`Status refreshed - MQTT: ${data.mqttConnected ? 'Connected' : 'Disconnected'} BLE Proxy: ${data.bleProxyConnected ? 'Connected' : 'Disconnected'}`);
+            this.addLog(`Status refreshed - BLE Proxy: ${data.bleProxyConnected ? 'Connected' : 'Disconnected'}`);
             
         } catch (error) {
             this.addLog(`Error refreshing status: ${error.message}`, 'error');
-            this.updateMQTTStatus(false);
             this.updateBLEProxyStatus(false);
         }
-    }
-
-    updateMQTTStatus(connected) {
-        this.mqttStatus.textContent = connected ? 'Connected' : 'Disconnected';
-        this.mqttStatus.className = `status-indicator ${connected ? 'connected' : 'disconnected'}`;
     }
 
     updateBLEProxyStatus(connected) {
         if (!this.bleProxyStatus) return;
         this.bleProxyStatus.textContent = connected ? 'Connected' : 'Disconnected';
         this.bleProxyStatus.className = `status-indicator ${connected ? 'connected' : 'disconnected'}`;
+        if (!connected) {
+            this.bleProxyDiagnostics.innerHTML = '<span class="diagnostic-result error">BLE proxy is disconnected. Please check your ESPHome BLE proxy and network settings.</span>';
+        }
     }
 
     updateScanStatus(scanning) {
@@ -264,6 +263,25 @@ class OctoMQTTInterface {
       
     } catch (error) {
             this.addLog(`Error loading configuration: ${error.message}`, 'error');
+        }
+    }
+
+    async testBLEProxy() {
+        this.bleProxyDiagnostics.innerHTML = 'Testing BLE proxy...';
+        try {
+            const response = await fetch(apiUrl('/debug/ble-proxy'));
+            const data = await response.json();
+            if (data.results && data.results.length > 0) {
+                this.bleProxyDiagnostics.innerHTML = data.results.map(r =>
+                    `<div class="diagnostic-result ${r.status}">
+                        <b>${r.host}:${r.port}</b> - ${r.status === 'connected' ? '✅ Connected' : '❌ Error: ' + r.error}
+                    </div>`
+                ).join('');
+            } else {
+                this.bleProxyDiagnostics.innerHTML = 'No BLE proxies configured.';
+            }
+        } catch (error) {
+            this.bleProxyDiagnostics.innerHTML = `Error testing BLE proxy: ${error.message}`;
         }
     }
 

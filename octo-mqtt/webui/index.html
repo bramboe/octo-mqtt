@@ -17,10 +17,6 @@
             <h2>📊 System Status</h2>
             <div class="status-grid">
                 <div class="status-item">
-                    <span class="label">MQTT Connection:</span>
-                    <span id="mqtt-status" class="status-indicator disconnected">Disconnected</span>
-                </div>
-                <div class="status-item">
                     <span class="label">BLE Proxy Connection:</span>
                     <span id="bleproxy-status" class="status-indicator disconnected">Disconnected</span>
                 </div>
@@ -38,9 +34,10 @@
         <div class="control-panel">
             <h2>🎛️ Controls</h2>
             <div class="button-group">
-                <button id="start-scan" class="btn btn-primary">📡 Start BLE Scan</button>
+                <button id="start-scan" class="btn btn-primary">🛰️ Start BLE Scan</button>
                 <button id="stop-scan" class="btn btn-secondary" disabled>⏹️ Stop Scan</button>
                 <button id="refresh-status" class="btn btn-info">🔄 Refresh Status</button>
+                <button id="test-ble-proxy" class="btn btn-warning">🧪 Test BLE Proxy</button>
             </div>
         </div>
 
@@ -78,6 +75,8 @@
                 <div class="log-entry">System starting up...</div>
             </div>
         </div>
+
+        <div id="bleproxy-diagnostics" class="diagnostics-area"></div>
     </div>
 
     <script src="static/app.js"></script>

@@ -10,7 +10,7 @@
   "devDependencies": {
     "@eslint/js": "^9.0.0",
     "@types/bonjour": "^3.5.9",
-    "@types/express": "^4.17.22",
+    "@types/express": "^4.17.23",
     "@types/jest": "^26.0.23",
     "@types/mqtt": "^2.5.0",
     "@types/node": "^16.18.126",
