@@ -1,3 +1,12 @@
+## v2.6.0
+
+**Diagnostics Release**
+- All API calls now use Ingress-compatible paths (fixes frontend/backend disconnect in Home Assistant Ingress)
+- Explicit logging for every BLE device discovered, every scan event, and every error
+- Frontend logs every API response and shows a diagnostics panel
+- Version bump to v2.6.0 for clarity and support
+- Ready for RPi and multi-arch Home Assistant deployment
+
 ## v2.5.0
 
 **Enhanced UI Action Logging**
