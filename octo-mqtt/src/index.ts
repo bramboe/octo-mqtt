@@ -50,13 +50,12 @@ function getRootOptions() {
       logWithTimestamp('INFO', `Production path failed, trying local path: ${configPath}`);
       configData = fs.readFileSync(configPath, 'utf8');
     }
-    
     logWithTimestamp('INFO', `Successfully loaded options from ${configPath}`);
+    logWithTimestamp('INFO', `Loaded options: ${configData}`);
     return JSON.parse(configData);
   } catch (error) {
     logWithTimestamp('ERROR', 'Error loading options:', error);
   }
-  
   // Default configuration
   return {
     mqtt: {},
@@ -75,6 +74,9 @@ const SCAN_DURATION_MS = 30000;
 
 async function initializeESPHome() {
   try {
+    const config = getRootOptions();
+    logWithTimestamp('INFO', '[DIAG] Initializing ESPHome connection with config:', JSON.stringify(config));
+    logWithTimestamp('INFO', `[DIAG] BLE Proxies in config: ${JSON.stringify(config.bleProxies)}`);
     logWithTimestamp('INFO', '🔌 Connecting to ESPHome BLE proxy...');
     const conn = await connectToESPHome();
     if (conn && (conn as any).connections && (conn as any).connections.length > 0) {
@@ -82,10 +84,10 @@ async function initializeESPHome() {
       logWithTimestamp('INFO', `✅ Connected to ${(conn as any).connections.length} ESPHome BLE proxy(ies)`);
       bleScanner = new BLEScanner(espConnection);
     } else {
-      logWithTimestamp('ERROR', '❌ No ESPHome BLE proxies connected');
+      logWithTimestamp('ERROR', '[DIAG] ❌ No ESPHome BLE proxies connected after connectToESPHome()');
     }
   } catch (error) {
-    logWithTimestamp('ERROR', '❌ Failed to connect to ESPHome:', error instanceof Error ? error.message : String(error));
+    logWithTimestamp('ERROR', '[DIAG] ❌ Failed to connect to ESPHome:', error instanceof Error ? error.message : String(error));
   }
 }
 
@@ -225,28 +227,25 @@ app.get('/scan/status', (req: Request, res: Response) => {
 // BLE Proxy diagnostics
 app.get('/debug/ble-proxy', async (req: Request, res: Response) => {
   const isTestButton = req.query.source === 'test-button';
-  
   if (isTestButton) {
     logWithTimestamp('INFO', '🎯 [UI ACTION] User clicked "Test BLE Proxy" button');
   }
-  
-  logWithTimestamp('INFO', '🧪 BLE proxy diagnostics requested');
-  logWithTimestamp('INFO', `🔍 Connection check - espConnection: ${espConnection ? 'exists' : 'null'}`);
-  
+  logWithTimestamp('INFO', '[DIAG] 🧪 BLE proxy diagnostics requested');
+  logWithTimestamp('INFO', `[DIAG] 🔍 Connection check - espConnection: ${espConnection ? 'exists' : 'null'}`);
   if (!espConnection || !(espConnection as any).connections || (espConnection as any).connections.length === 0) {
-    logWithTimestamp('WARN', '❌ No ESPHome BLE proxy connected');
-    logWithTimestamp('INFO', '💡 Troubleshooting: Check ESPHome configuration and network connectivity');
+    logWithTimestamp('WARN', '[DIAG] ❌ No ESPHome BLE proxy connected');
+    logWithTimestamp('INFO', '[DIAG] 💡 Troubleshooting: Check ESPHome configuration and network connectivity');
     res.json({ status: 'disconnected', error: 'No ESPHome BLE proxy connected' });
     return;
   }
-
   const proxyCount = (espConnection as any).connections.length;
-  logWithTimestamp('INFO', `✅ BLE proxy test successful - ${proxyCount} proxy(ies) connected`);
+  logWithTimestamp('INFO', `[DIAG] ✅ BLE proxy test successful - ${proxyCount} proxy(ies) connected`);
   res.json({ status: 'connected', proxies: proxyCount });
 });
 
 // Health check
 app.get('/health', (_req: Request, res: Response) => {
+  logWithTimestamp('INFO', '[DIAG] /health endpoint called.');
   res.json({
     status: 'healthy',
     timestamp: new Date().toISOString(),
