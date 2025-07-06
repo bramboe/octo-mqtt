@@ -90,15 +90,35 @@
         console.log('📱 Loading Octo MQTT v2.4.0 - COMPLETE NEW FILENAME - octo-ble-scanner.js');
         console.log('🔄 If you still see errors, this is a severe browser cache issue');
         
+        // Dynamic cache busting with current timestamp
+        const timestamp = Date.now();
+        const script = document.createElement('script');
+        script.src = `static/octo-ble-scanner.js?v=2.4.0&t=${timestamp}&cb=${Math.random()}`;
+        script.onload = function() {
+            console.log('✅ JavaScript loaded successfully with dynamic cache busting');
+        };
+        script.onerror = function() {
+            console.error('❌ Failed to load JavaScript file');
+            const warning = document.getElementById('cache-warning');
+            if (warning) warning.style.display = 'block';
+        };
+        document.head.appendChild(script);
+        
         // Check if we're loading the right version
         setTimeout(() => {
-            if (!window.app || document.title.indexOf('v2.4.0') === -1) {
+            if (!window.app) {
                 console.error('❌ Cache issue detected! Showing warning...');
                 const warning = document.getElementById('cache-warning');
-                if (warning) warning.style.display = 'block';
+                if (warning) {
+                    warning.style.display = 'block';
+                    warning.innerHTML = `
+                        ⚠️ <strong>Cache Issue Detected!</strong> 
+                        <br>Try: <a href="force-reload.html" style="color: white; text-decoration: underline;">Cache Diagnostic Tool</a>
+                        <br>Or press <kbd>Ctrl+F5</kbd> (Windows) or <kbd>Cmd+Shift+R</kbd> (Mac) to hard refresh.
+                    `;
+                }
             }
-        }, 2000);
+        }, 3000);
     </script>
-    <script src="static/octo-ble-scanner.js?t=1751793218"></script>
 </body>
 </html> 

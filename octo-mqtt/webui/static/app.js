@@ -42,7 +42,7 @@ class BLEScannerApp {
             if (response.ok) {
                 this.addLog(`✅ ${data.message}`, 'success');
                 this.updateScanStatus(true);
-            } else {
+    } else {
                 this.addLog(`❌ ${data.error}: ${data.details || ''}`, 'error');
                 if (data.troubleshooting) {
                     this.addLog('💡 Troubleshooting:', 'info');
@@ -63,7 +63,7 @@ class BLEScannerApp {
             this.addLog('⏹️ Stopping BLE scan...');
             
             const response = await fetch('/scan/stop', {
-                method: 'POST',
+        method: 'POST',
                 headers: { 'Content-Type': 'application/json' }
             });
             
@@ -75,7 +75,7 @@ class BLEScannerApp {
             } else {
                 this.addLog(`❌ ${data.error}`, 'error');
             }
-        } catch (error) {
+    } catch (error) {
             this.addLog(`❌ Error stopping scan: ${error.message}`, 'error');
         } finally {
             this.stopScanBtn.disabled = true;
@@ -94,7 +94,7 @@ class BLEScannerApp {
             // Also update BLE proxy status
             this.updateBLEProxyStatus();
             
-        } catch (error) {
+    } catch (error) {
             this.addLog(`❌ Error refreshing status: ${error.message}`, 'error');
         }
     }
@@ -152,11 +152,11 @@ class BLEScannerApp {
             if (data.status === 'connected') {
                 this.bleProxyStatus.textContent = 'Connected';
                 this.bleProxyStatus.className = 'status-indicator connected';
-            } else {
+      } else {
                 this.bleProxyStatus.textContent = 'Disconnected';
                 this.bleProxyStatus.className = 'status-indicator disconnected';
-            }
-        } catch (error) {
+      }
+    } catch (error) {
             this.bleProxyStatus.textContent = 'Error';
             this.bleProxyStatus.className = 'status-indicator error';
         }
@@ -164,26 +164,26 @@ class BLEScannerApp {
 
     updateDeviceList(devices) {
         if (!this.deviceList) return;
-        
-        if (devices.length === 0) {
+    
+    if (devices.length === 0) {
             this.deviceList.innerHTML = '<div class="no-devices">No devices discovered yet. Start a scan to find BLE devices.</div>';
-            return;
-        }
-        
+      return;
+    }
+    
         const devicesHtml = devices.map(device => `
             <div class="device-item">
-                <div class="device-info">
+      <div class="device-info">
                     <div class="device-name">${device.name || 'Unknown Device'}</div>
                     <div class="device-address">${device.address}</div>
                     <div class="device-rssi">RSSI: ${device.rssi} dBm</div>
                     ${device.service_uuids && device.service_uuids.length > 0 ? 
                         `<div class="device-services">Services: ${device.service_uuids.join(', ')}</div>` : ''}
-                </div>
+      </div>
                 <div class="device-actions">
                     <button class="btn btn-primary btn-sm" onclick="app.addDevice('${device.name || 'Unknown Device'}', '${device.address}')">
                         ➕ Add Device
-                    </button>
-                </div>
+      </button>
+      </div>
             </div>
         `).join('');
         
@@ -196,7 +196,7 @@ class BLEScannerApp {
             if (!friendlyName) return;
             
             const response = await fetch('/devices/add', {
-                method: 'POST',
+        method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     name: name,
@@ -206,14 +206,14 @@ class BLEScannerApp {
             });
             
             const data = await response.json();
-            
-            if (response.ok) {
+      
+      if (response.ok) {
                 this.addLog(`✅ Device added: ${friendlyName} (${address})`, 'success');
                 this.refreshStatus(); // Refresh to update device list
-            } else {
+      } else {
                 this.addLog(`❌ ${data.error}`, 'error');
-            }
-        } catch (error) {
+      }
+    } catch (error) {
             this.addLog(`❌ Error adding device: ${error.message}`, 'error');
         }
     }

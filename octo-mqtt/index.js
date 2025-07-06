@@ -375,7 +375,7 @@ app.get('/debug/ble-proxy', async (req, res) => {
   } else {
     const firstError = results.find(r => r.error)?.error || 'Connection failed';
     log(`[BLE] Test complete: No proxies connected. Error: ${firstError}`);
-    res.json({ 
+  res.json({ 
       status: 'error', 
       error: firstError,
       proxies: 0,
