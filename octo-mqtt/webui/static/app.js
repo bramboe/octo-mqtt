@@ -237,7 +237,9 @@ class BLEScannerApp {
 }
 
 // Initialize app when DOM is loaded
+// Version 2.3.1 - Fixed BLE proxy API response handling
 document.addEventListener('DOMContentLoaded', () => {
+    console.log('🔧 Octo MQTT v2.3.1 - BLE Proxy API Fix Applied');
     window.app = new BLEScannerApp();
 });
 
