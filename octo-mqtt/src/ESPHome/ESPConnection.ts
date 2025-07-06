@@ -148,21 +148,14 @@ export class ESPConnection implements IESPConnection {
       
       logInfo(`[ESPHome DEBUG] Address processing: raw=${rawAddress}, mac=${macFromData}, converted=${convertedMac}, final=${finalAddress}`);
       
-      const isRC2Device = (
-        // Primary check: device name must explicitly contain "RC2"
-        (data.name && data.name.toUpperCase().includes('RC2')) ||
-        // Secondary check: specific MAC address patterns for known RC2 beds
-        (finalAddress && (
-          finalAddress.toLowerCase().startsWith('c3:e7:63') ||
-          finalAddress.toLowerCase().startsWith('f6:21:dd')
-        ))
-      );
+      // Accept ALL devices for discovery (remove RC2/MAC filter)
+      const isRC2Device = true; // <-- Changed: always true, discover all devices
 
-      // Log all devices for debugging, but only process RC2 devices
+      // Log all devices for debugging, and process all
       logInfo(`[ESPHome DEBUG] Processing device: ${data.name || 'Unknown'} (${finalAddress}) - IsRC2: ${isRC2Device}`);
 
       const discoveredDevice: BLEDeviceAdvertisement = {
-        name: data.name || (isRC2Device ? 'RC2' : 'Unknown Device'),
+        name: data.name || 'Unknown Device',
         address: finalAddress, 
         rssi: data.rssi,
         service_uuids: data.serviceUuids || data.service_uuids || [],
@@ -170,7 +163,7 @@ export class ESPConnection implements IESPConnection {
 
       if (isRC2Device) {
         if (!discoveredDevicesDuringScan.has(discoveredDevice.address)) {
-          logInfo('[ESPHome SCAN] Found RC2 device!');
+          logInfo('[ESPHome SCAN] Found device!');
           logInfo(`[ESPHome SCAN] Name: ${discoveredDevice.name}`);
           logInfo(`[ESPHome SCAN] MAC Address: ${discoveredDevice.address}`);
           logInfo(`[ESPHome SCAN] RSSI: ${discoveredDevice.rssi}`);

@@ -472,3 +472,7 @@
 **Bugs Fixed**
 
 - Sleeptracker API not returning manufacturer details, which caused HA to fail to add the devices
+
+## [2.6.1] - Universal BLE scan
+- All BLE devices are now discovered during scan, not just RC2 beds or specific MACs.
+- Fixes main issue where no devices appeared in scan results for most users.
