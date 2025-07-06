@@ -6,14 +6,17 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>Octo MQTT - Smart Bed Control v2.3.1</title>
-    <link rel="stylesheet" href="static/style.css?v=2.3.1">
+    <title>Octo MQTT - Smart Bed Control v2.4.0</title>
+    <link rel="stylesheet" href="static/style.css?v=2.4.0">
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>🛏️ Octo MQTT</h1>
+            <h1>🛏️ Octo MQTT v2.4.0</h1>
             <p>Smart Bed Control via MQTT and BLE</p>
+            <div id="cache-warning" style="background: #ff6b6b; color: white; padding: 10px; border-radius: 5px; margin: 10px 0; display: none;">
+                ⚠️ <strong>Cache Issue Detected!</strong> Press <kbd>Ctrl+F5</kbd> (Windows) or <kbd>Cmd+Shift+R</kbd> (Mac) to hard refresh this page.
+            </div>
         </header>
 
         <div class="status-panel">
@@ -83,9 +86,19 @@
     </div>
 
     <script>
-        // Clear cache instruction for v2.3.1
-        console.log('📱 Loading Octo MQTT v2.3.1 - ULTIMATE CACHE BUST - New filename approach');
+        // Clear cache instruction for v2.4.0
+        console.log('📱 Loading Octo MQTT v2.4.0 - COMPLETE NEW FILENAME - octo-ble-scanner.js');
+        console.log('🔄 If you still see errors, this is a severe browser cache issue');
+        
+        // Check if we're loading the right version
+        setTimeout(() => {
+            if (!window.app || document.title.indexOf('v2.4.0') === -1) {
+                console.error('❌ Cache issue detected! Showing warning...');
+                const warning = document.getElementById('cache-warning');
+                if (warning) warning.style.display = 'block';
+            }
+        }, 2000);
     </script>
-    <script src="static/app-v231.js"></script>
+    <script src="static/octo-ble-scanner.js?t=1751793218"></script>
 </body>
 </html> 
