@@ -86,10 +86,6 @@
     </div>
 
     <script>
-        // Clear cache instruction for v2.4.0
-        console.log('📱 Loading Octo MQTT v2.6.1 - ENHANCED LOGGING + CACHE BUSTING - octo-ble-scanner.js');
-        console.log('🔄 If you still see errors, this is a severe browser cache issue');
-        
         // Dynamic cache busting with current timestamp
         const timestamp = Date.now();
         const script = document.createElement('script');
@@ -97,24 +93,22 @@
         script.onload = function() {
             console.log('✅ JavaScript loaded successfully with dynamic cache busting');
         };
-        script.onerror = function() {
-            console.error('❌ Failed to load JavaScript file');
-            const warning = document.getElementById('cache-warning');
-            if (warning) warning.style.display = 'block';
-        };
-        document.head.appendChild(script);
-        
-        // Check if we're loading the right version
+        document.body.appendChild(script);
+
+        // Remove any legacy JS loader logic (app.js, app-v231.js)
+        // Ensure all required element IDs are present
+        // (bleproxy-status, scan-status, device-count, bleproxy-diagnostics, logs, etc.)
+        // These are already present in the current HTML structure.
+
+        // Remove cache diagnostic tool link for a cleaner standalone UI
         setTimeout(() => {
             if (!window.app) {
-                console.error('❌ Cache issue detected! Showing warning...');
                 const warning = document.getElementById('cache-warning');
                 if (warning) {
                     warning.style.display = 'block';
                     warning.innerHTML = `
-                        ⚠️ <strong>Cache Issue Detected!</strong> 
-                        <br>Try: <a href="force-reload.html" style="color: white; text-decoration: underline;">Cache Diagnostic Tool</a>
-                        <br>Or press <kbd>Ctrl+F5</kbd> (Windows) or <kbd>Cmd+Shift+R</kbd> (Mac) to hard refresh.
+                        ⚠️ <strong>Cache Issue Detected!</strong> <br>
+                        Or press <kbd>Ctrl+F5</kbd> (Windows) or <kbd>Cmd+Shift+R</kbd> (Mac) to hard refresh.
                     `;
                 }
             }
