@@ -1,18 +1,25 @@
-FROM node:18-alpine
+ARG BUILD_FROM
+FROM $BUILD_FROM
 
-# Force rebuild by changing this version number
-ENV BUILD_VERSION=v2025.01.16.1
-
-# Install system dependencies
-RUN apk add --no-cache bash curl jq
+# Install Node.js and system dependencies
+RUN \
+  apk add --no-cache \
+    nodejs \
+    npm \
+    bash \
+    curl \
+    jq \
+    tzdata
 
 # Install bashio for Home Assistant integration
-RUN curl -J -L -o /tmp/bashio.tar.gz "https://github.com/hassio-addons/bashio/archive/v0.13.1.tar.gz" && \
-    mkdir /tmp/bashio && \
-    tar zxvf /tmp/bashio.tar.gz --strip 1 -C /tmp/bashio && \
-    mv /tmp/bashio/lib /usr/lib/bashio && \
-    ln -s /usr/lib/bashio/bashio /usr/bin/bashio && \
-    rm -rf /tmp/bashio.tar.gz /tmp/bashio
+RUN \
+  curl -J -L -o /tmp/bashio.tar.gz \
+    "https://github.com/hassio-addons/bashio/archive/v0.13.1.tar.gz" \
+  && mkdir /tmp/bashio \
+  && tar zxvf /tmp/bashio.tar.gz --strip 1 -C /tmp/bashio \
+  && mv /tmp/bashio/lib /usr/lib/bashio \
+  && ln -s /usr/lib/bashio/bashio /usr/bin/bashio \
+  && rm -rf /tmp/bashio.tar.gz /tmp/bashio
 
 # Set working directory
 WORKDIR /app
@@ -35,10 +42,8 @@ ENV NODE_ENV=production
 # Expose port
 EXPOSE 8099
 
-# Debug: Show what files we have
-RUN echo "=== FILES IN /app ===" && ls -la /app/ && \
-    echo "=== CONTENT OF index.js FIRST 10 LINES ===" && head -10 /app/index.js && \
-    echo "=== CONTENT OF run.sh FIRST 10 LINES ===" && head -10 /app/run.sh
+# Verify installation
+RUN ls -la /app/
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s \
@@ -48,8 +53,9 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s \
 ENTRYPOINT ["/bin/bash", "/app/run.sh"]
 
 LABEL \
-    io.hass.name="Octo Integration via MQTT" \
-    io.hass.description="Home Assistant Community Add-on for Octo actuators star version 2 (Simplified JavaScript version)" \
+    io.hass.name="Octo MQTT" \
+    io.hass.description="Home Assistant add-on to enable controlling Octo actuators star version 2" \
     io.hass.type="addon" \
-    io.hass.version="2.2.0" \
+    io.hass.version="2.3.0" \
+    io.hass.arch="armhf|aarch64|i386|amd64|armv7" \
     maintainer="Bram Boersma <bram.boersma@gmail.com>"

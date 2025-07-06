@@ -1,96 +1,48 @@
-info [2025-05-24T09:15:27.933Z] [MQTT] Connecting to localhost:1883
-info [2025-05-24T09:15:27.940Z] [MQTT] Authentication: Anonymous
-info [2025-05-24T09:15:27.940Z] [MQTT] Client ID: octo_mqtt_d2b798d7
-info [2025-05-24T09:15:27.940Z] [MQTT] No authentication credentials provided, connecting anonymously
-info [2025-05-24T09:15:29.419Z] 🔄 Starting Octo-MQTT addon...
-info [2025-05-24T09:15:29.425Z] ✓ Strings loaded
-info [2025-05-24T09:15:29.426Z] [MQTT] Connecting...
-info [2025-05-24T09:15:29.426Z] [MQTT] Connecting to localhost:1883 with no authentication
-info [2025-05-24T09:15:29.467Z] [MQTT] Connected successfully
-info [2025-05-24T09:15:29.468Z] ✓ MQTT connection established
-info [2025-05-24T09:15:29.468Z] [ESPHome] Connecting...
-info [2025-05-24T09:15:29.468Z] [Options] Attempting to read /data/options.json
-info [2025-05-24T09:15:29.468Z] [Options] Production path failed, trying local path: /Users/bram.boersma/Documents/GitHub/octo-mqtt/octo-mqtt/data/options.json
-info [2025-05-24T09:15:29.469Z] [Options] Successfully loaded options from /Users/bram.boersma/Documents/GitHub/octo-mqtt/octo-mqtt/data/options.json
-info [2025-05-24T09:15:29.470Z] [ESPHome] Found 1 BLE proxy configuration(s):
-info [2025-05-24T09:15:29.470Z] [ESPHome] Proxy #1: host=192.168.1.100, port=6053, password=not set
-info [2025-05-24T09:15:29.470Z] [ESPHome] Creating connection to 192.168.1.100:6053
-info [2025-05-24T09:15:29.470Z] [ESPHome] Attempting to connect to 192.168.1.100:6053
-info [2025-05-24T09:15:29.470Z] [ESPHome] Initiating connection to 192.168.1.100:6053
-warn [2025-05-24T09:15:39.471Z] [ESPHome] Connection timeout for 192.168.1.100:6053
-warn [2025-05-24T09:15:39.476Z] [ESPHome] Failed to connect to proxy at 192.168.1.100:6053
-warn [2025-05-24T09:15:39.477Z] [ESPHome] Could not connect to any BLE proxies. BLE functionality will be limited.
-info [2025-05-24T09:15:39.477Z] ✓ ESPHome connection established
-info [2025-05-24T09:15:39.477Z] [RC2DeviceManager] Initialized
-info [2025-05-24T09:15:39.477Z] ✓ RC2 Device Manager initialized
-info [2025-05-24T09:15:39.477Z] ✓ RC2 devices initialization skipped for testing
-info [2025-05-24T09:15:39.477Z] ✓ Octo initialization skipped for testing
-info [2025-05-24T09:15:39.479Z] ✓ HTTP server created on port 8099
-info [2025-05-24T09:15:39.479Z] Serving static files from /Users/bram.boersma/Documents/GitHub/octo-mqtt/octo-mqtt/webui
-info [2025-05-24T09:15:39.482Z] Octo-MQTT server listening on port 8099
-info [2025-05-24T09:15:39.482Z] WebSocket server initialized with 0 clients
-info [2025-05-24T09:15:39.482Z] BLE Scanner initialized: ✓
-info [2025-05-24T09:15:39.482Z] ESPHome connection: ✓
-info [2025-05-24T09:15:39.482Z] MQTT connection: ✓
-info [2025-05-24T09:15:39.482Z] 🚀 Octo-MQTT addon is fully ready!
-info [2025-05-24T09:15:57.375Z] [BLE] Received scan start request
-info [2025-05-24T09:15:57.376Z] [Options] Attempting to read /data/options.json
-info [2025-05-24T09:15:57.376Z] [Options] Production path failed, trying local path: /Users/bram.boersma/Documents/GitHub/octo-mqtt/octo-mqtt/data/options.json
-info [2025-05-24T09:15:57.376Z] [Options] Successfully loaded options from /Users/bram.boersma/Documents/GitHub/octo-mqtt/octo-mqtt/data/options.json
-info [2025-05-24T09:15:57.377Z] [BLEScanner] Starting BLE scan...
-warn [2025-05-24T09:15:57.377Z] [ESPHome] No active proxy connections to start scan.
-error [2025-05-24T09:15:57.378Z] [BLEScanner] Error starting scan: Error: No active proxy connections.
-    at ESPConnection.startBleScan (/Users/bram.boersma/Documents/GitHub/octo-mqtt/octo-mqtt/dist/tsc/ESPHome/ESPConnection.js:98:19)
-    at BLEScanner.startScan (/Users/bram.boersma/Documents/GitHub/octo-mqtt/octo-mqtt/dist/tsc/Scanner/BLEScanner.js:34:42)
-    at /Users/bram.boersma/Documents/GitHub/octo-mqtt/octo-mqtt/dist/tsc/index.js:305:34
-    at Layer.handle [as handle_request] (/Users/bram.boersma/Documents/GitHub/octo-mqtt/octo-mqtt/node_modules/express/lib/router/layer.js:95:5)
-    at next (/Users/bram.boersma/Documents/GitHub/octo-mqtt/octo-mqtt/node_modules/express/lib/router/route.js:149:13)
-    at Route.dispatch (/Users/bram.boersma/Documents/GitHub/octo-mqtt/octo-mqtt/node_modules/express/lib/router/route.js:119:3)
-    at Layer.handle [as handle_request] (/Users/bram.boersma/Documents/GitHub/octo-mqtt/octo-mqtt/node_modules/express/lib/router/layer.js:95:5)
-    at /Users/bram.boersma/Documents/GitHub/octo-mqtt/octo-mqtt/node_modules/express/lib/router/index.js:284:15
-    at Function.process_params (/Users/bram.boersma/Documents/GitHub/octo-mqtt/octo-mqtt/node_modules/express/lib/router/index.js:346:12)
-    at next (/Users/bram.boersma/Documents/GitHub/octo-mqtt/octo-mqtt/node_modules/express/lib/router/index.js:280:10)
-error [2025-05-24T09:15:57.379Z] [BLE] Error starting scan: Error: No active proxy connections.
-    at ESPConnection.startBleScan (/Users/bram.boersma/Documents/GitHub/octo-mqtt/octo-mqtt/dist/tsc/ESPHome/ESPConnection.js:98:19)
-    at BLEScanner.startScan (/Users/bram.boersma/Documents/GitHub/octo-mqtt/octo-mqtt/dist/tsc/Scanner/BLEScanner.js:34:42)
-    at /Users/bram.boersma/Documents/GitHub/octo-mqtt/octo-mqtt/dist/tsc/index.js:305:34
-    at Layer.handle [as handle_request] (/Users/bram.boersma/Documents/GitHub/octo-mqtt/octo-mqtt/node_modules/express/lib/router/layer.js:95:5)
-    at next (/Users/bram.boersma/Documents/GitHub/octo-mqtt/octo-mqtt/node_modules/express/lib/router/route.js:149:13)
-    at Route.dispatch (/Users/bram.boersma/Documents/GitHub/octo-mqtt/octo-mqtt/node_modules/express/lib/router/route.js:119:3)
-    at Layer.handle [as handle_request] (/Users/bram.boersma/Documents/GitHub/octo-mqtt/octo-mqtt/node_modules/express/lib/router/layer.js:95:5)
-    at /Users/bram.boersma/Documents/GitHub/octo-mqtt/octo-mqtt/node_modules/express/lib/router/index.js:284:15
-    at Function.process_params (/Users/bram.boersma/Documents/GitHub/octo-mqtt/octo-mqtt/node_modules/express/lib/router/index.js:346:12)
-    at next (/Users/bram.boersma/Documents/GitHub/octo-mqtt/octo-mqtt/node_modules/express/lib/router/index.js:280:10)
-error [2025-05-24T09:16:44.476Z] [ESPHome] Failed Connecting: Error: connect ETIMEDOUT 192.168.1.100:6053
-    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1595:16) {
-  errno: -60,
-  code: 'ETIMEDOUT',
-  syscall: 'connect',
-  address: '192.168.1.100',
-  port: 6053
-}
-error [2025-05-24T09:16:44.477Z] [ESPHome] Connection details: host=192.168.1.100, port=6053, password=not set
-error [2025-05-24T09:16:44.477Z] [ESPHome] Error code: ETIMEDOUT
-error [2025-05-24T09:18:29.485Z] Error: connect ETIMEDOUT 192.168.1.100:6053
-info [2025-05-24T09:18:29.486Z] [RC2DeviceManager] Device manager disposed
-error [2025-05-24T09:18:29.486Z] Exit code: 2
-warn [2025-05-24T09:18:29.488Z] Shutting down Octo-MQTT...
-info [2025-05-24T09:18:29.488Z] [RC2DeviceManager] Device manager disposed
-2025-07-06T06:52:31.799Z [INFO] 🔧 Initializing Octo MQTT BLE Scanner... 
-2025-07-06T06:52:31.808Z [INFO] 📁 Serving static files from: webui/ 
-2025-07-06T06:52:31.813Z [INFO] ⚙️  Configuration loaded: 1 BLE proxies configured 
-2025-07-06T06:52:31.821Z [INFO] 🚀 Server started on port 8099 
-2025-07-06T06:52:31.827Z [INFO] 📱 Web interface: http://localhost:8099 
-2025-07-06T06:52:31.832Z [INFO] 💡 BLE scanning and device management ready 
-2025-07-06T06:52:31.836Z [INFO] 📋 Available API endpoints: 
-2025-07-06T06:52:31.841Z [INFO]    POST /scan/start - Start BLE device scan 
-2025-07-06T06:52:31.845Z [INFO]    POST /scan/stop - Stop BLE device scan 
-2025-07-06T06:52:31.849Z [INFO]    GET  /scan/status - Get scan status 
-2025-07-06T06:52:31.860Z [INFO]    GET  /debug/ble-proxy - Get BLE proxy diagnostics 
-2025-07-06T06:52:31.868Z [INFO]    POST /devices/add - Add device to MQTT 
-2025-07-06T06:52:31.872Z [INFO]    GET  /devices/configured - Get configured devices 
-2025-07-06T06:52:31.876Z [INFO]    GET  /health - Health check 
-2025-07-06T06:55:58.082Z [INFO] 🧪 BLE proxy diagnostics requested 
-2025-07-06T06:55:58.084Z [INFO] 🔍 Testing BLE proxy: YOUR_ESP32_IP_ADDRESS:6052 
-2025-07-06T06:55:58.171Z [ERROR] ❌ BLE proxy error: YOUR_ESP32_IP_ADDRESS:6052 - getaddrinfo ENOTFOUND YOUR_ESP32_IP_ADDRESS 
-2025-07-06T06:55:58.195Z [INFO] 🧪 BLE proxy diagnostics completed: {"results":[{"host":"YOUR_ESP32_IP_ADDRESS","port":6052,"status":"error","error":"getaddrinfo ENOTFOUND YOUR_ESP32_IP_ADDRESS"}],"timestamp":"2025-07-06T06:55:58.195Z"}
+2025-07-06T07:31:27.488Z [INFO] 🔧 Initializing Octo MQTT BLE Scanner... 
+2025-07-06T07:31:27.501Z [INFO] 📁 Serving static files from: webui/ 
+2025-07-06T07:31:27.508Z [INFO] 🚀 Server started on port 8099 
+2025-07-06T07:31:27.510Z [INFO] 🔌 Connecting to ESPHome BLE proxy... 
+2025-07-06T07:31:37.517Z [ERROR] ❌ No ESPHome BLE proxies connected 
+2025-07-06T07:36:28.719Z [INFO] Production path failed, trying local path: ./data/options.json 
+2025-07-06T07:36:28.726Z [INFO] Successfully loaded options from ./data/options.json 
+2025-07-06T07:36:28.728Z [INFO] 🔧 Initializing Octo MQTT BLE Scanner... 
+2025-07-06T07:36:28.730Z [INFO] 📁 Serving static files from: webui/ 
+2025-07-06T07:36:28.736Z [INFO] 🚀 Server started on port 8099 
+2025-07-06T07:36:28.738Z [INFO] 🔌 Connecting to ESPHome BLE proxy... 
+2025-07-06T07:36:38.752Z [ERROR] ❌ No ESPHome BLE proxies connected 
+2025-07-06T07:37:41.765Z [INFO] Production path failed, trying local path: ./data/options.json 
+2025-07-06T07:37:41.772Z [INFO] Successfully loaded options from ./data/options.json 
+2025-07-06T07:37:41.774Z [INFO] 🔧 Initializing Octo MQTT BLE Scanner... 
+2025-07-06T07:37:41.778Z [INFO] 📁 Serving static files from: webui/ 
+2025-07-06T07:37:41.787Z [INFO] 🚀 Server started on port 8099 
+2025-07-06T07:37:41.790Z [INFO] 🔌 Connecting to ESPHome BLE proxy... 
+2025-07-06T07:37:42.155Z [INFO] ✅ Connected to 1 ESPHome BLE proxy(ies) 
+2025-07-06T07:37:58.802Z [INFO] 🧪 BLE proxy diagnostics requested 
+2025-07-06T07:38:04.449Z [INFO] 📡 Received scan start request 
+2025-07-06T07:38:04.450Z [INFO] 🚀 Starting real BLE scan... 
+2025-07-06T07:39:04.454Z [INFO] ⏹️  BLE scan timeout reached 
+2025-07-06T07:48:09.396Z [INFO] 🧪 BLE proxy diagnostics requested 
+2025-07-06T07:49:53.025Z [INFO] Production path failed, trying local path: ./data/options.json 
+2025-07-06T07:49:53.034Z [INFO] Successfully loaded options from ./data/options.json 
+2025-07-06T07:49:53.047Z [INFO] 🔧 Initializing Octo MQTT BLE Scanner... 
+2025-07-06T07:49:53.052Z [INFO] 📁 Serving static files from: webui/ 
+2025-07-06T07:49:53.066Z [INFO] 🚀 Server started on port 8099 
+2025-07-06T07:49:53.073Z [INFO] 🔌 Connecting to ESPHome BLE proxy... 
+2025-07-06T07:49:53.279Z [INFO] ✅ Connected to 1 ESPHome BLE proxy(ies) 
+2025-07-06T07:50:04.626Z [INFO] 🧪 BLE proxy diagnostics requested 
+2025-07-06T07:59:10.270Z [INFO] Production path failed, trying local path: ./data/options.json 
+2025-07-06T07:59:10.279Z [INFO] Successfully loaded options from ./data/options.json 
+2025-07-06T07:59:10.281Z [INFO] 🔧 Initializing Octo MQTT BLE Scanner... 
+2025-07-06T07:59:10.284Z [INFO] 📁 Serving static files from: webui/ 
+2025-07-06T07:59:10.289Z [INFO] 🚀 Server started on port 8099 
+2025-07-06T07:59:10.292Z [INFO] 🔌 Connecting to ESPHome BLE proxy... 
+2025-07-06T07:59:10.436Z [INFO] ✅ Connected to 1 ESPHome BLE proxy(ies) 
+2025-07-06T08:00:04.309Z [INFO] 🧪 BLE proxy diagnostics requested 
+2025-07-06T08:00:35.034Z [INFO] Production path failed, trying local path: ./data/options.json 
+2025-07-06T08:00:35.038Z [INFO] Successfully loaded options from ./data/options.json 
+2025-07-06T08:00:35.047Z [INFO] 🔧 Initializing Octo MQTT BLE Scanner... 
+2025-07-06T08:00:35.055Z [INFO] 📁 Serving static files from: webui/ 
+2025-07-06T08:00:35.063Z [INFO] 🚀 Server started on port 8099 
+2025-07-06T08:00:35.073Z [INFO] 🔌 Connecting to ESPHome BLE proxy... 
+2025-07-06T08:00:35.281Z [INFO] ✅ Connected to 1 ESPHome BLE proxy(ies) 
+2025-07-06T08:00:39.639Z [INFO] 🧪 BLE proxy diagnostics requested 

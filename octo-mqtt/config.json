@@ -4,7 +4,7 @@
   "slug": "octo-mqtt",
   "description": "A Home Assistant add-on to enable controlling Octo actuators star version 2. (Ultra-simple standalone version)",
   "url": "https://github.com/bramboe/octo-mqtt",
-  "startup": "initialize",
+  "startup": "application",
   "arch": ["aarch64", "amd64", "armhf", "armv7", "i386"],
   "boot": "auto",
   "services": ["mqtt:need"],
@@ -34,7 +34,7 @@
     "mqtt_password": "<auto_detect>",
     "bleProxies": [
       {
-        "host": "192.168.2.102",
+        "host": "192.168.1.100",
         "port": 6053
       }
     ],

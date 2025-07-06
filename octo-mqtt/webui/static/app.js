@@ -88,7 +88,7 @@ class BLEScannerApp {
             const data = await response.json();
             
             this.updateScanStatus(data.isScanning);
-            this.updateDeviceCount(data.deviceCount || 0);
+            this.updateDeviceCount(data.devices ? data.devices.length : 0);
             this.updateDeviceList(data.devices || []);
             
             // Also update BLE proxy status
@@ -112,7 +112,7 @@ class BLEScannerApp {
                 this.bleProxyDiagnostics.innerHTML = `
                     <div class="diagnostic-result ${statusClass}">
                         <strong>BLE Proxy Status:</strong> 
-                        ${statusIcon} Connected (${data.proxies} proxy${data.proxies !== 1 ? 'ies' : ''})
+                        ${statusIcon} Connected (${data.proxies}/${data.total || data.proxies} proxy${data.proxies !== 1 ? 'ies' : ''})
                     </div>
                 `;
             } else {

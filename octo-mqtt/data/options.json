@@ -1,18 +1,13 @@
 {
-  "mqtt": {
-    "host": "192.168.1.2",
-    "port": 1883,
-    "username": "mqtt",
-    "password": "mqtt"
-  },
+  "mqtt_host": "localhost",
+  "mqtt_port": "1883",
+  "mqtt_user": "",
+  "mqtt_password": "",
   "bleProxies": [
     {
-      "host": "192.168.1.109", 
-      "port": 6053,
-      "name": "BLE Proxy",
-      "enabled": true
+      "host": "192.168.1.109",
+      "port": 6053
     }
   ],
-  "octoDevices": [],
-  "webPort": 8099
+  "octoDevices": []
 }
