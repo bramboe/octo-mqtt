@@ -112,4 +112,4 @@ fi
 log_message "info" "🎯 Starting Node.js application..."
 
 # Start Node.js app with proper error handling
-exec node index.js
+exec node dist/tsc/index.js

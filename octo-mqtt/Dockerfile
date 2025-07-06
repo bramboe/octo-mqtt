@@ -16,12 +16,17 @@ RUN \
 # Set working directory
 WORKDIR /app
 
-# Copy package file and install dependencies
-COPY package-simple.json package.json
-RUN npm install --production
+# Copy package files and install dependencies
+COPY package.json package-lock.json ./
+RUN npm ci
+
+# Copy all source code
+COPY . .
+
+# Build TypeScript
+RUN npm run build
 
 # Copy application files
-COPY index.js ./
 COPY webui ./webui/
 
 # Copy run script and make it executable
@@ -41,7 +46,7 @@ RUN ls -la /app/
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s \
   CMD curl -f http://localhost:8099/health || exit 1
 
-# Start the application  
+# Start the application
 ENTRYPOINT ["/bin/bash", "/app/run.sh"]
 
 LABEL \
