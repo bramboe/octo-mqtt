@@ -484,3 +484,12 @@
 ## [2.6.3] - Build Fix
 - Dockerfile uses --legacy-peer-deps for npm ci to work around devDependency conflicts during build.
 - Ensures successful add-on build in Home Assistant.
+
+## [2.6.4] - 2025-07-06
+### Added
+- Diagnostics panel now logs detected API base path and all API calls in the frontend
+- Improved frontend-backend connectivity for both Ingress and direct access
+### Changed
+- All API calls now use a dynamically detected base path
+### Removed
+- Removed the cache warning banner from the UI

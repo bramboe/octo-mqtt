@@ -7,5 +7,6 @@
     "i386": "ghcr.io/hassio-addons/base-nodejs:18"
   },
   "args": {},
-  "squash": false
+  "squash": false,
+  "version": "v2025.07.06.1"
 } 

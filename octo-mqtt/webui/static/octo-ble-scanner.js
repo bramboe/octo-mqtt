@@ -300,44 +300,123 @@ function apiUrl(endpoint) {
   return getApiBasePath() + endpoint;
 }
 
-// Add diagnostics panel
-function addDiagnosticsPanel() {
-  let diag = document.getElementById('diagnostics-panel');
-  if (!diag) {
-    diag = document.createElement('div');
-    diag.id = 'diagnostics-panel';
-    diag.style = 'background:#222;color:#fff;padding:10px;margin:10px 0;font-size:12px;max-height:200px;overflow:auto;border-radius:6px;';
-    diag.innerHTML = '<b>Frontend Diagnostics:</b><br>';
-    document.body.insertBefore(diag, document.body.firstChild);
+// == Octo MQTT BLE Scanner Diagnostics & Hardened Frontend ==
+(function() {
+  // Remove cache warning banner if present
+  function removeCacheWarning() {
+    const banners = document.querySelectorAll('div');
+    for (const b of banners) {
+      if (b.textContent && b.textContent.includes('Cache Issue Detected')) {
+        b.style.display = 'none';
+      }
+    }
   }
-  return diag;
-}
-function logDiag(msg) {
-  const diag = addDiagnosticsPanel();
-  diag.innerHTML += msg + '<br>';
-  diag.scrollTop = diag.scrollHeight;
-  console.log('[DIAG]', msg);
-}
-// Patch fetch to log all API calls
-const origFetch = window.fetch;
-window.fetch = async function(...args) {
-  logDiag(`API CALL: ${args[0]} ${args[1]?.method || 'GET'} ${args[1]?.body || ''}`);
-  try {
-    const resp = await origFetch.apply(this, args);
-    logDiag(`API RESP: ${args[0]} status=${resp.status}`);
-    let body = '';
-    try { body = JSON.stringify(await resp.clone().json()); } catch {}
-    logDiag(`API BODY: ${body}`);
-    return resp;
-  } catch (e) {
-    logDiag(`API ERROR: ${args[0]} ${e}`);
-    throw e;
+  removeCacheWarning();
+
+  // Diagnostics panel setup
+  function ensureDiagnosticsPanel() {
+    let diag = document.getElementById('octo-diagnostics-panel');
+    if (!diag) {
+      diag = document.createElement('div');
+      diag.id = 'octo-diagnostics-panel';
+      diag.style = 'position:fixed;bottom:0;right:0;z-index:9999;background:#222;color:#fff;padding:8px;font-size:12px;max-width:400px;max-height:50vh;overflow:auto;border-radius:8px 0 0 0;box-shadow:0 0 8px #000;';
+      diag.innerHTML = '<b>Octo MQTT Diagnostics</b><br/>';
+      document.body.appendChild(diag);
+    }
+    return diag;
   }
-};
-// Add global error handler
-window.addEventListener('error', function(e) {
-  logDiag('JS ERROR: ' + e.message);
-});
-window.addEventListener('unhandledrejection', function(e) {
-  logDiag('Promise ERROR: ' + (e.reason && e.reason.message));
-}); 
+  function logDiag(msg, color) {
+    const diag = ensureDiagnosticsPanel();
+    const line = document.createElement('div');
+    line.innerHTML = msg;
+    if (color) line.style.color = color;
+    diag.appendChild(line);
+    diag.scrollTop = diag.scrollHeight;
+    // Also log to console
+    if (color === 'red') {
+      console.error('[OctoMQTT]', msg);
+    } else {
+      console.log('[OctoMQTT]', msg);
+    }
+  }
+
+  // Global error handlers
+  window.onerror = function(msg, url, line, col, err) {
+    logDiag('JS Error: ' + msg + ' at ' + url + ':' + line + ':' + col, 'red');
+    if (err && err.stack) logDiag('Stack: ' + err.stack, 'red');
+  };
+  window.onunhandledrejection = function(e) {
+    logDiag('Promise rejection: ' + (e.reason ? e.reason : e), 'red');
+  };
+
+  // API base URL detection (Ingress/direct)
+  function getApiBase() {
+    const loc = window.location;
+    // If running under Ingress, path will be /api/hassio_ingress/<token>/...
+    const ingressMatch = loc.pathname.match(/\/api\/hassio_ingress\/[\w-]+\//);
+    if (ingressMatch) {
+      // Use the ingress prefix as base
+      return ingressMatch[0].replace(/\/$/, '');
+    }
+    // Otherwise, use root
+    return '';
+  }
+  const API_BASE = getApiBase();
+  logDiag('API base detected: ' + (API_BASE || '[root]'));
+
+  // API call helper
+  async function apiCall(path, opts) {
+    // Ensure path does not double up slashes
+    let url = API_BASE + (path.startsWith('/') ? path : '/' + path);
+    logDiag('API call: ' + url);
+    try {
+      const resp = await fetch(url, opts);
+      logDiag('Response ' + url + ': ' + resp.status);
+      if (!resp.ok) {
+        const text = await resp.text();
+        logDiag('Error response: ' + text, 'red');
+        throw new Error('API ' + path + ' failed: ' + resp.status);
+      }
+      const ct = resp.headers.get('content-type') || '';
+      if (ct.includes('json')) {
+        const data = await resp.json();
+        logDiag('Data: ' + JSON.stringify(data));
+        return data;
+      } else {
+        const text = await resp.text();
+        logDiag('Text: ' + text);
+        return text;
+      }
+    } catch (e) {
+      logDiag('API call failed: ' + e, 'red');
+      throw e;
+    }
+  }
+
+  // Startup self-test
+  async function selfTest() {
+    logDiag('Running startup self-test...');
+    try {
+      await apiCall('/health');
+    } catch (e) {
+      logDiag('Health check failed: ' + e, 'red');
+    }
+    try {
+      await apiCall('/scan/status');
+    } catch (e) {
+      logDiag('Scan status failed: ' + e, 'red');
+    }
+  }
+
+  // Run self-test after DOM ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', selfTest);
+  } else {
+    selfTest();
+  }
+
+  // Expose diagnostics for manual testing
+  window.OctoMQTTDiag = { apiCall, logDiag };
+
+  logDiag('Diagnostics loaded.');
+})(); 
