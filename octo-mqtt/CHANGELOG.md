@@ -476,3 +476,7 @@
 ## [2.6.1] - Universal BLE scan
 - All BLE devices are now discovered during scan, not just RC2 beds or specific MACs.
 - Fixes main issue where no devices appeared in scan results for most users.
+
+## [2.6.2] - Diagnostics & Logging
+- Add explicit backend logging for every API call, BLE proxy connection, and scanner lifecycle.
+- Diagnose backend/frontend and BLE proxy connection issues.

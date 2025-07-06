@@ -38,7 +38,7 @@ class BLEScannerApp {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    clientInfo: 'Octo MQTT Web UI v2.6.1',
+                    clientInfo: 'Octo MQTT Web UI v2.6.2',
                     timestamp: timestamp,
                     userAction: 'start-scan-button-click'
                 })
@@ -85,7 +85,7 @@ class BLEScannerApp {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    clientInfo: 'Octo MQTT Web UI v2.6.1',
+                    clientInfo: 'Octo MQTT Web UI v2.6.2',
                     timestamp: timestamp,
                     userAction: 'stop-scan-button-click'
                 })
@@ -277,9 +277,9 @@ class BLEScannerApp {
 }
 
 // Initialize app when DOM is loaded
-// Version 2.6.1 - UNIVERSAL BLE SCAN RELEASE
+// Version 2.6.2 - DIAGNOSTICS & LOGGING RELEASE
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('🚀 Octo MQTT v2.6.1 - UNIVERSAL BLE SCAN RELEASE LOADED!');
+    console.log('🚀 Octo MQTT v2.6.2 - DIAGNOSTICS & LOGGING RELEASE LOADED!');
     console.log('✅ JavaScript file: octo-ble-scanner.js loaded successfully');
     console.log('🔧 BLE Proxy API Fix + Enhanced UI Action Logging Applied!');
     window.app = new BLEScannerApp();
