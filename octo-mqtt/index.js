@@ -229,158 +229,129 @@ function cleanupScanState() {
   discoveredDevices.clear();
 }
 
-// Enhanced BLE scanning endpoint
+// Helper: Retry connection to BLE proxy up to 3 times
+async function connectToBLEProxyWithRetry(proxy, log) {
+  const { Connection } = require('@2colors/esphome-native-api');
+  let lastError = null;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      log(`[BLE] Attempt ${attempt}: Connecting to ESPHome proxy at ${proxy.host}:${proxy.port}...`);
+      const connection = new Connection({
+        host: proxy.host,
+        port: proxy.port,
+        password: proxy.password || undefined
+      });
+      await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => reject(new Error('Timeout')), 10000);
+        connection.once('authorized', () => {
+          clearTimeout(timeout);
+          resolve();
+        });
+        connection.once('error', (err) => {
+          clearTimeout(timeout);
+          reject(err);
+        });
+        connection.connect();
+      });
+      log(`[BLE] Connected to ESPHome proxy at ${proxy.host}:${proxy.port}`);
+      return connection;
+    } catch (err) {
+      lastError = err;
+      log(`[BLE] Connection attempt ${attempt} failed: ${err.message}`);
+      await new Promise(r => setTimeout(r, 1000));
+    }
+  }
+  log(`[BLE] All connection attempts failed for proxy at ${proxy.host}:${proxy.port}`);
+  throw lastError;
+}
+
+// Enhanced BLE scanning endpoint (with live updates)
 app.post('/scan/start', async (req, res) => {
   log('📡 [API] Received scan start request');
-
   if (isScanning) {
     log('⚠️ Scan already in progress');
     return res.status(400).json({ error: 'Scan already in progress' });
   }
-
   try {
     const config = getRootOptions();
     const bleProxies = config.bleProxies || [];
     if (bleProxies.length === 0) {
-      return res.status(500).json({ 
-        error: 'No BLE proxies configured',
-        details: 'You need to configure at least one ESPHome BLE proxy in the addon configuration to scan for devices.'
-      });
+      return res.status(500).json({ error: 'No BLE proxies configured' });
     }
-    // Check for placeholder IP addresses
-    const hasPlaceholders = bleProxies.some((proxy) => 
-      !proxy.host || 
-      proxy.host === 'YOUR_ESP32_IP_ADDRESS' || 
-      proxy.host.includes('PLACEHOLDER') ||
-      proxy.host.includes('EXAMPLE')
-    );
-    if (hasPlaceholders) {
-      return res.status(500).json({ 
-        error: 'Invalid BLE proxy configuration',
-        details: 'One or more BLE proxies have placeholder IP addresses. Please update your configuration with the actual IP addresses of your ESPHome devices.',
-        currentConfiguration: bleProxies
-      });
-    }
-    // Real BLE scan using ESPHome
     cleanupScanState();
     isScanning = true;
     scanStartTime = Date.now();
     discoveredDevices.clear();
     log('📡 Starting BLE scan via ESPHome proxy...');
-    
-    // Direct ESPHome implementation (no TypeScript dependencies)
-    const { Connection } = require('@2colors/esphome-native-api');
-    
-    // Start the scan in the background
+    // Start scan in background
     setTimeout(async () => {
       try {
-        // Connect to all configured BLE proxies
         const connections = await Promise.all(
           bleProxies.map(async (proxy) => {
             try {
-              log(`📡 Connecting to ESPHome proxy at ${proxy.host}:${proxy.port}...`);
-              const connection = new Connection({
-                host: proxy.host,
-                port: proxy.port,
-                password: proxy.password || undefined
-              });
-              
-              return new Promise((resolve, reject) => {
-                const timeout = setTimeout(() => {
-                  reject(new Error(`Connection timeout for ${proxy.host}:${proxy.port}`));
-                }, 10000);
-                
-                connection.once('authorized', async () => {
-                  clearTimeout(timeout);
-                  log(`✅ Connected to ESPHome proxy at ${proxy.host}:${proxy.port}`);
-                  resolve(connection);
-                });
-                
-                connection.once('error', (error) => {
-                  clearTimeout(timeout);
-                  log(`❌ Failed to connect to ${proxy.host}:${proxy.port}: ${error.message}`);
-                  reject(error);
-                });
-                
-                connection.connect();
-              });
-            } catch (error) {
-              log(`❌ Error connecting to ${proxy.host}:${proxy.port}: ${error.message}`);
+              return await connectToBLEProxyWithRetry(proxy, log);
+            } catch (err) {
+              log(`[BLE] Proxy connection failed: ${err.message}`);
               return null;
             }
           })
         );
-        
         const validConnections = connections.filter(c => c !== null);
-        
         if (validConnections.length === 0) {
-          throw new Error('Could not connect to any BLE proxies');
+          log('[BLE] No BLE proxies connected.');
+          return;
         }
-        
-        log(`✅ Connected to ${validConnections.length} BLE proxy(ies)`);
-        
-        // Start BLE scan on the first available connection
-        const primaryConnection = validConnections[0];
-        const discoveredDevicesDuringScan = new Map();
-        
-        const advertisementListener = (data) => {
-          if (data && data.name && data.address) {
-            const device = {
-              name: data.name,
-              address: data.address,
-              rssi: data.rssi || 0,
-              service_uuids: data.serviceUuids || data.service_uuids || []
-            };
-            
-            if (!discoveredDevicesDuringScan.has(device.address)) {
-              log(`📱 Found BLE device: ${device.name} (${device.address})`);
-              discoveredDevicesDuringScan.set(device.address, device);
-              discoveredDevices.set(device.address, device);
+        log(`[BLE] Connected to ${validConnections.length} BLE proxy(ies)`);
+        // Listen for BLE advertisements and stream to frontend
+        validConnections.forEach((conn, idx) => {
+          conn.on('message.BluetoothLEAdvertisementResponse', (data) => {
+            if (data && (data.address || data.mac)) {
+              const device = {
+                name: data.name || 'Unknown',
+                address: data.address || data.mac,
+                rssi: data.rssi || 0,
+                service_uuids: data.serviceUuids || data.service_uuids || [],
+                proxy: bleProxies[idx].host
+              };
+              if (!discoveredDevices.has(device.address)) {
+                log(`[BLE] Found device: ${JSON.stringify(device)}`);
+                discoveredDevices.set(device.address, device);
+              }
             }
-          }
-        };
-        
-        primaryConnection.on('message.BluetoothLEAdvertisementResponse', advertisementListener);
-        await primaryConnection.subscribeBluetoothAdvertisementService();
-        
-        log('📡 BLE scan started. Waiting for devices...');
-        
-        // Wait for scan duration
-        await new Promise((resolve) => {
-          setTimeout(() => {
-            log('⏰ Scan timeout reached');
-            resolve();
-          }, SCAN_DURATION_MS);
+          });
+          conn.subscribeBluetoothAdvertisementService();
         });
-        
-        // Cleanup
-        primaryConnection.off('message.BluetoothLEAdvertisementResponse', advertisementListener);
+        // Wait for scan duration
+        await new Promise(resolve => setTimeout(resolve, SCAN_DURATION_MS));
         validConnections.forEach(conn => conn.disconnect());
-        
-        const scanResults = Array.from(discoveredDevicesDuringScan.values());
-        log(`📡 BLE scan complete. Found ${scanResults.length} device(s).`);
-        
-        bleProxyConnected = validConnections.length > 0;
-        
+        log(`[BLE] Scan complete. Found ${discoveredDevices.size} device(s).`);
       } catch (err) {
-        logError('Error during BLE scan', err);
+        log(`[BLE] Scan error: ${err.message}`);
       } finally {
         cleanupScanState();
-        bleProxyConnected = false;
       }
-    }, 100); // Small delay to ensure response is sent first
-
-    // Return immediately with scan started response
-    return res.json({ 
-      scanDuration: SCAN_DURATION_MS
-    });
-    
+    }, 100);
+    return res.json({ scanDuration: SCAN_DURATION_MS });
   } catch (error) {
     logError('Error starting scan', error);
     cleanupScanState();
-    bleProxyConnected = false;
     return res.status(500).json({ error: 'Failed to start scan', details: error instanceof Error ? error.message : String(error) });
   }
+});
+
+// Debug endpoint to test BLE proxy connectivity
+app.get('/debug/ble-proxy', async (req, res) => {
+  const config = getRootOptions();
+  const bleProxies = config.bleProxies || [];
+  const results = await Promise.all(bleProxies.map(async (proxy) => {
+    try {
+      await connectToBLEProxyWithRetry(proxy, log);
+      return { host: proxy.host, port: proxy.port, status: 'connected' };
+    } catch (err) {
+      return { host: proxy.host, port: proxy.port, status: 'error', error: err.message };
+    }
+  }));
+  res.json({ results });
 });
 
 // Scan status endpoint

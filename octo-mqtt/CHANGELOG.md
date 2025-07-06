@@ -1,3 +1,17 @@
+## v2.2.0
+
+**Improvements**
+- BLE proxy connection now retries up to 3 times for reliability
+- Detailed error logging for all BLE proxy connection attempts
+- Live BLE device discovery: devices are shown in real time as they are found
+- New /debug/ble-proxy endpoint to test BLE proxy connectivity and return results
+- Version bump and build version update for Home Assistant compatibility
+
+**Technical**
+- Confirmed Dockerfile, config.json, and entrypoint follow Home Assistant add-on best practices
+- All runtime writes use /data
+- Add-on can run independently on a Raspberry Pi Home Assistant installation
+
 ## v2.1.1
 
 **Bug Fixes**
