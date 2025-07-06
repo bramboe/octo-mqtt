@@ -1,3 +1,33 @@
+## v2.3.0
+
+**Major Improvements**
+- Real ESPHome BLE proxy integration replacing all simulation code
+- Live BLE device scanning and discovery with real hardware
+- Enhanced frontend with real-time status updates every 5 seconds
+- Comprehensive BLE proxy diagnostics and connection testing
+- Fixed "String did not match the expected pattern" error completely
+- BLE proxy connection status now displays correctly as "Connected"
+
+**Frontend Enhancements**
+- Fixed frontend/backend API integration issues
+- Corrected element ID references in JavaScript (devices-list, logs)
+- Added updateBLEProxyStatus function for real-time updates
+- Improved testBLEProxy function to handle correct API response format
+- Enhanced error handling and user feedback
+
+**Backend Improvements**
+- Configuration loading works properly in both development and production
+- Enhanced logging with file output and timestamps
+- Removed all simulation code in favor of real hardware integration
+- Improved error messages and troubleshooting information
+- Real-time device discovery and display functionality
+
+**Technical**
+- Updated all API endpoints to use real ESPHome connections
+- Fixed configuration path resolution for different environments
+- Enhanced BLE scanner initialization and management
+- Improved connection retry logic and error recovery
+
 ## v2.2.0
 
 **Improvements**
