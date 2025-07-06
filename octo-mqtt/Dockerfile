@@ -32,7 +32,7 @@ WORKDIR /app
 
 # Install only production dependencies
 COPY package.json package-lock.json ./
-RUN npm ci --omit=dev --legacy-peer-deps
+RUN npm ci --omit=dev --legacy-peer-deps --ignore-scripts
 
 # Copy built output and webui from build stage
 COPY --from=build /app/dist/tsc ./dist/tsc

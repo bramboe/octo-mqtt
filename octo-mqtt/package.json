@@ -37,7 +37,6 @@
     "build:ci": "yarn clean && yarn build",
     "clean": "rm -rf dist build",
     "lint": "eslint src/ --max-warnings=0",
-    "prepare": "husky install",
     "prettier": "prettier --write \"src/**/**.{ts,js,json}\"",
     "test": "jest --watch",
     "test:ci": "jest",
