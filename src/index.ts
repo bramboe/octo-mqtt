@@ -1,5 +1,6 @@
 import express, { Request, Response } from 'express';
 import * as fs from 'fs';
+import { v4 as uuidv4 } from 'uuid';
 
 const app = express();
 app.use(express.json());
@@ -9,6 +10,27 @@ app.use(express.static('webui'));
 const logInfo = (message: string, ...args: any[]) => console.log(`[INFO] ${message}`, ...args);
 const logWarn = (message: string, ...args: any[]) => console.warn(`[WARN] ${message}`, ...args);
 const logError = (message: string, ...args: any[]) => console.error(`[ERROR] ${message}`, ...args);
+
+// Middleware to log every request with a unique request ID
+app.use((req, res, next) => {
+  const requestId = uuidv4();
+  (req as any).requestId = requestId;
+  logInfo(`[REQ ${requestId}] ${req.method} ${req.originalUrl}`);
+  logInfo(`[REQ ${requestId}] Headers: ${JSON.stringify(req.headers)}`);
+  if (req.body && Object.keys(req.body).length > 0) {
+    logInfo(`[REQ ${requestId}] Body: ${JSON.stringify(req.body)}`);
+  }
+  // Attach requestId to response for logging responses
+  (res as any).requestId = requestId;
+  next();
+});
+
+// Helper to log responses
+function logResponse(res, status, body) {
+  const requestId = (res as any).requestId || 'NOID';
+  logInfo(`[RES ${requestId}] Status: ${status}`);
+  logInfo(`[RES ${requestId}] Body: ${JSON.stringify(body)}`);
+}
 
 // Simple options loading
 function getRootOptions() {
@@ -124,19 +146,24 @@ app.post('/scan/start', async (req: Request, res: Response): Promise<void> => {
       cleanupScanState();
     }, SCAN_DURATION_MS);
 
-    res.json({ 
-      message: 'Scan started',
+    logResponse(res, 200, { 
+      message: 'BLE scan started', 
       scanDuration: SCAN_DURATION_MS,
-      proxiesConfigured: bleProxies.length
+      startTime: new Date(scanStartTime).toISOString()
+    });
+    res.json({ 
+      message: 'BLE scan started', 
+      scanDuration: SCAN_DURATION_MS,
+      startTime: new Date(scanStartTime).toISOString()
     });
 
   } catch (error) {
-    logError('[BLE] Error starting scan:', error);
-    cleanupScanState();
-    res.status(500).json({ 
-      error: 'Failed to start scan',
-      details: error instanceof Error ? error.message : String(error)
-    });
+    isScanning = false;
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    logError('❌ [SCAN FAILED] Failed to start BLE scan:', errorMsg);
+    logError('🔧 Error details:', error);
+    logResponse(res, 500, { error: 'Failed to start BLE scan', details: errorMsg });
+    res.status(500).json({ error: 'Failed to start BLE scan', details: errorMsg });
   }
 });
 

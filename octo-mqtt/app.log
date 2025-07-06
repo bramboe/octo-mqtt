@@ -74,3 +74,13 @@
 2025-07-06T09:36:41.886Z [INFO] 🧪 BLE proxy diagnostics requested 
 2025-07-06T09:36:41.898Z [INFO] 🔍 Connection check - espConnection: exists 
 2025-07-06T09:36:41.908Z [INFO] ✅ BLE proxy test successful - 1 proxy(ies) connected 
+2025-07-06T09:46:46.322Z [INFO] Production path failed, trying local path: ./data/options.json 
+2025-07-06T09:46:46.331Z [INFO] Successfully loaded options from ./data/options.json 
+2025-07-06T09:46:46.338Z [INFO] 🔧 Initializing Octo MQTT BLE Scanner... 
+2025-07-06T09:46:46.340Z [INFO] 📁 Serving static files from: webui/ 
+2025-07-06T09:46:46.345Z [INFO] 🚀 Server started on port 8099 
+2025-07-06T09:46:46.349Z [INFO] 🔌 Connecting to ESPHome BLE proxy... 
+2025-07-06T09:46:46.495Z [INFO] ✅ Connected to 1 ESPHome BLE proxy(ies) 
+2025-07-06T09:49:27.034Z [INFO] 🧪 BLE proxy diagnostics requested 
+2025-07-06T09:49:27.063Z [INFO] 🔍 Connection check - espConnection: exists 
+2025-07-06T09:49:27.067Z [INFO] ✅ BLE proxy test successful - 1 proxy(ies) connected 
