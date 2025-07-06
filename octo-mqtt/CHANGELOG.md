@@ -1,3 +1,29 @@
+## v2.5.0
+
+**Enhanced UI Action Logging**
+- Complete frontend-to-backend action tracking for all button clicks
+- Detailed logging with timestamps for Start/Stop/Refresh/Test BLE Proxy actions
+- Enhanced error logging with troubleshooting hints and state information
+- Frontend logs show user actions with timestamps and backend responses
+- Backend logs track request flow, scan timing, and connection diagnostics
+
+**Dynamic Cache Busting**
+- Implemented dynamic JavaScript loading with timestamp + random cache busting
+- Created force-reload.html diagnostic tool for cache testing and clearing
+- Enhanced cache warning system with automatic detection and user guidance
+- Improved browser compatibility with aggressive cache invalidation
+
+**Version Management**
+- Updated all version references to v2.5.0 across all components
+- Enhanced console logging to identify successful version loading
+- Improved user feedback for cache and connectivity issues
+
+**Technical Improvements**
+- Enhanced API endpoints to track request sources (refresh-button, test-button)
+- Improved error differentiation between frontend and backend issues
+- Added client information tracking for better debugging
+- Comprehensive scan duration and timing information logging
+
 ## v2.3.0
 
 **Major Improvements**
