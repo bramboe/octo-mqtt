@@ -28,22 +28,38 @@ class BLEScannerApp {
 
     async startScan() {
         try {
-            this.addLog('🚀 Starting BLE scan...');
+            const timestamp = new Date().toISOString();
+            this.addLog(`🎯 [${timestamp}] User clicked "Start BLE Scan" button`);
+            this.addLog('🚀 Sending scan start request to backend...');
             this.startScanBtn.disabled = true;
             this.stopScanBtn.disabled = false;
             
             const response = await fetch('/scan/start', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    clientInfo: 'Octo MQTT Web UI v2.4.0',
+                    timestamp: timestamp,
+                    userAction: 'start-scan-button-click'
+                })
             });
             
             const data = await response.json();
             
             if (response.ok) {
-                this.addLog(`✅ ${data.message}`, 'success');
+                this.addLog(`✅ Backend response: ${data.message}`, 'success');
+                if (data.startTime) {
+                    this.addLog(`⏰ Scan started at: ${data.startTime}`, 'info');
+                }
+                if (data.scanDuration) {
+                    this.addLog(`⏱️ Scan duration: ${data.scanDuration/1000}s`, 'info');
+                }
                 this.updateScanStatus(true);
             } else {
-                this.addLog(`❌ ${data.error}: ${data.details || ''}`, 'error');
+                this.addLog(`❌ Backend error: ${data.error}`, 'error');
+                if (data.details) {
+                    this.addLog(`🔧 Details: ${data.details}`, 'error');
+                }
                 if (data.troubleshooting) {
                     this.addLog('💡 Troubleshooting:', 'info');
                     data.troubleshooting.forEach((tip) => {
@@ -52,7 +68,8 @@ class BLEScannerApp {
                 }
             }
         } catch (error) {
-            this.addLog(`❌ Error starting scan: ${error.message}`, 'error');
+            this.addLog(`❌ Frontend error starting scan: ${error.message}`, 'error');
+            this.addLog('🔧 This indicates a network or connectivity issue', 'error');
         } finally {
             this.startScanBtn.disabled = false;
         }
@@ -60,23 +77,40 @@ class BLEScannerApp {
 
     async stopScan() {
         try {
-            this.addLog('⏹️ Stopping BLE scan...');
+            const timestamp = new Date().toISOString();
+            this.addLog(`🎯 [${timestamp}] User clicked "Stop BLE Scan" button`);
+            this.addLog('⏹️ Sending scan stop request to backend...');
             
             const response = await fetch('/scan/stop', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    clientInfo: 'Octo MQTT Web UI v2.4.0',
+                    timestamp: timestamp,
+                    userAction: 'stop-scan-button-click'
+                })
             });
             
             const data = await response.json();
             
             if (response.ok) {
-                this.addLog(`✅ ${data.message}`, 'success');
+                this.addLog(`✅ Backend response: ${data.message}`, 'success');
+                if (data.stopTime) {
+                    this.addLog(`⏰ Scan stopped at: ${data.stopTime}`, 'info');
+                }
+                if (data.duration) {
+                    this.addLog(`📊 Total scan duration: ${(data.duration/1000).toFixed(1)}s`, 'info');
+                }
                 this.updateScanStatus(false);
             } else {
-                this.addLog(`❌ ${data.error}`, 'error');
+                this.addLog(`❌ Backend error: ${data.error}`, 'error');
+                if (data.details) {
+                    this.addLog(`🔧 Details: ${data.details}`, 'error');
+                }
             }
         } catch (error) {
-            this.addLog(`❌ Error stopping scan: ${error.message}`, 'error');
+            this.addLog(`❌ Frontend error stopping scan: ${error.message}`, 'error');
+            this.addLog('🔧 This indicates a network or connectivity issue', 'error');
         } finally {
             this.stopScanBtn.disabled = true;
         }
@@ -84,7 +118,7 @@ class BLEScannerApp {
 
     async refreshStatus() {
         try {
-            const response = await fetch('/scan/status');
+            const response = await fetch('/scan/status?source=refresh-button');
             const data = await response.json();
             
             this.updateScanStatus(data.isScanning);
@@ -100,15 +134,19 @@ class BLEScannerApp {
     }
 
     async testBLEProxy() {
+        const timestamp = new Date().toISOString();
+        this.addLog(`🎯 [${timestamp}] User clicked "Test BLE Proxy" button`);
         this.bleProxyDiagnostics.innerHTML = '<div class="loading">🧪 Testing BLE proxy connections...</div>';
         
         try {
-            const response = await fetch('/debug/ble-proxy');
+            this.addLog('🧪 Sending BLE proxy test request to backend...');
+            const response = await fetch('/debug/ble-proxy?source=test-button');
             const data = await response.json();
             
             if (data.status === 'connected') {
                 const statusIcon = '✅';
                 const statusClass = 'success';
+                this.addLog(`✅ BLE proxy test successful: ${data.proxies} proxy(ies) connected`, 'success');
                 this.bleProxyDiagnostics.innerHTML = `
                     <div class="diagnostic-result ${statusClass}">
                         <strong>BLE Proxy Status:</strong> 
@@ -116,6 +154,7 @@ class BLEScannerApp {
                     </div>
                 `;
             } else {
+                this.addLog(`❌ BLE proxy test failed: ${data.error || 'Disconnected'}`, 'error');
                 this.bleProxyDiagnostics.innerHTML = `
                     <div class="diagnostic-result error">
                         ❌ BLE Proxy Status: ${data.error || 'Disconnected'}
@@ -123,6 +162,7 @@ class BLEScannerApp {
                 `;
             }
         } catch (error) {
+            this.addLog(`❌ Frontend error testing BLE proxy: ${error.message}`, 'error');
             this.bleProxyDiagnostics.innerHTML = `<div class="diagnostic-result error">Error testing BLE proxy: ${error.message}</div>`;
         }
     }

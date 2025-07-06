@@ -90,69 +90,132 @@ async function initializeESPHome() {
 }
 
 // Start BLE scan
-app.post('/scan/start', async (_req: Request, res: Response): Promise<void> => {
-  logWithTimestamp('INFO', '📡 Received scan start request');
+app.post('/scan/start', async (req: Request, res: Response): Promise<void> => {
+  const userAgent = req.headers['user-agent'] || 'Unknown';
+  const clientInfo = req.body?.clientInfo || 'Web UI';
+  
+  logWithTimestamp('INFO', '🎯 [UI ACTION] User clicked "Start BLE Scan" button');
+  logWithTimestamp('INFO', `📡 Received scan start request from ${clientInfo} (${userAgent.substring(0, 50)}...)`);
+  logWithTimestamp('INFO', `🔍 Current state - isScanning: ${isScanning}, bleScanner: ${bleScanner ? 'initialized' : 'not initialized'}`);
   
   if (isScanning) {
-    logWithTimestamp('WARN', '⚠️  BLE scan already in progress');
+    logWithTimestamp('WARN', '⚠️  BLE scan already in progress - rejecting request');
     res.status(400).json({ error: 'Scan already in progress' });
     return;
   }
 
   if (!bleScanner) {
-    logWithTimestamp('ERROR', '❌ BLE scanner not initialized');
+    logWithTimestamp('ERROR', '❌ BLE scanner not initialized - cannot start scan');
+    logWithTimestamp('ERROR', '💡 Troubleshooting: Check ESPHome BLE proxy connection');
     res.status(500).json({ error: 'BLE scanner not initialized' });
     return;
   }
 
   try {
+    logWithTimestamp('INFO', '🚀 [SCAN START] Initiating BLE scan sequence...');
     isScanning = true;
     scanStartTime = Date.now();
-    logWithTimestamp('INFO', '🚀 Starting real BLE scan...');
+    logWithTimestamp('INFO', `⏰ Scan started at: ${new Date(scanStartTime).toISOString()}`);
+    logWithTimestamp('INFO', `⏱️  Scan duration: ${SCAN_DURATION_MS}ms (${SCAN_DURATION_MS/1000}s)`);
+    
     await bleScanner.startScan();
+    logWithTimestamp('INFO', '✅ BLE scanner started successfully');
+    
     scanTimeout = setTimeout(() => {
       isScanning = false;
-      logWithTimestamp('INFO', '⏹️  BLE scan timeout reached');
+      logWithTimestamp('INFO', '⏹️  [SCAN TIMEOUT] BLE scan timeout reached - stopping scan');
     }, SCAN_DURATION_MS);
-    res.json({ message: 'BLE scan started', scanDuration: SCAN_DURATION_MS });
+    
+    logWithTimestamp('INFO', '📤 Sending success response to frontend');
+    res.json({ 
+      message: 'BLE scan started', 
+      scanDuration: SCAN_DURATION_MS,
+      startTime: new Date(scanStartTime).toISOString()
+    });
   } catch (error) {
     isScanning = false;
-    logWithTimestamp('ERROR', '❌ Failed to start BLE scan:', error instanceof Error ? error.message : String(error));
-    res.status(500).json({ error: 'Failed to start BLE scan', details: error instanceof Error ? error.message : String(error) });
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    logWithTimestamp('ERROR', '❌ [SCAN FAILED] Failed to start BLE scan:', errorMsg);
+    logWithTimestamp('ERROR', '🔧 Error details:', error);
+    res.status(500).json({ error: 'Failed to start BLE scan', details: errorMsg });
   }
 });
 
 // Stop BLE scan
-app.post('/scan/stop', async (_req: Request, res: Response): Promise<void> => {
-  logWithTimestamp('INFO', '⏹️  Received scan stop request');
+app.post('/scan/stop', async (req: Request, res: Response): Promise<void> => {
+  const clientInfo = req.body?.clientInfo || 'Web UI';
+  
+  logWithTimestamp('INFO', '🎯 [UI ACTION] User clicked "Stop BLE Scan" button');
+  logWithTimestamp('INFO', `⏹️  Received scan stop request from ${clientInfo}`);
+  logWithTimestamp('INFO', `🔍 Current state - isScanning: ${isScanning}`);
   
   if (!isScanning) {
+    logWithTimestamp('INFO', '💭 No scan in progress - nothing to stop');
     res.json({ message: 'No scan in progress' });
     return;
   }
 
   try {
-    if (bleScanner) await bleScanner.stopScan();
-    if (scanTimeout) clearTimeout(scanTimeout);
+    logWithTimestamp('INFO', '🛑 [SCAN STOP] Initiating scan stop sequence...');
+    
+    if (bleScanner) {
+      logWithTimestamp('INFO', '📡 Calling bleScanner.stopScan()...');
+      await bleScanner.stopScan();
+      logWithTimestamp('INFO', '✅ BLE scanner stopped successfully');
+    }
+    
+    if (scanTimeout) {
+      logWithTimestamp('INFO', '⏰ Clearing scan timeout...');
+      clearTimeout(scanTimeout);
+      scanTimeout = null;
+    }
+    
     isScanning = false;
-    logWithTimestamp('INFO', '✅ BLE scan stopped');
-    res.json({ message: 'BLE scan stopped' });
+    const stopTime = new Date().toISOString();
+    logWithTimestamp('INFO', `✅ [SCAN STOPPED] BLE scan stopped at: ${stopTime}`);
+    
+    if (scanStartTime) {
+      const duration = Date.now() - scanStartTime;
+      logWithTimestamp('INFO', `📊 Scan duration: ${duration}ms (${(duration/1000).toFixed(1)}s)`);
+    }
+    
+    logWithTimestamp('INFO', '📤 Sending stop confirmation to frontend');
+    res.json({ 
+      message: 'BLE scan stopped',
+      stopTime: stopTime,
+      duration: scanStartTime ? Date.now() - scanStartTime : null
+    });
   } catch (error) {
-    logWithTimestamp('ERROR', '❌ Failed to stop BLE scan:', error instanceof Error ? error.message : String(error));
-    res.status(500).json({ error: 'Failed to stop BLE scan', details: error instanceof Error ? error.message : String(error) });
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    logWithTimestamp('ERROR', '❌ [STOP FAILED] Failed to stop BLE scan:', errorMsg);
+    logWithTimestamp('ERROR', '🔧 Error details:', error);
+    res.status(500).json({ error: 'Failed to stop BLE scan', details: errorMsg });
   }
 });
 
 // Get scan status
-app.get('/scan/status', (_req: Request, res: Response) => {
+app.get('/scan/status', (req: Request, res: Response) => {
+  const isRefreshButton = req.query.source === 'refresh-button';
+  
+  if (isRefreshButton) {
+    logWithTimestamp('INFO', '🎯 [UI ACTION] User clicked "Refresh Status" button');
+  }
+  
   let devices: any[] = [];
   if (bleScanner) {
     const status = bleScanner.getScanStatus();
     devices = status.devices || [];
   }
+  
+  const timeRemaining = isScanning && scanStartTime ? Math.max(0, SCAN_DURATION_MS - (Date.now() - scanStartTime)) : 0;
+  
+  if (isRefreshButton) {
+    logWithTimestamp('INFO', `📊 Status refresh - isScanning: ${isScanning}, devices: ${devices.length}, timeRemaining: ${timeRemaining}ms`);
+  }
+  
   res.json({
     isScanning,
-    scanTimeRemaining: isScanning && scanStartTime ? Math.max(0, SCAN_DURATION_MS - (Date.now() - scanStartTime)) : 0,
+    scanTimeRemaining: timeRemaining,
     devices,
     deviceCount: devices.length,
     timestamp: new Date().toISOString()
@@ -160,15 +223,26 @@ app.get('/scan/status', (_req: Request, res: Response) => {
 });
 
 // BLE Proxy diagnostics
-app.get('/debug/ble-proxy', async (_req: Request, res: Response) => {
+app.get('/debug/ble-proxy', async (req: Request, res: Response) => {
+  const isTestButton = req.query.source === 'test-button';
+  
+  if (isTestButton) {
+    logWithTimestamp('INFO', '🎯 [UI ACTION] User clicked "Test BLE Proxy" button');
+  }
+  
   logWithTimestamp('INFO', '🧪 BLE proxy diagnostics requested');
+  logWithTimestamp('INFO', `🔍 Connection check - espConnection: ${espConnection ? 'exists' : 'null'}`);
   
   if (!espConnection || !(espConnection as any).connections || (espConnection as any).connections.length === 0) {
+    logWithTimestamp('WARN', '❌ No ESPHome BLE proxy connected');
+    logWithTimestamp('INFO', '💡 Troubleshooting: Check ESPHome configuration and network connectivity');
     res.json({ status: 'disconnected', error: 'No ESPHome BLE proxy connected' });
     return;
   }
 
-  res.json({ status: 'connected', proxies: (espConnection as any).connections.length });
+  const proxyCount = (espConnection as any).connections.length;
+  logWithTimestamp('INFO', `✅ BLE proxy test successful - ${proxyCount} proxy(ies) connected`);
+  res.json({ status: 'connected', proxies: proxyCount });
 });
 
 // Health check
