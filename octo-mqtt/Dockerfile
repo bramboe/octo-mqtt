@@ -1,5 +1,6 @@
+# --- Build stage ---
 ARG BUILD_FROM
-FROM $BUILD_FROM
+FROM $BUILD_FROM as build
 
 # Install Node.js and system dependencies
 RUN \
@@ -16,22 +17,28 @@ RUN \
 # Set working directory
 WORKDIR /app
 
-# Copy package files and install dependencies
+# Install all dependencies (including dev) for build
 COPY package.json package-lock.json ./
 RUN npm ci
 
-# Copy all source code
+# Copy all source code and build
 COPY . .
-
-# Build TypeScript
 RUN npm run build
 
-# Copy application files
-COPY webui ./webui/
+# --- Final image ---
+FROM $BUILD_FROM
+RUN apk add --no-cache nodejs npm bash curl jq tzdata
+WORKDIR /app
 
-# Copy run script and make it executable
-COPY run.sh ./run.sh
-RUN chmod +x ./run.sh && ls -la ./run.sh
+# Install only production dependencies
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
+
+# Copy built output and webui from build stage
+COPY --from=build /app/dist/tsc ./dist/tsc
+COPY --from=build /app/webui ./webui
+COPY --from=build /app/run.sh ./run.sh
+RUN chmod +x ./run.sh
 
 # Set environment
 ENV NODE_ENV=production
