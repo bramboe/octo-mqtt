@@ -34,7 +34,7 @@ class BLEScannerApp {
             this.startScanBtn.disabled = true;
             this.stopScanBtn.disabled = false;
             
-            const response = await fetch('/scan/start', {
+            const response = await fetch(apiUrl('/scan/start'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -81,7 +81,7 @@ class BLEScannerApp {
             this.addLog(`🎯 [${timestamp}] User clicked "Stop BLE Scan" button`);
             this.addLog('⏹️ Sending scan stop request to backend...');
             
-            const response = await fetch('/scan/stop', {
+            const response = await fetch(apiUrl('/scan/stop'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -118,7 +118,7 @@ class BLEScannerApp {
 
     async refreshStatus() {
         try {
-            const response = await fetch('/scan/status?source=refresh-button');
+            const response = await fetch(apiUrl('/scan/status?source=refresh-button'));
             const data = await response.json();
             
             this.updateScanStatus(data.isScanning);
@@ -140,7 +140,7 @@ class BLEScannerApp {
         
         try {
             this.addLog('🧪 Sending BLE proxy test request to backend...');
-            const response = await fetch('/debug/ble-proxy?source=test-button');
+            const response = await fetch(apiUrl('/debug/ble-proxy?source=test-button'));
             const data = await response.json();
             
             if (data.status === 'connected') {
@@ -186,7 +186,7 @@ class BLEScannerApp {
         if (!this.bleProxyStatus) return;
         
         try {
-            const response = await fetch('/debug/ble-proxy');
+            const response = await fetch(apiUrl('/debug/ble-proxy'));
             const data = await response.json();
             
             if (data.status === 'connected') {
@@ -235,7 +235,7 @@ class BLEScannerApp {
             const friendlyName = prompt(`Enter a friendly name for ${name}:`, name);
             if (!friendlyName) return;
             
-            const response = await fetch('/devices/add', {
+            const response = await fetch(apiUrl('/devices/add'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
