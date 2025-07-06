@@ -9,6 +9,7 @@ export const connectToESPHome = async (): Promise<IESPConnection> => {
   logInfo('[ESPHome] Connecting...');
 
   const proxies = getProxies();
+  logInfo(`[ESPHome] Proxies to connect: ${JSON.stringify(proxies)}`);
   
   if (proxies.length === 0) {
     logWarn('[ESPHome] No BLE proxies configured. BLE functionality will not be available.');
@@ -25,16 +26,19 @@ export const connectToESPHome = async (): Promise<IESPConnection> => {
           proxies.map(async (config: BLEProxy) => {
         try {
           logInfo(`[ESPHome] Creating connection to ${config.host}:${config.port}`);
-            const connection = new Connection(config);
-            return await connect(connection);
+          const connection = new Connection(config);
+          const result = await connect(connection);
+          logInfo(`[ESPHome] Successfully connected to ${config.host}:${config.port}`);
+          return result;
         } catch (error) {
-          logWarn(`[ESPHome] Failed to connect to proxy at ${config.host}:${config.port}`);
+          logWarn(`[ESPHome] Failed to connect to proxy at ${config.host}:${config.port}: ${error instanceof Error ? error.message : String(error)}`);
           return null;
         }
       })
     );
     
     const validConnections = connections.filter(c => c !== null);
+    logInfo(`[ESPHome] Number of successful BLE proxy connections: ${validConnections.length}`);
     
     if (validConnections.length === 0) {
       logWarn('[ESPHome] Could not connect to any BLE proxies. BLE functionality will be limited.');

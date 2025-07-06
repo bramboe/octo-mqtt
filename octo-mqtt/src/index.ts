@@ -72,6 +72,12 @@ let scanStartTime: number | null = null;
 let scanTimeout: NodeJS.Timeout | null = null;
 const SCAN_DURATION_MS = 30000;
 
+// Add global request logging
+app.use((req, res, next) => {
+  logWithTimestamp('INFO', `[HTTP] ${req.method} ${req.originalUrl} from ${req.ip || req.connection?.remoteAddress || 'unknown'}`);
+  next();
+});
+
 async function initializeESPHome() {
   try {
     const config = getRootOptions();
@@ -83,6 +89,7 @@ async function initializeESPHome() {
       espConnection = conn as IESPConnection & EventEmitter;
       logWithTimestamp('INFO', `✅ Connected to ${(conn as any).connections.length} ESPHome BLE proxy(ies)`);
       bleScanner = new BLEScanner(espConnection);
+      logWithTimestamp('INFO', '[DIAG] BLEScanner instance created.');
     } else {
       logWithTimestamp('ERROR', '[DIAG] ❌ No ESPHome BLE proxies connected after connectToESPHome()');
     }
@@ -93,6 +100,7 @@ async function initializeESPHome() {
 
 // Start BLE scan
 app.post('/scan/start', async (req: Request, res: Response): Promise<void> => {
+  logWithTimestamp('INFO', '[API] /scan/start called');
   const userAgent = req.headers['user-agent'] || 'Unknown';
   const clientInfo = req.body?.clientInfo || 'Web UI';
   
@@ -145,6 +153,7 @@ app.post('/scan/start', async (req: Request, res: Response): Promise<void> => {
 
 // Stop BLE scan
 app.post('/scan/stop', async (req: Request, res: Response): Promise<void> => {
+  logWithTimestamp('INFO', '[API] /scan/stop called');
   const clientInfo = req.body?.clientInfo || 'Web UI';
   
   logWithTimestamp('INFO', '🎯 [UI ACTION] User clicked "Stop BLE Scan" button');
@@ -197,6 +206,7 @@ app.post('/scan/stop', async (req: Request, res: Response): Promise<void> => {
 
 // Get scan status
 app.get('/scan/status', (req: Request, res: Response) => {
+  logWithTimestamp('INFO', '[API] /scan/status called');
   const isRefreshButton = req.query.source === 'refresh-button';
   
   if (isRefreshButton) {
@@ -226,6 +236,7 @@ app.get('/scan/status', (req: Request, res: Response) => {
 
 // BLE Proxy diagnostics
 app.get('/debug/ble-proxy', async (req: Request, res: Response) => {
+  logWithTimestamp('INFO', '[API] /debug/ble-proxy called');
   const isTestButton = req.query.source === 'test-button';
   if (isTestButton) {
     logWithTimestamp('INFO', '🎯 [UI ACTION] User clicked "Test BLE Proxy" button');
@@ -245,6 +256,7 @@ app.get('/debug/ble-proxy', async (req: Request, res: Response) => {
 
 // Health check
 app.get('/health', (_req: Request, res: Response) => {
+  logWithTimestamp('INFO', '[API] /health called');
   logWithTimestamp('INFO', '[DIAG] /health endpoint called.');
   res.json({
     status: 'healthy',
