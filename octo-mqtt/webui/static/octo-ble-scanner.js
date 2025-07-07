@@ -352,11 +352,11 @@ class BLEScannerApp {
 }
 
 // Initialize app when DOM is loaded
-// Version 2.7.1-debug - BLE PROXY STATUS DEBUG
+// Version 2.7.2-ingress - HOME ASSISTANT INGRESS FIX
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('🚀 Octo MQTT v2.7.1-debug - BLE PROXY STATUS DEBUG LOADED!');
+    console.log('🚀 Octo MQTT v2.7.2-ingress - HOME ASSISTANT INGRESS FIX LOADED!');
     console.log('✅ JavaScript file: octo-ble-scanner.js loaded successfully');
-    console.log('🔧 Added debug logging to troubleshoot BLE proxy status issue!');
+    console.log('🔧 Fixed URL construction for Home Assistant Ingress compatibility!');
     
     // Update version indicator
     const indicator = document.getElementById('version-indicator');
@@ -388,25 +388,27 @@ function apiUrl(endpoint) {
   console.log('🔥 [API] window.location.host:', window.location.host);
   
   const path = window.location.pathname;
-  const match = path.match(/\/api\/hassio_ingress\/[a-zA-Z0-9_-]+/);
-  console.log('🔥 [API] Ingress regex match:', match);
+  
+  // Check for both new and old ingress patterns
+  const ingressMatch = path.match(/\/api\/hassio_ingress\/[a-zA-Z0-9_-]+/) || 
+                      path.match(/\/api\/ingress\/[a-zA-Z0-9_-]+/);
+  console.log('🔥 [API] Ingress regex match:', ingressMatch);
   
   // Remove leading slash from endpoint for proper relative path construction
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint.substring(1) : endpoint;
   
   let baseUrl;
-  if (match) {
-    // In ingress mode, use relative URL (no leading slash, no dot)
-    // This makes the URL relative to the current ingress path
-    baseUrl = cleanEndpoint;
-    console.log('🔥 [API] USING INGRESS MODE - relative URL');
+  if (ingressMatch) {
+    // In ingress mode, construct URL relative to ingress base path
+    const ingressBasePath = ingressMatch[0];
+    baseUrl = ingressBasePath + '/' + cleanEndpoint;
+    console.log('🔥 [API] USING INGRESS MODE - ingress path:', ingressBasePath);
   } else {
     // Direct access mode, use absolute path
     baseUrl = '/' + cleanEndpoint;
     console.log('🔥 [API] USING DIRECT MODE - absolute path');
   }
   
-  console.log('🔥 [API] getApiBasePath() returned:', getApiBasePath());
   console.log('🔥 [API] Clean endpoint:', cleanEndpoint);
   console.log('🔥 [API] Requested endpoint:', endpoint);
   console.log('🔥 [API] Final constructed URL:', baseUrl);

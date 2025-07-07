@@ -292,6 +292,26 @@ app.get('/health', (_req: Request, res: Response) => {
   });
 });
 
+// Handle Ingress path detection for better compatibility with Home Assistant Ingress
+app.use((req: Request, res: Response, next) => {
+  // Log ingress-related headers for debugging
+  const ingressPath = req.headers['x-ingress-path'] as string;
+  const originalUrl = req.headers['x-original-url'] as string;
+  
+  if (ingressPath) {
+    logWithTimestamp('INFO', `[INGRESS] X-Ingress-Path: ${ingressPath}`);
+  }
+  if (originalUrl) {
+    logWithTimestamp('INFO', `[INGRESS] X-Original-URL: ${originalUrl}`);
+  }
+  
+  // Add CORS headers for Ingress compatibility
+  res.header('X-Frame-Options', 'SAMEORIGIN');
+  res.header('Content-Security-Policy', "frame-ancestors 'self'");
+  
+  next();
+});
+
 // Serve static files AFTER API routes to prevent conflicts
 app.use(express.static('webui'));
 

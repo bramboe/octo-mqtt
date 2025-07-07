@@ -45,6 +45,7 @@
   },
   "ingress": true,
   "ingress_port": 8099,
+  "ingress_entry": "index.html",
   "panel_icon": "mdi:bed",
   "panel_title": "Octo MQTT",
   "watchdog": "http://[HOST]:[PORT:8099]/health",
