@@ -6,13 +6,13 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>Octo MQTT - Smart Bed Control v2.6.8</title>
-    <link rel="stylesheet" href="static/style.css?v=2.6.8">
+    <title>Octo MQTT - Smart Bed Control v2.6.9</title>
+    <link rel="stylesheet" href="static/style.css?v=2.6.9">
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>🛏️ Octo MQTT v2.6.8</h1>
+            <h1>🛏️ Octo MQTT v2.6.9</h1>
             <p>Smart Bed Control via MQTT and BLE</p>
             <div id="cache-warning" style="background: #ff6b6b; color: white; padding: 10px; border-radius: 5px; margin: 10px 0; display: none;">
                 ⚠️ <strong>Cache Issue Detected!</strong> Press <kbd>Ctrl+F5</kbd> (Windows) or <kbd>Cmd+Shift+R</kbd> (Mac) to hard refresh this page.
@@ -90,7 +90,7 @@
         const timestamp = Date.now();
         const script = document.createElement('script');
         // Remove module type - load as regular script for compatibility
-        script.src = `static/octo-ble-scanner.js?v=2.6.8&t=${timestamp}&cb=${Math.random()}`;
+        script.src = `static/octo-ble-scanner.js?v=2.6.9&t=${timestamp}&cb=${Math.random()}`;
         script.onload = function() {
             console.log('✅ JavaScript loaded successfully with dynamic cache busting');
         };

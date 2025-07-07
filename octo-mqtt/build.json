@@ -7,8 +7,8 @@
     "i386": "ghcr.io/home-assistant/i386-base:latest"
   },
   "args": {
-    "BUILD_VERSION": "2.6.8"
+    "BUILD_VERSION": "2.6.9"
   },
   "squash": false,
-  "version": "2.6.8"
+  "version": "2.6.9"
 } 
