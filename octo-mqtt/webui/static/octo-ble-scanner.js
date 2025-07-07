@@ -332,7 +332,17 @@ function apiUrl(endpoint) {
   const match = path.match(/\/api\/hassio_ingress\/[a-zA-Z0-9]+\//);
   console.log('[API] Ingress regex match:', match);
   
-  const baseUrl = getApiBasePath() + endpoint;
+  // For Home Assistant Ingress, use relative paths that preserve the ingress prefix
+  // For direct access, use relative paths from root
+  let baseUrl;
+  if (match) {
+    // In ingress mode, use relative URL that maintains the ingress path
+    baseUrl = '.' + endpoint;
+  } else {
+    // Direct access mode, use absolute path
+    baseUrl = endpoint;
+  }
+  
   console.log('[API] getApiBasePath() returned:', getApiBasePath());
   console.log('[API] Requested endpoint:', endpoint);
   console.log('[API] Final constructed URL:', baseUrl);
