@@ -71,6 +71,30 @@ let scanStartTime: number | null = null;
 let scanTimeout: NodeJS.Timeout | null = null;
 const SCAN_DURATION_MS = 30000;
 
+const sseClients: Response[] = [];
+
+interface LiveStatus {
+  isScanning: boolean;
+  devices: any[];
+  bleProxyConnected: boolean;
+  timestamp: string;
+}
+
+function getLiveStatus(): LiveStatus {
+  let devices: any[] = [];
+  if (bleScanner) {
+    const status = bleScanner.getScanStatus();
+    devices = status.devices || [];
+  }
+  const bleProxyConnected = !!espConnection && (espConnection as any).connections && (espConnection as any).connections.length > 0;
+  return {
+    isScanning,
+    devices,
+    bleProxyConnected,
+    timestamp: new Date().toISOString()
+  };
+}
+
 // Add global request logging
 app.use((req, res, next) => {
   logWithTimestamp('INFO', `[HTTP] ${req.method} ${req.originalUrl} from ${req.ip || req.connection?.remoteAddress || 'unknown'}`);
@@ -347,6 +371,35 @@ app.use('/api/*', (req: Request, res: Response) => {
     timestamp: new Date().toISOString()
   });
 });
+
+// SSE endpoint for live updates
+app.get('/events', (req: Request, res: Response) => {
+  logWithTimestamp('INFO', '[SSE] /events client connected');
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders();
+
+  // Send initial snapshot
+  res.write(`data: ${JSON.stringify(getLiveStatus())}\n\n`);
+  sseClients.push(res);
+  logWithTimestamp('INFO', `[SSE] Total clients: ${sseClients.length}`);
+
+  req.on('close', () => {
+    const idx = sseClients.indexOf(res);
+    if (idx !== -1) sseClients.splice(idx, 1);
+    logWithTimestamp('INFO', `[SSE] Client disconnected. Remaining: ${sseClients.length}`);
+  });
+});
+
+function broadcastStatus() {
+  if (sseClients.length === 0) return;
+  const payload = `data: ${JSON.stringify(getLiveStatus())}\n\n`;
+  sseClients.forEach((client) => client.write(payload));
+}
+
+// Broadcast status every 2 seconds
+setInterval(broadcastStatus, 2000);
 
 // Start server
 const config = getRootOptions();

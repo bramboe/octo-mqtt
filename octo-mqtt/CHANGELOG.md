@@ -649,3 +649,12 @@ This version fixes the core issue where the frontend was not properly loading un
 - Migrated from standalone application to Home Assistant add-on
 - Updated architecture for container deployment
 - Enhanced security and integration features
+
+## v2.8.0
+
+**Feature – Live UI Updates**
+- Added Server-Sent Events `/events` endpoint in the backend.
+- Frontend now opens a persistent SSE connection and updates scan state, device list, and BLE-proxy status instantly – no manual refresh needed.
+- Keeps a 5-second polling fallback for reliability.
+
+**Version bump**: All files updated to 2.8.0.

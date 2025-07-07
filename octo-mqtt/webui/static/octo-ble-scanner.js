@@ -1,6 +1,7 @@
 // Octo MQTT Web Interface
 class BLEScannerApp {
     constructor() {
+        console.log('🚀 Octo MQTT v2.8.0 - LIVE UPDATES ENABLED!');
         console.log('🔥 BLEScannerApp constructor starting...');
         
         // Check if elements exist before using them
@@ -35,6 +36,8 @@ class BLEScannerApp {
         
         // Auto-refresh status every 5 seconds
         setInterval(() => this.refreshStatus(), 5000);
+        // Open live event stream from backend
+        this.openEventStream();
         console.log('🔥 BLEScannerApp constructor complete!');
     }
 
@@ -85,7 +88,7 @@ class BLEScannerApp {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    clientInfo: 'Octo MQTT Web UI v2.7.3',
+                    clientInfo: 'Octo MQTT Web UI v2.8.0',
                     timestamp: timestamp,
                     userAction: 'start-scan-button-click'
                 })
@@ -132,7 +135,7 @@ class BLEScannerApp {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    clientInfo: 'Octo MQTT Web UI v2.7.3',
+                    clientInfo: 'Octo MQTT Web UI v2.8.0',
                     timestamp: timestamp,
                     userAction: 'stop-scan-button-click'
                 })
@@ -371,18 +374,58 @@ class BLEScannerApp {
             this.logContainer.removeChild(this.logContainer.firstChild);
         }
     }
+
+    // NEW: open server-sent events stream for live updates
+    openEventStream() {
+        try {
+            const sseUrl = apiUrl('events');
+            console.log('[BLEScanner] Opening SSE connection to', sseUrl);
+            const evtSrc = new EventSource(sseUrl);
+
+            evtSrc.onmessage = (evt) => {
+                try {
+                    const data = JSON.parse(evt.data);
+                    // console.debug('[BLEScanner] SSE data:', data);
+                    this.updateScanStatus(data.isScanning);
+                    this.updateDeviceCount(data.devices ? data.devices.length : 0);
+                    this.updateDeviceList(data.devices || []);
+                    this.updateBLEProxyStatusFromBoolean(data.bleProxyConnected);
+                } catch (e) {
+                    console.error('[BLEScanner] Failed to parse SSE message', e);
+                }
+            };
+
+            evtSrc.onerror = (err) => {
+                console.warn('[BLEScanner] SSE connection error', err);
+            };
+        } catch (err) {
+            console.error('[BLEScanner] Failed to set up SSE', err);
+        }
+    }
+
+    // NEW: helper to update BLE proxy status directly from boolean
+    updateBLEProxyStatusFromBoolean(connected) {
+        if (!this.bleProxyStatus) return;
+        if (connected) {
+            this.bleProxyStatus.textContent = 'Connected';
+            this.bleProxyStatus.className = 'status-indicator connected';
+        } else {
+            this.bleProxyStatus.textContent = 'Disconnected';
+            this.bleProxyStatus.className = 'status-indicator disconnected';
+        }
+    }
 }
 
 // Initialize app when DOM is loaded
 // Version 2.7.3 - INGRESS COMPATIBILITY FIX
 function initOctoMQTTApp() {
-    console.log('🚀 Octo MQTT v2.7.3 - INGRESS COMPATIBILITY FIX!');
+    console.log('🚀 Octo MQTT v2.8.0 - LIVE UPDATES ENABLED!');
     console.log('✅ JavaScript file: octo-ble-scanner.js loaded successfully');
     console.log('🔧 Fixed URL construction for Home Assistant Ingress compatibility!');
     
     const indicator = document.getElementById('version-indicator');
     if (indicator) {
-        indicator.innerHTML = '🚀 HTML v2.7.3 + JavaScript v2.7.3 loaded successfully!';
+        indicator.innerHTML = '🚀 HTML v2.8.0 + JavaScript v2.8.0 loaded successfully!';
         indicator.style.background = '#2196F3';
     }
     

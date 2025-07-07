@@ -38,7 +38,7 @@ get_bashio_service_info() {
 }
 
 # Log startup with unique identifier
-log_message "info" "🚀 Starting Octo MQTT addon v2.7.3..."
+log_message "info" "🚀 Starting Octo MQTT addon v2.8.0..."
 log_message "info" "📅 Build: v2025.01.16.1"
 log_message "info" "⚡ Process ID: $$"
 
