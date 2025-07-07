@@ -85,7 +85,7 @@ class BLEScannerApp {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    clientInfo: 'Octo MQTT Web UI v2.7.1',
+                    clientInfo: 'Octo MQTT Web UI v2.7.2',
                     timestamp: timestamp,
                     userAction: 'start-scan-button-click'
                 })
@@ -132,7 +132,7 @@ class BLEScannerApp {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    clientInfo: 'Octo MQTT Web UI v2.7.1',
+                    clientInfo: 'Octo MQTT Web UI v2.7.2',
                     timestamp: timestamp,
                     userAction: 'stop-scan-button-click'
                 })
@@ -361,7 +361,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Update version indicator
     const indicator = document.getElementById('version-indicator');
     if (indicator) {
-        indicator.innerHTML = '🚀 HTML v2.7.1 + JavaScript v2.7.1 loaded successfully!';
+        indicator.innerHTML = '🚀 HTML v2.7.2 + JavaScript v2.7.2 loaded successfully!';
         indicator.style.background = '#2196F3';
     }
     

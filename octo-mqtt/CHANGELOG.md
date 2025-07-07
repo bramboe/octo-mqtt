@@ -1,3 +1,14 @@
+## v2.7.2
+
+**Home Assistant Ingress Compatibility Fix**
+- **CRITICAL FIX**: Fixed web UI not communicating with backend under Home Assistant Ingress
+- Added proper `ingress_entry` configuration for Home Assistant add-on compliance
+- Enhanced frontend URL construction to handle Ingress paths correctly
+- Added detection for both old and new Ingress path patterns (`/api/hassio_ingress/` and `/api/ingress/`)
+- Added Ingress header logging and CORS headers for better compatibility
+- Fixed API calls failing when addon runs through Home Assistant's Ingress system
+- Updated all version references to v2.7.2 for consistency
+
 ## v2.7.1
 
 **BLE Proxy Status Fix Release**
