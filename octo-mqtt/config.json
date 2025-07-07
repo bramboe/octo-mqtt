@@ -1,6 +1,6 @@
 {
   "name": "Octo MQTT",
-  "version": "2.6.9",
+  "version": "2.7.0",
   "slug": "octo-mqtt",
   "description": "Control Octo smart beds via MQTT and BLE proxy",
   "url": "https://github.com/bramboe/octo-mqtt",
