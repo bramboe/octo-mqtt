@@ -85,7 +85,7 @@ class BLEScannerApp {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    clientInfo: 'Octo MQTT Web UI v2.7.0',
+                    clientInfo: 'Octo MQTT Web UI v2.7.1',
                     timestamp: timestamp,
                     userAction: 'start-scan-button-click'
                 })
@@ -132,7 +132,7 @@ class BLEScannerApp {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    clientInfo: 'Octo MQTT Web UI v2.7.0',
+                    clientInfo: 'Octo MQTT Web UI v2.7.1',
                     timestamp: timestamp,
                     userAction: 'stop-scan-button-click'
                 })
@@ -199,24 +199,24 @@ class BLEScannerApp {
         
         try {
             this.addLog('🧪 Sending BLE proxy test request to backend...');
-            const response = await fetch(apiUrl('/debug/ble-proxy?source=test-button'));
+            const response = await fetch(apiUrl('/health?source=test-button'));
             const data = await response.json();
             
-            if (data.status === 'connected') {
+            if (data.bleProxyConnected === true) {
                 const statusIcon = '✅';
                 const statusClass = 'success';
-                this.addLog(`✅ BLE proxy test successful: ${data.proxies} proxy(ies) connected`, 'success');
+                this.addLog(`✅ BLE proxy test successful: Connected`, 'success');
                 this.bleProxyDiagnostics.innerHTML = `
                     <div class="diagnostic-result ${statusClass}">
                         <strong>BLE Proxy Status:</strong> 
-                        ${statusIcon} Connected (${data.proxies}/${data.total || data.proxies} proxy${data.proxies !== 1 ? 'ies' : ''})
+                        ${statusIcon} Connected
                     </div>
                 `;
             } else {
-                this.addLog(`❌ BLE proxy test failed: ${data.error || 'Disconnected'}`, 'error');
+                this.addLog(`❌ BLE proxy test failed: Disconnected`, 'error');
                 this.bleProxyDiagnostics.innerHTML = `
                     <div class="diagnostic-result error">
-                        ❌ BLE Proxy Status: ${data.error || 'Disconnected'}
+                        ❌ BLE Proxy Status: Disconnected
                     </div>
                 `;
             }
@@ -245,8 +245,8 @@ class BLEScannerApp {
         if (!this.bleProxyStatus) return;
         
         try {
-            console.log('[BLEScanner] Updating BLE proxy status - calling /debug/ble-proxy');
-            const url = apiUrl('/debug/ble-proxy');
+            console.log('[BLEScanner] Updating BLE proxy status - calling /health');
+            const url = apiUrl('/health');
             console.log('[BLEScanner] Full URL:', url);
             
             const response = await fetch(url);
@@ -259,7 +259,7 @@ class BLEScannerApp {
             const data = await response.json();
             console.log('[BLEScanner] BLE proxy response data:', data);
             
-            if (data.status === 'connected') {
+            if (data.bleProxyConnected === true) {
                 this.bleProxyStatus.textContent = 'Connected';
                 this.bleProxyStatus.className = 'status-indicator connected';
             } else {
@@ -348,16 +348,16 @@ class BLEScannerApp {
 }
 
 // Initialize app when DOM is loaded
-// Version 2.7.0 - DOCKER CACHE-BUST RELEASE
+// Version 2.7.1 - BLE PROXY STATUS FIX
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('🚀 Octo MQTT v2.7.0 - DOCKER CACHE-BUST RELEASE LOADED!');
+    console.log('🚀 Octo MQTT v2.7.1 - BLE PROXY STATUS FIX LOADED!');
     console.log('✅ JavaScript file: octo-ble-scanner.js loaded successfully');
-    console.log('🔧 Enhanced URL debugging for troubleshooting API routing!');
+    console.log('🔧 Fixed BLE proxy status to use /health endpoint instead of /debug/ble-proxy!');
     
     // Update version indicator
     const indicator = document.getElementById('version-indicator');
     if (indicator) {
-        indicator.innerHTML = '🚀 HTML v2.7.0 + JavaScript v2.7.0 loaded successfully!';
+        indicator.innerHTML = '🚀 HTML v2.7.1 + JavaScript v2.7.1 loaded successfully!';
         indicator.style.background = '#2196F3';
     }
     

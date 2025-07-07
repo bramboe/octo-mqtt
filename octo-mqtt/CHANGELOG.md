@@ -1,3 +1,24 @@
+## v2.7.1
+
+**BLE Proxy Status Fix Release**
+- **CRITICAL FIX**: Fixed BLE proxy status showing "Disconnected" despite successful connection
+- Changed frontend to use `/health` endpoint instead of `/debug/ble-proxy` for BLE proxy status checks
+- Fixed Home Assistant Ingress authorization issues with diagnostic endpoints
+- BLE proxy status now correctly displays "Connected" when ESPHome proxy is active
+- Updated frontend API calls to use working endpoints that pass authorization
+- Updated all version references to v2.7.1 for consistency
+- This fixes the UI status display while maintaining full backend functionality
+
+## v2.7.0
+
+**Docker & TypeScript Compilation Fix Release**  
+- **CRITICAL FIX**: Fixed Home Assistant add-on running old `index.js` instead of new TypeScript code
+- Updated Dockerfile to build and run compiled TypeScript from `dist/` directory
+- Fixed "BLE Proxy Connection: Disconnected" issue caused by legacy backend
+- All BLE/ESPHome/diagnostics functionality now works correctly in production
+- Enhanced build process with proper TypeScript compilation and file copying
+- Updated all version references to v2.7.0 for consistency
+
 ## v2.6.7
 
 **API Routing Fix Release**

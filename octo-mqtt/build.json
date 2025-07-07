@@ -7,9 +7,12 @@
     "i386": "ghcr.io/home-assistant/i386-base:latest"
   },
   "args": {
-    "BUILD_VERSION": "2.7.0",
-    "CACHE_BUST": "20250107-210500"
+    "BUILD_VERSION": "2.7.1",
+    "CACHE_BUST": "20250107-210500",
+    "ARG_BUILD_ARCH": "amd64",
+    "BUILD_ARCH": "amd64",
+    "BUILD_DATE": "2025.01.16.1"
   },
   "squash": false,
-  "version": "2.7.0"
+  "version": "2.7.1"
 } 
