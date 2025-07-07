@@ -17,6 +17,9 @@
             <div id="cache-warning" style="background: #ff6b6b; color: white; padding: 10px; border-radius: 5px; margin: 10px 0; display: none;">
                 ⚠️ <strong>Cache Issue Detected!</strong> Press <kbd>Ctrl+F5</kbd> (Windows) or <kbd>Cmd+Shift+R</kbd> (Mac) to hard refresh this page.
             </div>
+            <div id="version-indicator" style="background: #4CAF50; color: white; padding: 5px 10px; border-radius: 3px; margin: 5px 0; font-size: 12px;">
+                📦 HTML v2.6.9 loaded • Waiting for JavaScript...
+            </div>
         </header>
 
         <div class="status-panel">
@@ -86,13 +89,18 @@
     </div>
 
     <script>
-        // Dynamic cache busting with current timestamp
+        // AGGRESSIVE cache busting - force reload with version, timestamp, and random
         const timestamp = Date.now();
+        const random = Math.random().toString(36).substring(2, 15);
         const script = document.createElement('script');
         // Remove module type - load as regular script for compatibility
-        script.src = `static/octo-ble-scanner.js?v=2.6.9&t=${timestamp}&cb=${Math.random()}`;
+        script.src = `static/octo-ble-scanner.js?v=2.6.9&t=${timestamp}&cb=${random}&_nocache=${Date.now()}`;
         script.onload = function() {
-            console.log('✅ JavaScript loaded successfully with dynamic cache busting');
+            console.log('🔥 AGGRESSIVE CACHE BUST: JavaScript v2.6.9 loaded successfully!');
+            console.log('🔥 Script URL:', script.src);
+        };
+        script.onerror = function() {
+            console.error('❌ FAILED to load JavaScript!');
         };
         document.body.appendChild(script);
 

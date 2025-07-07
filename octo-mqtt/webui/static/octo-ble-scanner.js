@@ -353,6 +353,14 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log('🚀 Octo MQTT v2.6.9 - AGGRESSIVE DEBUGGING RELEASE LOADED!');
     console.log('✅ JavaScript file: octo-ble-scanner.js loaded successfully');
     console.log('🔧 Enhanced URL debugging for troubleshooting API routing!');
+    
+    // Update version indicator
+    const indicator = document.getElementById('version-indicator');
+    if (indicator) {
+        indicator.innerHTML = '🚀 HTML v2.6.9 + JavaScript v2.6.9 loaded successfully!';
+        indicator.style.background = '#2196F3';
+    }
+    
     window.app = new BLEScannerApp();
 });
 
