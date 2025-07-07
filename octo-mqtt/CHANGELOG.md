@@ -658,3 +658,10 @@ This version fixes the core issue where the frontend was not properly loading un
 - Keeps a 5-second polling fallback for reliability.
 
 **Version bump**: All files updated to 2.8.0.
+
+## v2.8.1
+
+**Fix – Reliable Live Updates in Home Assistant**
+- SSE endpoint now disables Nginx buffering (`X-Accel-Buffering: no`) and flushes headers, ensuring events reach the browser in real-time through Ingress.
+- Added heartbeat broadcast log and improved diagnostics.
+- Version bump across addon.

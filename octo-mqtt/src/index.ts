@@ -378,7 +378,11 @@ app.get('/events', (req: Request, res: Response) => {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
-  res.flushHeaders();
+  // Disable HA proxy buffering
+  res.setHeader('X-Accel-Buffering', 'no');
+  if (typeof (res as any).flushHeaders === 'function') {
+    (res as any).flushHeaders();
+  }
 
   // Send initial snapshot
   res.write(`data: ${JSON.stringify(getLiveStatus())}\n\n`);
@@ -395,6 +399,7 @@ app.get('/events', (req: Request, res: Response) => {
 function broadcastStatus() {
   if (sseClients.length === 0) return;
   const payload = `data: ${JSON.stringify(getLiveStatus())}\n\n`;
+  logWithTimestamp('INFO', `[SSE] Broadcasting update to ${sseClients.length} client(s)`);
   sseClients.forEach((client) => client.write(payload));
 }
 

@@ -6,19 +6,19 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>Octo MQTT - Smart Bed Control v2.8.0</title>
-    <link rel="stylesheet" href="static/style.css?v=2.8.0">
+    <title>Octo MQTT - Smart Bed Control v2.8.1</title>
+    <link rel="stylesheet" href="static/style.css?v=2.8.1">
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>🛏️ Octo MQTT v2.8.0</h1>
+            <h1>🛏️ Octo MQTT v2.8.1</h1>
             <p>Smart Bed Control via MQTT and BLE</p>
             <div id="cache-warning" style="background: #ff6b6b; color: white; padding: 10px; border-radius: 5px; margin: 10px 0; display: none;">
                 ⚠️ <strong>Cache Issue Detected!</strong> Press <kbd>Ctrl+F5</kbd> (Windows) or <kbd>Cmd+Shift+R</kbd> (Mac) to hard refresh this page.
             </div>
             <div id="version-indicator" style="background: #4CAF50; color: white; padding: 5px 10px; border-radius: 3px; margin: 5px 0; font-size: 12px;">
-                📦 HTML v2.8.0 loaded • Waiting for JavaScript...
+                📦 HTML v2.8.1 loaded • Waiting for JavaScript...
             </div>
         </header>
 
@@ -94,9 +94,9 @@
         const random = Math.random().toString(36).substring(2, 15);
         const script = document.createElement('script');
         // Remove module type - load as regular script for compatibility
-        script.src = `static/octo-ble-scanner.js?v=2.8.0&t=${timestamp}&cb=${random}&_nocache=${Date.now()}`;
+        script.src = `static/octo-ble-scanner.js?v=2.8.1&t=${timestamp}&cb=${random}&_nocache=${Date.now()}`;
         script.onload = function() {
-            console.log('🔥 AGGRESSIVE CACHE BUST: JavaScript v2.8.0 loaded successfully!');
+            console.log('🔥 AGGRESSIVE CACHE BUST: JavaScript v2.8.1 loaded successfully!');
             console.log('🔥 Script URL:', script.src);
         };
         script.onerror = function() {
