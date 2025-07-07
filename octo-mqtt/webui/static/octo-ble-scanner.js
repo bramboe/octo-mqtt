@@ -242,36 +242,58 @@ class BLEScannerApp {
     }
 
     async updateBLEProxyStatus() {
-        if (!this.bleProxyStatus) return;
+        if (!this.bleProxyStatus) {
+            console.error('[BLEScanner] CRITICAL: bleProxyStatus element not found!');
+            return;
+        }
         
         try {
+            console.log('🔥🔥🔥 [BLEScanner] === BLE PROXY STATUS UPDATE DEBUG ===');
             console.log('[BLEScanner] Updating BLE proxy status - calling /health');
             const url = apiUrl('/health');
             console.log('[BLEScanner] Full URL:', url);
             
             const response = await fetch(url);
             console.log('[BLEScanner] BLE proxy response status:', response.status);
+            console.log('[BLEScanner] BLE proxy response headers:', [...response.headers.entries()]);
             
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
             
-            const data = await response.json();
-            console.log('[BLEScanner] BLE proxy response data:', data);
+            const rawText = await response.text();
+            console.log('[BLEScanner] Raw response text:', rawText);
+            
+            const data = JSON.parse(rawText);
+            console.log('[BLEScanner] Parsed response data:', data);
             console.log('[BLEScanner] data.bleProxyConnected value:', data.bleProxyConnected);
             console.log('[BLEScanner] typeof data.bleProxyConnected:', typeof data.bleProxyConnected);
+            console.log('[BLEScanner] data.bleProxyConnected === true:', data.bleProxyConnected === true);
+            console.log('[BLEScanner] data.bleProxyConnected == true:', data.bleProxyConnected == true);
+            
+            // Check current element state
+            console.log('[BLEScanner] Current bleProxyStatus.textContent:', this.bleProxyStatus.textContent);
+            console.log('[BLEScanner] Current bleProxyStatus.className:', this.bleProxyStatus.className);
             
             if (data.bleProxyConnected === true) {
                 console.log('[BLEScanner] ✅ Setting status to Connected');
                 this.bleProxyStatus.textContent = 'Connected';
                 this.bleProxyStatus.className = 'status-indicator connected';
+                console.log('[BLEScanner] ✅ After update - textContent:', this.bleProxyStatus.textContent);
+                console.log('[BLEScanner] ✅ After update - className:', this.bleProxyStatus.className);
             } else {
                 console.log('[BLEScanner] ❌ Setting status to Disconnected, bleProxyConnected was:', data.bleProxyConnected);
                 this.bleProxyStatus.textContent = 'Disconnected';
                 this.bleProxyStatus.className = 'status-indicator disconnected';
+                console.log('[BLEScanner] ❌ After update - textContent:', this.bleProxyStatus.textContent);
+                console.log('[BLEScanner] ❌ After update - className:', this.bleProxyStatus.className);
             }
+            
+            console.log('🔥🔥🔥 [BLEScanner] === END BLE PROXY STATUS UPDATE DEBUG ===');
+            
         } catch (error) {
             console.error('[BLEScanner] Error updating BLE proxy status:', error);
+            console.error('[BLEScanner] Error stack:', error.stack);
             this.bleProxyStatus.textContent = 'Error';
             this.bleProxyStatus.className = 'status-indicator error';
         }
@@ -354,14 +376,14 @@ class BLEScannerApp {
 // Initialize app when DOM is loaded
 // Version 2.7.2-ingress - HOME ASSISTANT INGRESS FIX
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('🚀 Octo MQTT v2.7.2-ingress - HOME ASSISTANT INGRESS FIX LOADED!');
+    console.log('🚀 Octo MQTT v2.7.2-debug-ultra - COMPREHENSIVE DEBUG LOGGING!');
     console.log('✅ JavaScript file: octo-ble-scanner.js loaded successfully');
     console.log('🔧 Fixed URL construction for Home Assistant Ingress compatibility!');
     
     // Update version indicator
     const indicator = document.getElementById('version-indicator');
     if (indicator) {
-        indicator.innerHTML = '🚀 HTML v2.7.2 + JavaScript v2.7.2 loaded successfully!';
+        indicator.innerHTML = '🚀 HTML v2.7.2 + JavaScript v2.7.2-debug-ultra loaded successfully!';
         indicator.style.background = '#2196F3';
     }
     
