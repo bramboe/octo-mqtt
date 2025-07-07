@@ -1,6 +1,9 @@
 // Octo MQTT Web Interface
 class BLEScannerApp {
     constructor() {
+        console.log('🔥 BLEScannerApp constructor starting...');
+        
+        // Check if elements exist before using them
         this.startScanBtn = document.getElementById('start-scan');
         this.stopScanBtn = document.getElementById('stop-scan');
         this.refreshStatusBtn = document.getElementById('refresh-status');
@@ -12,18 +15,62 @@ class BLEScannerApp {
         this.deviceList = document.getElementById('devices-list');
         this.logContainer = document.getElementById('logs');
         
+        console.log('🔥 Elements found:', {
+            startScanBtn: !!this.startScanBtn,
+            stopScanBtn: !!this.stopScanBtn,
+            refreshStatusBtn: !!this.refreshStatusBtn,
+            testBLEProxyBtn: !!this.testBLEProxyBtn,
+            bleProxyStatus: !!this.bleProxyStatus,
+            scanStatus: !!this.scanStatus,
+            deviceCount: !!this.deviceCount,
+            bleProxyDiagnostics: !!this.bleProxyDiagnostics,
+            deviceList: !!this.deviceList,
+            logContainer: !!this.logContainer
+        });
+        
+        console.log('🔥 About to bind events...');
         this.bindEvents();
+        console.log('🔥 About to refresh status...');
         this.refreshStatus();
         
         // Auto-refresh status every 5 seconds
         setInterval(() => this.refreshStatus(), 5000);
+        console.log('🔥 BLEScannerApp constructor complete!');
     }
 
     bindEvents() {
-        this.startScanBtn.addEventListener('click', () => this.startScan());
-        this.stopScanBtn.addEventListener('click', () => this.stopScan());
-        this.refreshStatusBtn.addEventListener('click', () => this.refreshStatus());
-        this.testBLEProxyBtn.addEventListener('click', () => this.testBLEProxy());
+        console.log('🔥 bindEvents called');
+        if (this.startScanBtn) {
+            console.log('🔥 Adding event listener to Start BLE Scan button');
+            this.startScanBtn.addEventListener('click', () => {
+                console.log('🔥🔥 START SCAN BUTTON CLICKED!');
+                this.startScan();
+            });
+        } else {
+            console.error('🔥 ERROR: start-scan button not found!');
+        }
+        
+        if (this.stopScanBtn) {
+            this.stopScanBtn.addEventListener('click', () => {
+                console.log('🔥🔥 STOP SCAN BUTTON CLICKED!');
+                this.stopScan();
+            });
+        }
+        
+        if (this.refreshStatusBtn) {
+            this.refreshStatusBtn.addEventListener('click', () => {
+                console.log('🔥🔥 REFRESH STATUS BUTTON CLICKED!');
+                this.refreshStatus();
+            });
+        }
+        
+        if (this.testBLEProxyBtn) {
+            this.testBLEProxyBtn.addEventListener('click', () => {
+                console.log('🔥🔥 TEST BLE PROXY BUTTON CLICKED!');
+                this.testBLEProxy();
+            });
+        }
+        console.log('🔥 bindEvents complete');
     }
 
     async startScan() {
@@ -322,15 +369,15 @@ function getApiBasePath() {
 
 function apiUrl(endpoint) {
   // Enhanced debugging for URL construction
-  console.log('[API] === URL CONSTRUCTION DEBUG ===');
-  console.log('[API] window.location.href:', window.location.href);
-  console.log('[API] window.location.pathname:', window.location.pathname);
-  console.log('[API] window.location.origin:', window.location.origin);
-  console.log('[API] window.location.host:', window.location.host);
+  console.log('🔥🔥🔥 [API] === URL CONSTRUCTION DEBUG ===');
+  console.log('🔥 [API] window.location.href:', window.location.href);
+  console.log('🔥 [API] window.location.pathname:', window.location.pathname);
+  console.log('🔥 [API] window.location.origin:', window.location.origin);
+  console.log('🔥 [API] window.location.host:', window.location.host);
   
   const path = window.location.pathname;
   const match = path.match(/\/api\/hassio_ingress\/[a-zA-Z0-9_-]+/);
-  console.log('[API] Ingress regex match:', match);
+  console.log('🔥 [API] Ingress regex match:', match);
   
   // Remove leading slash from endpoint for proper relative path construction
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint.substring(1) : endpoint;
@@ -340,16 +387,18 @@ function apiUrl(endpoint) {
     // In ingress mode, use relative URL (no leading slash, no dot)
     // This makes the URL relative to the current ingress path
     baseUrl = cleanEndpoint;
+    console.log('🔥 [API] USING INGRESS MODE - relative URL');
   } else {
     // Direct access mode, use absolute path
     baseUrl = '/' + cleanEndpoint;
+    console.log('🔥 [API] USING DIRECT MODE - absolute path');
   }
   
-  console.log('[API] getApiBasePath() returned:', getApiBasePath());
-  console.log('[API] Clean endpoint:', cleanEndpoint);
-  console.log('[API] Requested endpoint:', endpoint);
-  console.log('[API] Final constructed URL:', baseUrl);
-  console.log('[API] === END URL DEBUG ===');
+  console.log('🔥 [API] getApiBasePath() returned:', getApiBasePath());
+  console.log('🔥 [API] Clean endpoint:', cleanEndpoint);
+  console.log('🔥 [API] Requested endpoint:', endpoint);
+  console.log('🔥 [API] Final constructed URL:', baseUrl);
+  console.log('🔥🔥🔥 [API] === END URL DEBUG ===');
   
   return baseUrl;
 }
