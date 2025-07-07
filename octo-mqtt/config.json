@@ -1,0 +1,59 @@
+{
+  "name": "Octo MQTT",
+  "version": "2.6.8",
+  "slug": "octo-mqtt",
+  "description": "Control Octo smart beds via MQTT and BLE proxy",
+  "url": "https://github.com/bramboe/octo-mqtt",
+  "startup": "services",
+  "arch": ["armhf", "armv7", "aarch64", "amd64", "i386"],
+  "boot": "auto",
+  "services": ["mqtt:need"],
+  "host_network": false,
+  "ports": {},
+  "map": ["config:ro"],
+  "init": false,
+  "protection": true,
+  "privileged": [],
+  "apparmor": true,
+  "auth_api": true,
+  "ingress": true,
+  "ingress_port": 8099,
+  "panel_icon": "mdi:bed",
+  "panel_title": "Octo MQTT",
+  "watchdog": "http://localhost:8099/health",
+  "timeout": 60,
+  "options": {
+    "mqtt_host": "<auto_detect>",
+    "mqtt_port": "<auto_detect>",
+    "mqtt_user": "<auto_detect>",
+    "mqtt_password": "<auto_detect>",
+    "bleProxies": [
+      {
+        "host": "192.168.1.100",
+        "port": 6053
+      }
+    ],
+    "octoDevices": []
+  },
+  "schema": {
+    "mqtt_host": "str?",
+    "mqtt_port": "int?",
+    "mqtt_user": "str?",
+    "mqtt_password": "str?",
+    "bleProxies": [
+      {
+        "host": "str",
+        "port": "int?"
+      }
+    ],
+    "octoDevices": [
+      {
+        "name": "str",
+        "address": "str",
+        "pin": "str?"
+      }
+    ]
+  },
+  "hassio_api": true,
+  "hassio_role": "default"
+}

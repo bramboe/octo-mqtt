@@ -150,5 +150,4 @@ temp/
 app.log
 data/options.json
 
-# Old subdirectory structure (moved to root)
-octo-mqtt/
+# Note: octo-mqtt/ directory now contains the add-on files

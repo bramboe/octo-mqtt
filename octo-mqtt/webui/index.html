@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>Octo MQTT - Smart Bed Control v2.6.8</title>
+    <link rel="stylesheet" href="static/style.css?v=2.6.8">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🛏️ Octo MQTT v2.6.8</h1>
+            <p>Smart Bed Control via MQTT and BLE</p>
+            <div id="cache-warning" style="background: #ff6b6b; color: white; padding: 10px; border-radius: 5px; margin: 10px 0; display: none;">
+                ⚠️ <strong>Cache Issue Detected!</strong> Press <kbd>Ctrl+F5</kbd> (Windows) or <kbd>Cmd+Shift+R</kbd> (Mac) to hard refresh this page.
+            </div>
+        </header>
+
+        <div class="status-panel">
+            <h2>📊 System Status</h2>
+            <div class="status-grid">
+                <div class="status-item">
+                    <span class="label">BLE Proxy Connection:</span>
+                    <span id="bleproxy-status" class="status-indicator disconnected">Disconnected</span>
+                </div>
+                <div class="status-item">
+                    <span class="label">BLE Scanning:</span>
+                    <span id="scan-status" class="status-indicator idle">Idle</span>
+                </div>
+                <div class="status-item">
+                    <span class="label">Devices Found:</span>
+                    <span id="device-count" class="status-indicator">0</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="control-panel">
+            <h2>🎛️ Controls</h2>
+            <div class="button-group">
+                <button id="start-scan" class="btn btn-primary">🛰️ Start BLE Scan</button>
+                <button id="stop-scan" class="btn btn-secondary" disabled>⏹️ Stop Scan</button>
+                <button id="refresh-status" class="btn btn-info">🔄 Refresh Status</button>
+                <button id="test-ble-proxy" class="btn btn-warning">🧪 Test BLE Proxy</button>
+            </div>
+        </div>
+
+        <div class="scan-panel">
+            <h2>📡 BLE Scan Results</h2>
+            <div id="scan-progress" class="progress-bar" style="display: none;">
+                <div id="progress-fill" class="progress-fill"></div>
+            </div>
+            <div id="scan-time" class="scan-time"></div>
+            <div id="devices-list" class="devices-list">
+                <p class="no-devices">No devices discovered yet. Start a scan to find Octo beds.</p>
+            </div>
+        </div>
+
+        <div class="config-panel">
+            <h2>⚙️ Configuration</h2>
+            <div class="config-info">
+                <p><strong>BLE Proxies:</strong> <span id="proxy-count">Loading...</span></p>
+                <p><strong>Octo Devices:</strong> <span id="octo-count">Loading...</span></p>
+            </div>
+            <div class="config-help">
+                <h3>🔧 Setup Instructions</h3>
+                <ol>
+                    <li>Configure your ESPHome BLE proxy devices in the addon configuration</li>
+                    <li>Add your Octo bed devices with their MAC addresses and PINs</li>
+                    <li>Start a BLE scan to discover devices</li>
+                    <li>Control your bed through Home Assistant MQTT entities</li>
+                </ol>
+            </div>
+        </div>
+
+        <div class="logs-panel">
+            <h2>📝 Recent Activity</h2>
+            <div id="logs" class="logs-container">
+                <div class="log-entry">System starting up...</div>
+            </div>
+        </div>
+
+        <div id="bleproxy-diagnostics" class="diagnostics-area"></div>
+    </div>
+
+    <script>
+        // Dynamic cache busting with current timestamp
+        const timestamp = Date.now();
+        const script = document.createElement('script');
+        script.type = 'module'; // Load as ES module
+        script.src = `static/octo-ble-scanner.js?v=2.6.8&t=${timestamp}&cb=${Math.random()}`;
+        script.onload = function() {
+            console.log('✅ JavaScript loaded successfully with dynamic cache busting');
+        };
+        document.body.appendChild(script);
+
+        // Remove any legacy JS loader logic (app.js, app-v231.js)
+        // Ensure all required element IDs are present
+        // (bleproxy-status, scan-status, device-count, bleproxy-diagnostics, logs, etc.)
+        // These are already present in the current HTML structure.
+
+        // Remove cache diagnostic tool link for a cleaner standalone UI
+        setTimeout(() => {
+            if (!window.app) {
+                const warning = document.getElementById('cache-warning');
+                if (warning) {
+                    warning.style.display = 'block';
+                    warning.innerHTML = `
+                        ⚠️ <strong>Cache Issue Detected!</strong> <br>
+                        Or press <kbd>Ctrl+F5</kbd> (Windows) or <kbd>Cmd+Shift+R</kbd> (Mac) to hard refresh.
+                    `;
+                }
+            }
+        }, 3000);
+    </script>
+</body>
+</html> 
