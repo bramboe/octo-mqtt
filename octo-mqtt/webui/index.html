@@ -89,7 +89,7 @@
         // Dynamic cache busting with current timestamp
         const timestamp = Date.now();
         const script = document.createElement('script');
-        script.type = 'module'; // Load as ES module
+        // Remove module type - load as regular script for compatibility
         script.src = `static/octo-ble-scanner.js?v=2.6.8&t=${timestamp}&cb=${Math.random()}`;
         script.onload = function() {
             console.log('✅ JavaScript loaded successfully with dynamic cache busting');
