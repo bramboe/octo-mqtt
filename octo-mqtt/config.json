@@ -9,12 +9,7 @@
   "boot": "auto",
   "services": ["mqtt:need"],
   "host_network": false,
-  "ports": {
-    "8099/tcp": null
-  },
-  "ports_description": {
-    "8099/tcp": "Web interface (direct access)"
-  },
+  "ports": {},
   "map": ["config:ro"],
   "init": false,
   "protection": true,
@@ -25,7 +20,7 @@
   "ingress_port": 8099,
   "panel_icon": "mdi:bed",
   "panel_title": "Octo MQTT",
-  "watchdog": "http://[HOST]:[PORT:8099]/health",
+  "watchdog": "http://localhost:8099/health",
   "timeout": 60,
   "options": {
     "mqtt_host": "<auto_detect>",
@@ -60,6 +55,5 @@
     ]
   },
   "hassio_api": true,
-  "hassio_role": "default",
-  "webui": "[PROTO:ssl]://[HOST]:[PORT:8099]"
+  "hassio_role": "default"
 }
