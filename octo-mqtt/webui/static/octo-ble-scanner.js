@@ -38,7 +38,7 @@ class BLEScannerApp {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    clientInfo: 'Octo MQTT Web UI v2.6.7',
+                    clientInfo: 'Octo MQTT Web UI v2.6.8',
                     timestamp: timestamp,
                     userAction: 'start-scan-button-click'
                 })
@@ -85,7 +85,7 @@ class BLEScannerApp {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    clientInfo: 'Octo MQTT Web UI v2.6.7',
+                    clientInfo: 'Octo MQTT Web UI v2.6.8',
                     timestamp: timestamp,
                     userAction: 'stop-scan-button-click'
                 })
@@ -301,11 +301,11 @@ class BLEScannerApp {
 }
 
 // Initialize app when DOM is loaded
-// Version 2.6.7 - API ROUTING FIX RELEASE
+// Version 2.6.8 - ENHANCED URL DEBUGGING RELEASE
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('🚀 Octo MQTT v2.6.7 - API ROUTING FIX RELEASE LOADED!');
+    console.log('🚀 Octo MQTT v2.6.8 - ENHANCED URL DEBUGGING RELEASE LOADED!');
     console.log('✅ JavaScript file: octo-ble-scanner.js loaded successfully');
-    console.log('🔧 Express Route Order Fixed - API Calls Before Static Files!');
+    console.log('🔧 Enhanced URL debugging for troubleshooting API routing!');
     window.app = new BLEScannerApp();
 });
 
@@ -321,8 +321,23 @@ function getApiBasePath() {
 }
 
 function apiUrl(endpoint) {
+  // Enhanced debugging for URL construction
+  console.log('[API] === URL CONSTRUCTION DEBUG ===');
+  console.log('[API] window.location.href:', window.location.href);
+  console.log('[API] window.location.pathname:', window.location.pathname);
+  console.log('[API] window.location.origin:', window.location.origin);
+  console.log('[API] window.location.host:', window.location.host);
+  
+  const path = window.location.pathname;
+  const match = path.match(/\/api\/hassio_ingress\/[a-zA-Z0-9]+\//);
+  console.log('[API] Ingress regex match:', match);
+  
   const baseUrl = getApiBasePath() + endpoint;
-  console.log(`[API] Building URL: ${endpoint} -> ${baseUrl}`);
+  console.log('[API] getApiBasePath() returned:', getApiBasePath());
+  console.log('[API] Requested endpoint:', endpoint);
+  console.log('[API] Final constructed URL:', baseUrl);
+  console.log('[API] === END URL DEBUG ===');
+  
   return baseUrl;
 }
 
@@ -386,7 +401,16 @@ function apiUrl(endpoint) {
 
   // API call helper (always uses relative path)
   async function apiCall(path, opts) {
+    // Enhanced debugging for diagnostics API calls
+    logDiag('=== DIAG API CALL DEBUG ===');
+    logDiag('window.location.href: ' + window.location.href);
+    logDiag('window.location.pathname: ' + window.location.pathname);
+    logDiag('API_BASE: ' + API_BASE);
+    logDiag('Requested path: ' + path);
+    
     const url = API_BASE + path;
+    logDiag('Final URL: ' + url);
+    logDiag('=== END DIAG DEBUG ===');
     logDiag('API call: ' + url);
     try {
       const resp = await fetch(url, opts);

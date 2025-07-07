@@ -516,3 +516,93 @@
 
 ## [2.6.4] - 2025-07-06
 (This version is superseded by 2.6.5. Please use 2.6.5 for all deployments.)
+
+## [2.6.8] - 2025-01-07
+### Added
+- Enhanced URL debugging for frontend API calls
+- Comprehensive logging of window.location and URL construction
+- Additional diagnostics for troubleshooting API routing issues
+
+### Fixed
+- Improved debugging tools for identifying API call routing problems
+
+## [2.6.7] - 2025-01-07
+### Fixed
+- Critical API routing issue: moved Express static file middleware AFTER API routes
+- Fixed Express route order to ensure API endpoints take precedence over static files
+- Backend API calls now properly route to handlers instead of static file server
+
+### Changed
+- Improved error handling and logging for API route debugging
+- Enhanced frontend error reporting for failed API calls
+
+## [2.6.6] - 2025-01-07
+### Added
+- Global error handlers to prevent backend crashes from ESPHome connection issues
+- Enhanced error handling for "write after end" errors from ESPHome ping timeouts
+- Improved frontend API call logging with detailed console output
+
+### Fixed
+- Backend crash prevention for ESPHome connection errors
+- Better handling of connection timeouts and network issues
+
+## [2.6.5] - 2025-01-07
+### Fixed
+- Frontend loading issues: Fixed script loading to use module type
+- Improved dynamic script loader in index.html
+- Enhanced error handling and diagnostics in frontend
+- Better cache-busting mechanisms
+
+### Changed
+- Updated all version references across configuration files
+- Improved frontend-backend communication error reporting
+
+## [2.6.4] - 2025-01-07
+### Fixed
+- Frontend script loading issues resolved
+- Better error handling for missing DOM elements
+- Improved cache management and version consistency
+
+## [2.6.3] - 2025-01-07
+### Fixed
+- Docker build process: Updated to multi-stage build with proper TypeScript compilation
+- Fixed npm dependency issues using --legacy-peer-deps and --ignore-scripts  
+- Moved tslib from devDependencies to dependencies to fix runtime errors
+- Updated run.sh to execute built backend from dist/tsc/index.js instead of legacy index.js
+
+### Changed
+- Completely rebuilt Docker containerization workflow
+- Improved build process for production deployment
+- Enhanced logging and error handling in backend
+
+## [2.6.2] - 2025-01-07
+### Added
+- Real ESPHome BLE proxy connection implementation
+- Comprehensive backend diagnostics and logging
+- Frontend cache-busting and API call logging
+- BLE device discovery and scan functionality
+
+### Fixed
+- Replaced simulation code with actual ESPHome BLE proxy integration
+- Improved frontend-backend communication
+- Enhanced error handling and debugging tools
+
+## [2.6.1] - 2025-01-07
+### Added
+- Enhanced logging and diagnostics
+- Better error handling for BLE connections
+- Improved frontend status updates
+
+## [2.6.0] - 2025-01-07
+### Added
+- Complete rewrite for Home Assistant add-on architecture
+- ESPHome BLE proxy integration  
+- MQTT-based device control
+- Web-based configuration interface
+- Real-time BLE device scanning
+- Home Assistant entity auto-discovery
+
+### Changed
+- Migrated from standalone application to Home Assistant add-on
+- Updated architecture for container deployment
+- Enhanced security and integration features
