@@ -1,3 +1,14 @@
+## v2.6.6
+
+**Crash Fix Release**
+- Added global error handlers to prevent backend crashes from ESPHome ping timeouts
+- Fixed "write after end" errors that were causing Node.js to crash unexpectedly
+- Enhanced frontend API call logging with detailed console output for debugging
+- Improved error handling in ESPHome connections with graceful degradation
+- Added connection error handlers to prevent propagation of ESPHome library errors
+- Updated all version references to v2.6.6 for consistency
+- Backend now remains stable despite ESPHome connection issues
+
 ## v2.6.5
 
 **Diagnostics Release**

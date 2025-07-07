@@ -1,4 +1,4 @@
-# 🛏️ Octo MQTT v2.6.5
+# 🛏️ Octo MQTT v2.6.6
 
 A Home Assistant add-on to enable controlling Octo adjustable beds via MQTT and ESPHome BLE proxy.
 
