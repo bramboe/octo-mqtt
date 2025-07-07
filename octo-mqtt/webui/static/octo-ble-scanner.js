@@ -374,21 +374,29 @@ class BLEScannerApp {
 }
 
 // Initialize app when DOM is loaded
-// Version 2.7.2-ingress - HOME ASSISTANT INGRESS FIX
-document.addEventListener('DOMContentLoaded', () => {
+// Version 2.7.3 - INGRESS COMPATIBILITY FIX
+function initOctoMQTTApp() {
     console.log('🚀 Octo MQTT v2.7.3 - INGRESS COMPATIBILITY FIX!');
     console.log('✅ JavaScript file: octo-ble-scanner.js loaded successfully');
     console.log('🔧 Fixed URL construction for Home Assistant Ingress compatibility!');
     
-    // Update version indicator
     const indicator = document.getElementById('version-indicator');
     if (indicator) {
         indicator.innerHTML = '🚀 HTML v2.7.3 + JavaScript v2.7.3 loaded successfully!';
         indicator.style.background = '#2196F3';
     }
     
-    window.app = new BLEScannerApp();
-});
+    // Instantiate the app only once
+    if (!window.app) {
+        window.app = new BLEScannerApp();
+    }
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initOctoMQTTApp);
+} else {
+    initOctoMQTTApp();
+}
 
 // Helper to get the correct API base path for Ingress or direct
 function getApiBasePath() {
