@@ -258,11 +258,15 @@ class BLEScannerApp {
             
             const data = await response.json();
             console.log('[BLEScanner] BLE proxy response data:', data);
+            console.log('[BLEScanner] data.bleProxyConnected value:', data.bleProxyConnected);
+            console.log('[BLEScanner] typeof data.bleProxyConnected:', typeof data.bleProxyConnected);
             
             if (data.bleProxyConnected === true) {
+                console.log('[BLEScanner] ✅ Setting status to Connected');
                 this.bleProxyStatus.textContent = 'Connected';
                 this.bleProxyStatus.className = 'status-indicator connected';
             } else {
+                console.log('[BLEScanner] ❌ Setting status to Disconnected, bleProxyConnected was:', data.bleProxyConnected);
                 this.bleProxyStatus.textContent = 'Disconnected';
                 this.bleProxyStatus.className = 'status-indicator disconnected';
             }
@@ -348,11 +352,11 @@ class BLEScannerApp {
 }
 
 // Initialize app when DOM is loaded
-// Version 2.7.1 - BLE PROXY STATUS FIX
+// Version 2.7.1-debug - BLE PROXY STATUS DEBUG
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('🚀 Octo MQTT v2.7.1 - BLE PROXY STATUS FIX LOADED!');
+    console.log('🚀 Octo MQTT v2.7.1-debug - BLE PROXY STATUS DEBUG LOADED!');
     console.log('✅ JavaScript file: octo-ble-scanner.js loaded successfully');
-    console.log('🔧 Fixed BLE proxy status to use /health endpoint instead of /debug/ble-proxy!');
+    console.log('🔧 Added debug logging to troubleshoot BLE proxy status issue!');
     
     // Update version indicator
     const indicator = document.getElementById('version-indicator');

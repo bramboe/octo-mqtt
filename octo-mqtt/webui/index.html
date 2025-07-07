@@ -94,9 +94,9 @@
         const random = Math.random().toString(36).substring(2, 15);
         const script = document.createElement('script');
         // Remove module type - load as regular script for compatibility
-        script.src = `static/octo-ble-scanner.js?v=2.7.1&t=${timestamp}&cb=${random}&_nocache=${Date.now()}`;
+        script.src = `static/octo-ble-scanner.js?v=2.7.1-debug&t=${timestamp}&cb=${random}&_nocache=${Date.now()}`;
         script.onload = function() {
-            console.log('🔥 AGGRESSIVE CACHE BUST: JavaScript v2.7.1 loaded successfully!');
+            console.log('🔥 AGGRESSIVE CACHE BUST: JavaScript v2.7.1-debug loaded successfully!');
             console.log('🔥 Script URL:', script.src);
         };
         script.onerror = function() {

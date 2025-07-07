@@ -272,11 +272,23 @@ app.get('/debug/ble-proxy', async (req: Request, res: Response) => {
 app.get('/health', (_req: Request, res: Response) => {
   logWithTimestamp('INFO', '[API] /health called');
   logWithTimestamp('INFO', '[DIAG] /health endpoint called.');
+  
+  // Debug logging for BLE proxy connection status
+  const hasEspConnection = !!espConnection;
+  const hasConnections = espConnection && (espConnection as any).connections;
+  const connectionCount = hasConnections ? (espConnection as any).connections.length : 0;
+  const bleProxyConnected = hasEspConnection && hasConnections && connectionCount > 0;
+  
+  logWithTimestamp('INFO', `[DIAG] espConnection exists: ${hasEspConnection}`);
+  logWithTimestamp('INFO', `[DIAG] espConnection.connections exists: ${!!hasConnections}`);
+  logWithTimestamp('INFO', `[DIAG] connection count: ${connectionCount}`);
+  logWithTimestamp('INFO', `[DIAG] bleProxyConnected result: ${bleProxyConnected}`);
+  
   res.json({
     status: 'healthy',
     timestamp: new Date().toISOString(),
     isScanning,
-    bleProxyConnected: espConnection && (espConnection as any).connections && (espConnection as any).connections.length > 0
+    bleProxyConnected
   });
 });
 
