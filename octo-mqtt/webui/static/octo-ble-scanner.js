@@ -81,7 +81,7 @@ class BLEScannerApp {
             this.startScanBtn.disabled = true;
             this.stopScanBtn.disabled = false;
             
-            const response = await fetch(apiUrl('/scan/start'), {
+            const response = await fetch(apiUrl('scan/start'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -128,7 +128,7 @@ class BLEScannerApp {
             this.addLog(`🎯 [${timestamp}] User clicked "Stop BLE Scan" button`);
             this.addLog('⏹️ Sending scan stop request to backend...');
             
-            const response = await fetch(apiUrl('/scan/stop'), {
+            const response = await fetch(apiUrl('scan/stop'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -166,7 +166,7 @@ class BLEScannerApp {
     async refreshStatus() {
         try {
             console.log('[BLEScanner] Refreshing status - calling /scan/status');
-            const url = apiUrl('/scan/status?source=refresh-button');
+            const url = apiUrl('scan/status?source=refresh-button');
             console.log('[BLEScanner] Full URL:', url);
             
             const response = await fetch(url);
@@ -199,7 +199,7 @@ class BLEScannerApp {
         
         try {
             this.addLog('🧪 Sending BLE proxy test request to backend...');
-            const response = await fetch(apiUrl('/health?source=test-button'));
+            const response = await fetch(apiUrl('health?source=test-button'));
             const data = await response.json();
             
             if (data.bleProxyConnected === true) {
@@ -250,7 +250,7 @@ class BLEScannerApp {
         try {
             console.log('🔥🔥🔥 [BLEScanner] === BLE PROXY STATUS UPDATE DEBUG ===');
             console.log('[BLEScanner] Updating BLE proxy status - calling /health');
-            const url = apiUrl('/health');
+            const url = apiUrl('health');
             console.log('[BLEScanner] Full URL:', url);
             
             const response = await fetch(url);
@@ -332,7 +332,7 @@ class BLEScannerApp {
             const friendlyName = prompt(`Enter a friendly name for ${name}:`, name);
             if (!friendlyName) return;
             
-            const response = await fetch(apiUrl('/devices/add'), {
+            const response = await fetch(apiUrl('devices/add'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -390,53 +390,19 @@ document.addEventListener('DOMContentLoaded', () => {
     window.app = new BLEScannerApp();
 });
 
-// Helper to get base path for API calls (Ingress compatibility)
+// Helper to get the correct API base path for Ingress or direct
 function getApiBasePath() {
-  // If running under Home Assistant Ingress, window.location.pathname will include /api/hassio_ingress/<token>/
-  const path = window.location.pathname;
-  const match = path.match(/\/api\/hassio_ingress\/[a-zA-Z0-9]+\//);
-  if (match) {
-    return match[0].replace(/\/$/, ''); // Remove trailing slash
-  }
-  return '';
+    // If running under Ingress, window.location.pathname will be like /api/hassio_ingress/<token>/
+    // We want to prefix all API calls with this path
+    let path = window.location.pathname;
+    if (!path.endsWith('/')) path += '/';
+    return path;
 }
 
 function apiUrl(endpoint) {
-  // Enhanced debugging for URL construction
-  console.log('🔥🔥🔥 [API] === URL CONSTRUCTION DEBUG ===');
-  console.log('🔥 [API] window.location.href:', window.location.href);
-  console.log('🔥 [API] window.location.pathname:', window.location.pathname);
-  console.log('🔥 [API] window.location.origin:', window.location.origin);
-  console.log('🔥 [API] window.location.host:', window.location.host);
-  
-  const path = window.location.pathname;
-  
-  // Check for both new and old ingress patterns
-  const ingressMatch = path.match(/\/api\/hassio_ingress\/[a-zA-Z0-9_-]+/) || 
-                      path.match(/\/api\/ingress\/[a-zA-Z0-9_-]+/);
-  console.log('🔥 [API] Ingress regex match:', ingressMatch);
-  
-  // Remove leading slash from endpoint for proper relative path construction
-  const cleanEndpoint = endpoint.startsWith('/') ? endpoint.substring(1) : endpoint;
-  
-  let baseUrl;
-  if (ingressMatch) {
-    // In ingress mode, construct URL relative to ingress base path
-    const ingressBasePath = ingressMatch[0];
-    baseUrl = ingressBasePath + '/' + cleanEndpoint;
-    console.log('🔥 [API] USING INGRESS MODE - ingress path:', ingressBasePath);
-  } else {
-    // Direct access mode, use absolute path
-    baseUrl = '/' + cleanEndpoint;
-    console.log('🔥 [API] USING DIRECT MODE - absolute path');
-  }
-  
-  console.log('🔥 [API] Clean endpoint:', cleanEndpoint);
-  console.log('🔥 [API] Requested endpoint:', endpoint);
-  console.log('🔥 [API] Final constructed URL:', baseUrl);
-  console.log('🔥🔥🔥 [API] === END URL DEBUG ===');
-  
-  return baseUrl;
+    // Remove leading slash if present
+    if (endpoint.startsWith('/')) endpoint = endpoint.slice(1);
+    return getApiBasePath() + endpoint;
 }
 
 // == Octo MQTT BLE Scanner Diagnostics & Hardened Frontend ==
