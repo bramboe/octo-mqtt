@@ -329,21 +329,24 @@ function apiUrl(endpoint) {
   console.log('[API] window.location.host:', window.location.host);
   
   const path = window.location.pathname;
-  const match = path.match(/\/api\/hassio_ingress\/[a-zA-Z0-9]+\//);
+  const match = path.match(/\/api\/hassio_ingress\/[a-zA-Z0-9_-]+/);
   console.log('[API] Ingress regex match:', match);
   
-  // For Home Assistant Ingress, use relative paths that preserve the ingress prefix
-  // For direct access, use relative paths from root
+  // Remove leading slash from endpoint for proper relative path construction
+  const cleanEndpoint = endpoint.startsWith('/') ? endpoint.substring(1) : endpoint;
+  
   let baseUrl;
   if (match) {
-    // In ingress mode, use relative URL that maintains the ingress path
-    baseUrl = '.' + endpoint;
+    // In ingress mode, use relative URL (no leading slash, no dot)
+    // This makes the URL relative to the current ingress path
+    baseUrl = cleanEndpoint;
   } else {
     // Direct access mode, use absolute path
-    baseUrl = endpoint;
+    baseUrl = '/' + cleanEndpoint;
   }
   
   console.log('[API] getApiBasePath() returned:', getApiBasePath());
+  console.log('[API] Clean endpoint:', cleanEndpoint);
   console.log('[API] Requested endpoint:', endpoint);
   console.log('[API] Final constructed URL:', baseUrl);
   console.log('[API] === END URL DEBUG ===');
@@ -409,7 +412,7 @@ function apiUrl(endpoint) {
   const API_MODE = window.location.pathname.includes('/api/hassio_ingress/') ? 'Ingress' : 'Direct';
   logDiag('API base: ' + (API_BASE || '[root]') + ' | Mode: ' + API_MODE);
 
-  // API call helper (always uses relative path)
+  // API call helper (uses same logic as main apiUrl function)
   async function apiCall(path, opts) {
     // Enhanced debugging for diagnostics API calls
     logDiag('=== DIAG API CALL DEBUG ===');
@@ -418,7 +421,13 @@ function apiUrl(endpoint) {
     logDiag('API_BASE: ' + API_BASE);
     logDiag('Requested path: ' + path);
     
-    const url = API_BASE + path;
+    // Use the same URL construction logic as the main apiUrl function
+    const isIngress = window.location.pathname.includes('/api/hassio_ingress/');
+    const cleanPath = path.startsWith('/') ? path.substring(1) : path;
+    const url = isIngress ? cleanPath : '/' + cleanPath;
+    
+    logDiag('Is Ingress: ' + isIngress);
+    logDiag('Clean path: ' + cleanPath);
     logDiag('Final URL: ' + url);
     logDiag('=== END DIAG DEBUG ===');
     logDiag('API call: ' + url);
