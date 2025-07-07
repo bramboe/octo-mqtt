@@ -8,7 +8,6 @@ import { EventEmitter } from 'events';
 
 const app = express();
 app.use(express.json());
-app.use(express.static('webui'));
 
 // Enhanced logging
 const logWithTimestamp = (level: string, message: string, ...args: any[]) => {
@@ -281,16 +280,19 @@ app.get('/health', (_req: Request, res: Response) => {
   });
 });
 
+// Serve static files AFTER API routes to prevent conflicts
+app.use(express.static('webui'));
+
 // Root endpoint
 app.get('/', (_req: Request, res: Response) => {
   res.sendFile('webui/index.html', { root: '.' });
 });
 
-// Catch-all route
-app.use('*', (req: Request, res: Response) => {
-  logWithTimestamp('WARN', `❌ 404 - Route not found: ${req.method} ${req.originalUrl}`);
+// Catch-all route for unmatched API calls (but not static files)
+app.use('/api/*', (req: Request, res: Response) => {
+  logWithTimestamp('WARN', `❌ 404 - API route not found: ${req.method} ${req.originalUrl}`);
   res.status(404).json({ 
-    error: 'Route not found',
+    error: 'API route not found',
     method: req.method,
     path: req.originalUrl,
     availableRoutes: [

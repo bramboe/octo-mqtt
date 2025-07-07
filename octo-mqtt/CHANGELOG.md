@@ -1,3 +1,14 @@
+## v2.6.7
+
+**API Routing Fix Release**
+- **CRITICAL FIX**: Moved Express static file middleware after API routes to prevent 404 errors
+- Fixed 404 "Not Found" errors for `/health`, `/scan/status`, and other API endpoints
+- API routes now take precedence over static file serving in Express middleware order
+- Frontend can now successfully communicate with backend APIs in Home Assistant Ingress
+- Updated catch-all route to only handle unmatched API calls, not static files
+- Updated all version references to v2.6.7 for consistency
+- This fixes the core issue causing "Backend Error: API call failed: 404" messages
+
 ## v2.6.6
 
 **Crash Fix Release**

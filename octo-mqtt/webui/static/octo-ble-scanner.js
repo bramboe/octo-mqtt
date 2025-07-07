@@ -38,7 +38,7 @@ class BLEScannerApp {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    clientInfo: 'Octo MQTT Web UI v2.6.6',
+                    clientInfo: 'Octo MQTT Web UI v2.6.7',
                     timestamp: timestamp,
                     userAction: 'start-scan-button-click'
                 })
@@ -85,7 +85,7 @@ class BLEScannerApp {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    clientInfo: 'Octo MQTT Web UI v2.6.6',
+                    clientInfo: 'Octo MQTT Web UI v2.6.7',
                     timestamp: timestamp,
                     userAction: 'stop-scan-button-click'
                 })
@@ -301,11 +301,11 @@ class BLEScannerApp {
 }
 
 // Initialize app when DOM is loaded
-// Version 2.6.6 - CRASH FIX RELEASE
+// Version 2.6.7 - API ROUTING FIX RELEASE
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('🚀 Octo MQTT v2.6.6 - CRASH FIX RELEASE LOADED!');
+    console.log('🚀 Octo MQTT v2.6.7 - API ROUTING FIX RELEASE LOADED!');
     console.log('✅ JavaScript file: octo-ble-scanner.js loaded successfully');
-    console.log('🔧 ESPHome Connection Error Handling + API Call Debugging Applied!');
+    console.log('🔧 Express Route Order Fixed - API Calls Before Static Files!');
     window.app = new BLEScannerApp();
 });
 
