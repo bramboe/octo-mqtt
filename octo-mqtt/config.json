@@ -1,55 +1,49 @@
 {
   "name": "Octo MQTT",
-  "version": "2.7.2",
-  "slug": "octo-mqtt",
-  "description": "Control Octo smart beds via MQTT and BLE proxy",
-  "url": "https://github.com/bramboe/octo-mqtt",
-  "startup": "application",
+  "version": "2.7.3",
+  "slug": "octo_mqtt",
+  "description": "Control Octo smart beds via ESPHome BLE proxies and MQTT",
+  "url": "https://github.com/bramstroker/octo-mqtt",
   "arch": ["armhf", "armv7", "aarch64", "amd64", "i386"],
+  "startup": "application",
   "boot": "auto",
-  "services": ["mqtt:need"],
-  "host_network": false,
-  "map": ["config:ro"],
   "init": false,
+  "map": ["share:rw"],
   "options": {
-    "mqtt_host": "<auto_detect>",
-    "mqtt_port": "<auto_detect>",
-    "mqtt_user": "<auto_detect>",
-    "mqtt_password": "<auto_detect>",
-    "bleProxies": [
-      {
-        "host": "192.168.1.100",
-        "port": 6053
-      }
-    ],
+    "mqtt_host": "core-mosquitto",
+    "mqtt_port": "1883", 
+    "mqtt_user": "",
+    "mqtt_password": "",
+    "bleProxies": [],
     "octoDevices": []
   },
   "schema": {
-    "mqtt_host": "str?",
-    "mqtt_port": "str?",
-    "mqtt_user": "str?",
-    "mqtt_password": "str?",
+    "mqtt_host": "str",
+    "mqtt_port": "port", 
+    "mqtt_user": "str",
+    "mqtt_password": "password",
     "bleProxies": [
       {
-        "host": "str",
-        "port": "int?"
+        "host": "str", 
+        "port": "port"
       }
     ],
     "octoDevices": [
       {
+        "id": "str",
         "name": "str",
-        "address": "str",
-        "pin": "str?"
+        "mac": "str"
       }
     ]
   },
+  "ports": {
+    "8099/tcp": null
+  },
+  "ports_description": {
+    "8099/tcp": "Web interface (Ingress)"
+  },
+  "webui": "http://[HOST]:[PORT:8099]/",
   "ingress": true,
-  "ingress_port": 8099,
-  "ingress_entry": "index.html",
-  "panel_icon": "mdi:bed",
-  "panel_title": "Octo MQTT",
-  "watchdog": "http://[HOST]:[PORT:8099]/health",
-  "timeout": 60,
-  "hassio_api": true,
-  "hassio_role": "default"
+  "ingress_entry": "",
+  "panel_icon": "mdi:bed"
 }

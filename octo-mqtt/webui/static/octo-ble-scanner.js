@@ -85,7 +85,7 @@ class BLEScannerApp {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    clientInfo: 'Octo MQTT Web UI v2.7.2',
+                    clientInfo: 'Octo MQTT Web UI v2.7.3',
                     timestamp: timestamp,
                     userAction: 'start-scan-button-click'
                 })
@@ -132,7 +132,7 @@ class BLEScannerApp {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    clientInfo: 'Octo MQTT Web UI v2.7.2',
+                    clientInfo: 'Octo MQTT Web UI v2.7.3',
                     timestamp: timestamp,
                     userAction: 'stop-scan-button-click'
                 })
@@ -376,14 +376,14 @@ class BLEScannerApp {
 // Initialize app when DOM is loaded
 // Version 2.7.2-ingress - HOME ASSISTANT INGRESS FIX
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('🚀 Octo MQTT v2.7.2-debug-ultra - COMPREHENSIVE DEBUG LOGGING!');
+    console.log('🚀 Octo MQTT v2.7.3 - INGRESS COMPATIBILITY FIX!');
     console.log('✅ JavaScript file: octo-ble-scanner.js loaded successfully');
     console.log('🔧 Fixed URL construction for Home Assistant Ingress compatibility!');
     
     // Update version indicator
     const indicator = document.getElementById('version-indicator');
     if (indicator) {
-        indicator.innerHTML = '🚀 HTML v2.7.2 + JavaScript v2.7.2-debug-ultra loaded successfully!';
+        indicator.innerHTML = '🚀 HTML v2.7.3 + JavaScript v2.7.3 loaded successfully!';
         indicator.style.background = '#2196F3';
     }
     

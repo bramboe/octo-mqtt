@@ -312,13 +312,23 @@ app.use((req: Request, res: Response, next) => {
   next();
 });
 
-// Serve static files AFTER API routes to prevent conflicts
-app.use(express.static('webui'));
-
-// Root endpoint
+// Root endpoint - serves the main UI
 app.get('/', (_req: Request, res: Response) => {
+  logWithTimestamp('INFO', '[INGRESS] Serving index.html for root path');
   res.sendFile('webui/index.html', { root: '.' });
 });
+
+// Serve static files AFTER API routes but BEFORE catch-all
+app.use(express.static('webui', {
+  // Enable ETag for better caching
+  etag: true,
+  // Set cache headers for static assets
+  setHeaders: (res, path) => {
+    if (path.endsWith('.js') || path.endsWith('.css')) {
+      res.set('Cache-Control', 'public, max-age=3600');
+    }
+  }
+}));
 
 // Catch-all route for unmatched API calls (but not static files)
 app.use('/api/*', (req: Request, res: Response) => {

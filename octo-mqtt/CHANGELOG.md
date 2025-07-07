@@ -1,3 +1,14 @@
+## v2.7.3
+
+**CRITICAL FIX - Home Assistant Ingress Compatibility**
+- **FIXED**: Removed incorrect `ingress_entry: "index.html"` - should be empty for web UIs
+- **IMPROVED**: Enhanced static file serving and route handling for better Ingress compatibility
+- **OPTIMIZED**: Added proper cache headers and ETag support for static assets
+- **ENHANCED**: Better logging for root path requests and Ingress debugging
+- **UPDATED**: All version references consistently updated to v2.7.3
+
+This version fixes the core issue where the frontend was not properly loading under Home Assistant's Ingress system. The `ingress_entry` should be empty for addon web interfaces, not point to a specific file.
+
 ## v2.7.2
 
 **Home Assistant Ingress Compatibility Fix**
