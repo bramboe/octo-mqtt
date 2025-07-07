@@ -38,7 +38,7 @@ class BLEScannerApp {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    clientInfo: 'Octo MQTT Web UI v2.6.5',
+                    clientInfo: 'Octo MQTT Web UI v2.6.6',
                     timestamp: timestamp,
                     userAction: 'start-scan-button-click'
                 })
@@ -85,7 +85,7 @@ class BLEScannerApp {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    clientInfo: 'Octo MQTT Web UI v2.6.5',
+                    clientInfo: 'Octo MQTT Web UI v2.6.6',
                     timestamp: timestamp,
                     userAction: 'stop-scan-button-click'
                 })
@@ -118,8 +118,19 @@ class BLEScannerApp {
 
     async refreshStatus() {
         try {
-            const response = await fetch(apiUrl('/scan/status?source=refresh-button'));
+            console.log('[BLEScanner] Refreshing status - calling /scan/status');
+            const url = apiUrl('/scan/status?source=refresh-button');
+            console.log('[BLEScanner] Full URL:', url);
+            
+            const response = await fetch(url);
+            console.log('[BLEScanner] Response status:', response.status);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
             const data = await response.json();
+            console.log('[BLEScanner] Response data:', data);
             
             this.updateScanStatus(data.isScanning);
             this.updateDeviceCount(data.devices ? data.devices.length : 0);
@@ -129,6 +140,7 @@ class BLEScannerApp {
             this.updateBLEProxyStatus();
             
         } catch (error) {
+            console.error('[BLEScanner] Error refreshing status:', error);
             this.addLog(`❌ Error refreshing status: ${error.message}`, 'error');
         }
     }
@@ -186,8 +198,19 @@ class BLEScannerApp {
         if (!this.bleProxyStatus) return;
         
         try {
-            const response = await fetch(apiUrl('/debug/ble-proxy'));
+            console.log('[BLEScanner] Updating BLE proxy status - calling /debug/ble-proxy');
+            const url = apiUrl('/debug/ble-proxy');
+            console.log('[BLEScanner] Full URL:', url);
+            
+            const response = await fetch(url);
+            console.log('[BLEScanner] BLE proxy response status:', response.status);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
             const data = await response.json();
+            console.log('[BLEScanner] BLE proxy response data:', data);
             
             if (data.status === 'connected') {
                 this.bleProxyStatus.textContent = 'Connected';
@@ -197,6 +220,7 @@ class BLEScannerApp {
                 this.bleProxyStatus.className = 'status-indicator disconnected';
             }
         } catch (error) {
+            console.error('[BLEScanner] Error updating BLE proxy status:', error);
             this.bleProxyStatus.textContent = 'Error';
             this.bleProxyStatus.className = 'status-indicator error';
         }
@@ -277,11 +301,11 @@ class BLEScannerApp {
 }
 
 // Initialize app when DOM is loaded
-// Version 2.6.5 - BUILD FIX RELEASE
+// Version 2.6.6 - CRASH FIX RELEASE
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('🚀 Octo MQTT v2.6.5 - BUILD FIX RELEASE LOADED!');
+    console.log('🚀 Octo MQTT v2.6.6 - CRASH FIX RELEASE LOADED!');
     console.log('✅ JavaScript file: octo-ble-scanner.js loaded successfully');
-    console.log('🔧 BLE Proxy API Fix + Enhanced UI Action Logging Applied!');
+    console.log('🔧 ESPHome Connection Error Handling + API Call Debugging Applied!');
     window.app = new BLEScannerApp();
 });
 
@@ -297,7 +321,9 @@ function getApiBasePath() {
 }
 
 function apiUrl(endpoint) {
-  return getApiBasePath() + endpoint;
+  const baseUrl = getApiBasePath() + endpoint;
+  console.log(`[API] Building URL: ${endpoint} -> ${baseUrl}`);
+  return baseUrl;
 }
 
 // == Octo MQTT BLE Scanner Diagnostics & Hardened Frontend ==

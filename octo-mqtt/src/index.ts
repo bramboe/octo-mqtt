@@ -84,10 +84,24 @@ async function initializeESPHome() {
     logWithTimestamp('INFO', '[DIAG] Initializing ESPHome connection with config:', JSON.stringify(config));
     logWithTimestamp('INFO', `[DIAG] BLE Proxies in config: ${JSON.stringify(config.bleProxies)}`);
     logWithTimestamp('INFO', '🔌 Connecting to ESPHome BLE proxy...');
+    
     const conn = await connectToESPHome();
     if (conn && (conn as any).connections && (conn as any).connections.length > 0) {
       espConnection = conn as IESPConnection & EventEmitter;
       logWithTimestamp('INFO', `✅ Connected to ${(conn as any).connections.length} ESPHome BLE proxy(ies)`);
+      
+      // Add error handlers to the connection to prevent crashes
+      if (espConnection && (espConnection as any).connections) {
+        (espConnection as any).connections.forEach((connection: any, index: number) => {
+          if (connection && typeof connection.on === 'function') {
+            connection.on('error', (error: any) => {
+              logWithTimestamp('WARN', `🔧 ESPHome proxy ${index + 1} connection error (handled):`, error.message || error);
+              // Don't propagate the error, just log it
+            });
+          }
+        });
+      }
+      
       bleScanner = new BLEScanner(espConnection);
       logWithTimestamp('INFO', '[DIAG] BLEScanner instance created.');
     } else {
@@ -95,6 +109,7 @@ async function initializeESPHome() {
     }
   } catch (error) {
     logWithTimestamp('ERROR', '[DIAG] ❌ Failed to connect to ESPHome:', error instanceof Error ? error.message : String(error));
+    logWithTimestamp('INFO', '[DIAG] 💡 ESPHome connection will be retried automatically on next scan attempt');
   }
 }
 
@@ -295,6 +310,35 @@ const port = config.webPort || 8099;
 
 logWithTimestamp('INFO', '🔧 Initializing Octo MQTT BLE Scanner...');
 logWithTimestamp('INFO', `📁 Serving static files from: webui/`);
+
+// Add global error handlers to prevent crashes from ESPHome connection issues
+process.on('uncaughtException', (error) => {
+  logWithTimestamp('ERROR', '⚠️ Uncaught Exception (preventing crash):', error);
+  logWithTimestamp('ERROR', 'Error details:', error.message);
+  if (error.stack) {
+    logWithTimestamp('ERROR', 'Stack trace:', error.stack);
+  }
+  if (error.message && error.message.includes('write after end')) {
+    logWithTimestamp('WARN', '🔧 ESPHome connection ping timeout detected - this is a known issue');
+    logWithTimestamp('INFO', '💡 The backend will continue running normally');
+  }
+  // Don't exit, just log and continue
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  logWithTimestamp('ERROR', '⚠️ Unhandled Promise Rejection (preventing crash):', reason);
+  if (reason instanceof Error) {
+    logWithTimestamp('ERROR', 'Error details:', reason.message);
+    if (reason.stack) {
+      logWithTimestamp('ERROR', 'Stack trace:', reason.stack);
+    }
+    if (reason.message && reason.message.includes('write after end')) {
+      logWithTimestamp('WARN', '🔧 ESPHome connection promise rejection detected - this is a known issue');
+      logWithTimestamp('INFO', '💡 The backend will continue running normally');
+    }
+  }
+  // Don't exit, just log and continue
+});
 
 app.listen(port, async () => {
   logWithTimestamp('INFO', `🚀 Server started on port ${port}`);
