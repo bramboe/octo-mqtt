@@ -1,4 +1,4 @@
-# 🛏️ Octo MQTT v2.6.4
+# 🛏️ Octo MQTT v2.6.5
 
 A Home Assistant add-on to enable controlling Octo adjustable beds via MQTT and ESPHome BLE proxy.
 
@@ -8,6 +8,12 @@ A Home Assistant add-on to enable controlling Octo adjustable beds via MQTT and 
 - Toggle the underbed lighting
 - Integration with Home Assistant's MQTT broker
 - Support for Octo BLE beds using an ESP32 as a BLE proxy
+- BLE Proxy and MQTT connection for Octo beds
+- Web UI with live status, scan, and configuration
+- **Diagnostics panel** with API call logging and error reporting
+- **Test Backend** button to verify backend connectivity
+- Robust error handling and clear error banners if backend is unreachable
+- Web UI now loads and stays loaded: JS module loader fixed in index.html
 
 ## Requirements
 
@@ -99,8 +105,3 @@ This add-on is based on the work at [richardhopton/smartbed-mqtt](https://github
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
-
-## What's New in 2.6.4
-- Improved frontend-backend connectivity for both Ingress and direct access
-- Diagnostics panel now logs API base path and all API calls
-- Removed cache warning banner

@@ -1,10 +1,10 @@
-## v2.6.0
+## v2.6.5
 
 **Diagnostics Release**
 - All API calls now use Ingress-compatible paths (fixes frontend/backend disconnect in Home Assistant Ingress)
 - Explicit logging for every BLE device discovered, every scan event, and every error
 - Frontend logs every API response and shows a diagnostics panel
-- Version bump to v2.6.0 for clarity and support
+- Version bump to v2.6.5 for clarity and support
 - Ready for RPi and multi-arch Home Assistant deployment
 
 ## v2.5.0
@@ -485,11 +485,12 @@
 - Dockerfile uses --legacy-peer-deps for npm ci to work around devDependency conflicts during build.
 - Ensures successful add-on build in Home Assistant.
 
+## [2.6.5] - 2025-07-06
+### Fixed
+- Web UI now loads and stays loaded: octo-ble-scanner.js is loaded as a module in index.html.
+- Removed cache warning logic from index.html.
+- Fixes 'Importing a module script failed' and blank UI issues.
+- Updated all version references in index.html to 2.6.5 (title, header, cache-busting).
+
 ## [2.6.4] - 2025-07-06
-### Added
-- Diagnostics panel now logs detected API base path and all API calls in the frontend
-- Improved frontend-backend connectivity for both Ingress and direct access
-### Changed
-- All API calls now use a dynamically detected base path
-### Removed
-- Removed the cache warning banner from the UI
+(This version is superseded by 2.6.5. Please use 2.6.5 for all deployments.)
