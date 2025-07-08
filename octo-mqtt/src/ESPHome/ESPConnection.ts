@@ -8,6 +8,8 @@ import { IBLEDevice } from './types/IBLEDevice';
 import { BLEDeviceAdvertisement } from '../BLE/BLEController';
 import { EventEmitter } from 'events';
 
+declare let rawAdvertisements: any[];
+
 export class ESPConnection implements IESPConnection {
   private advertisementPacketListener: ((data: any) => void) | null = null;
   private isProxyScanning = false;
@@ -137,8 +139,10 @@ export class ESPConnection implements IESPConnection {
     const discoveredDevicesDuringScan = new Map<string, BLEDeviceAdvertisement>();
     
     this.advertisementPacketListener = (data: any) => {
-      // Log raw advertisement data for debugging
-      logInfo('[ESPHome DEBUG] Raw advertisement data:', JSON.stringify(data));
+      if (typeof rawAdvertisements !== 'undefined') {
+        rawAdvertisements.push(data);
+      }
+      logInfo('[RAW ADV]', JSON.stringify(data));
       
       // Debug the address conversion process
       const rawAddress = data.address;

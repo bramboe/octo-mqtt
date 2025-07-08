@@ -73,6 +73,9 @@ const SCAN_DURATION_MS = 30000;
 
 const sseClients: Response[] = [];
 
+// Store raw advertisements for diagnostics
+let rawAdvertisements: any[] = [];
+
 interface LiveStatus {
   isScanning: boolean;
   devices: any[];
@@ -440,6 +443,24 @@ process.on('unhandledRejection', (reason, promise) => {
     }
   }
   // Don't exit, just log and continue
+});
+
+// Patch BLEScanner to push raw advertisements
+if (bleScanner) {
+  const origStartScan = bleScanner.startScan.bind(bleScanner);
+  bleScanner.startScan = async function(...args: any[]) {
+    rawAdvertisements = [];
+    await origStartScan(...args);
+  };
+  const origGetScanStatus = bleScanner.getScanStatus.bind(bleScanner);
+  bleScanner.getScanStatus = function(...args: any[]) {
+    return { ...origGetScanStatus(...args), rawAdvertisements };
+  };
+}
+
+// Add endpoint to dump raw BLE advertisements
+app.get('/debug/ble-raw', (_req: Request, res: Response) => {
+  res.json({ count: rawAdvertisements.length, rawAdvertisements });
 });
 
 app.listen(port, async () => {
